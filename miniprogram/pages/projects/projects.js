@@ -32,7 +32,7 @@ Page({
           projects,
           userRole: role,
           listTitle: privileged ? '全部项目' : '我的项目',
-          scopeText: privileged ? '当前为管理视角，可查看和导出项目。非本人项目默认只读。' : '当前为 PM 视角，只显示自己创建的项目。'
+          scopeText: privileged ? '当前为管理视角，可查看并导出全部可见项目（不再限制固定条数）。非本人项目默认只读。' : '当前为 PM 视角，只显示自己创建的项目。'
         }, () => this.applyFilter());
       })
       .catch(err => {

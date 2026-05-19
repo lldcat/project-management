@@ -663,8 +663,17 @@ async function listMyPrecal(payload, openid, user) {
   assertRole(user, 'sales', '只有 Sales 可以查看我的 Pre-cal。');
   const status = normalizeText(payload && payload.status);
   const keyword = normalizeText(payload && payload.keyword);
-  const res = await precalRecords.where({ createdBy: openid }).orderBy('updatedAt', 'desc').limit(200).get();
-  let rows = (res.data || []).filter(item => item.deleted !== true);
+  const pageSize = 100;
+  let skip = 0;
+  let rows = [];
+  while (true) {
+    const res = await precalRecords.where({ createdBy: openid }).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
+    const batch = res.data || [];
+    rows = rows.concat(batch);
+    if (batch.length < pageSize) break;
+    skip += batch.length;
+  }
+  rows = rows.filter(item => item.deleted !== true);
   if (status && status !== 'all') rows = rows.filter(item => item.status === status);
   rows = rows.filter(item => keywordMatch(item, keyword));
   return { ok: true, records: rows.map(buildListItem), user };
@@ -676,8 +685,18 @@ async function listPrecalForCS(payload, openid, user) {
   const keyword = normalizeText(payload && payload.keyword);
   const allowed = [STATUS.SUBMITTED, STATUS.SAP_BOUND];
   const queryStatus = status && status !== 'all' ? [status] : allowed;
-  const res = await precalRecords.where({ status: _.in(queryStatus.filter(s => allowed.indexOf(s) >= 0)) }).orderBy('submittedAt', 'desc').limit(200).get();
-  const rows = (res.data || []).filter(item => item.deleted !== true).filter(item => keywordMatch(item, keyword));
+  const pageSize = 100;
+  let skip = 0;
+  let rows = [];
+  const baseQuery = { status: _.in(queryStatus.filter(s => allowed.indexOf(s) >= 0)) };
+  while (true) {
+    const res = await precalRecords.where(baseQuery).orderBy('submittedAt', 'desc').skip(skip).limit(pageSize).get();
+    const batch = res.data || [];
+    rows = rows.concat(batch);
+    if (batch.length < pageSize) break;
+    skip += batch.length;
+  }
+  rows = rows.filter(item => item.deleted !== true).filter(item => keywordMatch(item, keyword));
   return { ok: true, records: rows.map(buildListItem), user };
 }
 
@@ -685,8 +704,17 @@ async function listPrecalForAdmin(payload, openid, user) {
   assertRole(user, 'admin', '只有 admin 可以查看全部 Pre-cal。');
   const status = normalizeText(payload && payload.status);
   const keyword = normalizeText(payload && payload.keyword);
-  const res = await precalRecords.orderBy('updatedAt', 'desc').limit(300).get();
-  let rows = (res.data || []).filter(item => item.deleted !== true);
+  const pageSize = 100;
+  let skip = 0;
+  let rows = [];
+  while (true) {
+    const res = await precalRecords.orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
+    const batch = res.data || [];
+    rows = rows.concat(batch);
+    if (batch.length < pageSize) break;
+    skip += batch.length;
+  }
+  rows = rows.filter(item => item.deleted !== true);
   if (status && status !== 'all') rows = rows.filter(item => item.status === status);
   rows = rows.filter(item => keywordMatch(item, keyword));
   return { ok: true, records: rows.map(buildListItem), user };

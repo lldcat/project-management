@@ -418,8 +418,19 @@ function decorateProjectAccess(project, openid, user) {
 
 async function listProjects(openid, user) {
   const baseQuery = canViewAll(user) ? {} : _.or([{ ownerOpenid: openid }, { _openid: openid }, { createdBy: openid }]);
-  const res = await projects.where(baseQuery).orderBy('updatedAt', 'desc').limit(200).get();
-  return (res.data || [])
+  const pageSize = 100;
+  let skip = 0;
+  let rows = [];
+
+  while (true) {
+    const res = await projects.where(baseQuery).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
+    const batch = res.data || [];
+    rows = rows.concat(batch);
+    if (batch.length < pageSize) break;
+    skip += batch.length;
+  }
+
+  return rows
     .filter(item => item.deleted !== true)
     .map(item => decorateProjectAccess(item, openid, user));
 }

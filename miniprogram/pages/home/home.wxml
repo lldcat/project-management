@@ -1,0 +1,107 @@
+<view class="container">
+  <view class="card header-card">
+    <view class="row">
+      <view>
+        <view class="title">综合看板</view>
+        <view class="muted">当前角色：{{userRoleText}}；{{scopeText}}</view>
+      </view>
+      <button class="btn-secondary" size="mini" bindtap="reload">刷新</button>
+    </view>
+  </view>
+
+  <view class="section-title">项目概览</view>
+  <view class="grid-2">
+    <view class="stat-card">
+      <view class="stat-value">{{stats.total}}</view>
+      <view class="stat-label">项目总数</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.risk}}</view>
+      <view class="stat-label">风险项目</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.overCost}}</view>
+      <view class="stat-label">成本异常</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.delayed}}</view>
+      <view class="stat-label">进度滞后</view>
+    </view>
+  </view>
+
+  <view wx:if="{{showPrecalStats}}" class="section-block">
+    <view class="section-title">Pre-cal 与 SAP 概览</view>
+    <view class="muted precal-scope">{{precalScopeText}}</view>
+    <view class="grid-2">
+      <view class="stat-card precal-stat">
+        <view class="stat-value">{{precalStats.total}}</view>
+        <view class="stat-label">Pre-cal 可见总数</view>
+      </view>
+      <view class="stat-card precal-stat">
+        <view class="stat-value">{{precalStats.submittedBySales}}</view>
+        <view class="stat-label">Sales 已提交</view>
+      </view>
+      <view class="stat-card precal-stat">
+        <view class="stat-value">{{precalStats.pendingSap}}</view>
+        <view class="stat-label">待绑定 SAP</view>
+      </view>
+      <view class="stat-card precal-stat">
+        <view class="stat-value">{{precalStats.sapBound}}</view>
+        <view class="stat-label">已绑定 SAP</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">关键指标汇总</view>
+    <view class="metric-line">
+      <text>BAC（项目总预算，含差旅）</text>
+      <text class="metric-value">{{stats.bacText}}</text>
+    </view>
+    <view class="metric-line">
+      <text>人工预算（不含差旅）</text>
+      <text class="metric-value">{{stats.laborBudgetText}}</text>
+    </view>
+    <view class="metric-line">
+      <text>人员预算工时合计</text>
+      <text class="metric-value">{{stats.employeeBudgetHoursText}}</text>
+    </view>
+    <view class="metric-line">
+      <text>AC（实际成本）</text>
+      <text class="metric-value">{{stats.actualCostText}}</text>
+    </view>
+    <view class="metric-line">
+      <text>CV（成本偏差）</text>
+      <text class="metric-value {{stats.cvClass}}">{{stats.cvText}}</text>
+    </view>
+    <view class="metric-line">
+      <text>SV（进度偏差）</text>
+      <text class="metric-value {{stats.svClass}}">{{stats.svText}}</text>
+    </view>
+  </view>
+
+  <view class="section-title">风险项目</view>
+  <view wx:if="{{riskProjects.length == 0}}" class="empty">暂无风险项目</view>
+  <view wx:for="{{riskProjects}}" wx:key="_id" class="card" bindtap="goEdit" data-id="{{item._id}}">
+    <view class="row">
+      <view>
+        <view class="project-title">{{item.projectName || '未命名项目'}}</view>
+        <view class="muted">{{item.projectNo || '无项目号'}} ｜ PM：{{item.projectManager || '-'}}</view>
+      </view>
+      <view class="tag tag-risk">风险</view>
+    </view>
+    <view class="metric-line">
+      <text>CPI（成本绩效）</text>
+      <text class="metric-value">{{item.display.cpi}}</text>
+    </view>
+    <view class="metric-line">
+      <text>SPI（进度绩效）</text>
+      <text class="metric-value">{{item.display.spi}}</text>
+    </view>
+    <view class="alert-list">
+      <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.level === 'risk' ? 'tag-risk' : (alert.level === 'warning' ? 'tag-warning' : 'tag-normal')}}">
+        {{alert.text}}
+      </view>
+    </view>
+  </view>
+</view>

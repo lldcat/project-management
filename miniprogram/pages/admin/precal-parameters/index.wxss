@@ -1,0 +1,4 @@
+.rate-card { border: 1rpx solid #eaecf0; border-radius: 18rpx; padding: 20rpx; margin-bottom: 20rpx; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12rpx; }
+.full { grid-column: 1 / span 2; }
+.footer-actions { padding-bottom: 40rpx; }

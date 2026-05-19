@@ -1,0 +1,38 @@
+<view class="container">
+  <view class="card header-card">
+    <view class="row">
+      <view>
+        <view class="card-title">我的 AUD Pre-cal</view>
+        <view class="muted">Sales 创建、提交和撤销 Pre-cal。</view>
+      </view>
+      <button class="btn-primary" size="mini" bindtap="createPrecal">新建</button>
+    </view>
+  </view>
+
+  <input class="input search" placeholder="搜索客户 / SAP号" value="{{keyword}}" bindinput="onSearchInput" />
+
+  <view class="filter-row">
+    <view wx:for="{{statusOptions}}" wx:key="value" class="filter {{filterStatus == item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="switchStatus">{{item.label}}</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+  <view wx:elif="{{records.length == 0}}" class="empty">暂无 Pre-cal</view>
+
+  <view wx:for="{{records}}" wx:key="_id" class="card" bindtap="goDetail" data-id="{{item._id}}">
+    <view class="row">
+      <view>
+        <view class="precal-title">{{item.customerName || '未填写客户'}}</view>
+        <view class="muted">{{item.service}} ｜ Sales：{{item.salesOwnerName || '-'}}</view>
+      </view>
+      <view class="tag status {{item.status == 'SAP Bound' ? 'tag-normal' : (item.status == 'Submitted' ? 'tag-warning' : '')}}">{{item.statusLabel}}</view>
+    </view>
+    <view class="metric-line"><text>总订单金额</text><text class="metric-value">{{item.totalOrderValueText}}</text></view>
+    <view class="metric-line"><text>Operating Margin</text><text class="metric-value">{{item.operatingMarginText}}</text></view>
+    <view class="metric-line"><text>SAP号</text><text class="metric-value">{{item.sapText || '-'}}</text></view>
+    <view class="actions" catchtap="noop">
+      <button wx:if="{{item.status == 'Draft' || item.status == 'Withdrawn' || item.status == 'Unlocked'}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="goEdit">编辑</button>
+      <button wx:if="{{item.status == 'Submitted'}}" class="btn-ghost" size="mini" data-id="{{item._id}}" bindtap="withdraw">撤销</button>
+      <button wx:if="{{item.status == 'Draft' || item.status == 'Withdrawn' || item.status == 'Unlocked'}}" class="btn-primary" size="mini" data-id="{{item._id}}" bindtap="submit">提交</button>
+    </view>
+  </view>
+</view>

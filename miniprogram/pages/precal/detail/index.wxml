@@ -1,0 +1,57 @@
+<view class="container">
+  <view wx:if="{{!record._id}}" class="empty">加载中...</view>
+  <block wx:else>
+    <view class="card">
+      <view class="row">
+        <view>
+          <view class="title">{{record.customerName}}</view>
+          <view class="muted">{{record.service}} ｜ {{statusLabel}}</view>
+        </view>
+        <view class="tag {{record.status == 'SAP Bound' ? 'tag-normal' : 'tag-warning'}}">{{statusLabel}}</view>
+      </view>
+      <view class="metric-line"><text>Sales</text><text>{{record.salesOwnerName || '-'}}</text></view>
+      <view class="metric-line"><text>Remark</text><text>{{record.remark || '-'}}</text></view>
+      <view class="metric-line"><text>SAP号</text><text>{{sapText || '-'}}</text></view>
+      <view class="actions">
+        <button wx:if="{{canEdit}}" class="btn-secondary" size="mini" bindtap="goEdit">编辑</button>
+        <button wx:if="{{record.status == 'Submitted'}}" class="btn-ghost" size="mini" bindtap="withdraw">撤销</button>
+        <button wx:if="{{record.status == 'Draft' || record.status == 'Withdrawn' || record.status == 'Unlocked'}}" class="btn-primary" size="mini" bindtap="submit">提交</button>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">计算结果</view>
+      <view wx:for="{{resultItems}}" wx:key="key" class="metric-line"><text>{{item.label}}</text><text class="metric-value">{{item.value}}</text></view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">服务明细</view>
+      <view wx:for="{{record.lineItems}}" wx:key="lineId" class="line">
+        <view class="line-title">{{index + 1}}. {{item.productDescription || '未填写服务描述'}}</view>
+        <view class="muted">Center：{{item.orderCreateCenter}} ｜ Order Value：{{item.orderValue}}</view>
+        <view class="metric-line"><text>Total MD / Hours</text><text>{{item.calculated.totalMD}} / {{item.calculated.hours}}</text></view>
+        <view class="metric-line"><text>Net Sales</text><text>{{item.calculated.netSales}}</text></view>
+        <view class="metric-line"><text>Operating Margin</text><text>{{item.operatingMarginText}}</text></view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="row" bindtap="toggleScenario">
+        <view class="card-title">Productivity 情景</view>
+        <view class="muted">{{showScenario ? '收起' : '展开'}}</view>
+      </view>
+      <view wx:if="{{showScenario}}">
+        <view class="scenario">
+          <view class="metric-value">70% Productivity</view>
+          <view class="metric-line"><text>MD Costs</text><text>{{scenario70.mdCostsText}}</text></view>
+          <view class="metric-line"><text>Operating Margin</text><text>{{scenario70.operatingMarginText}}</text></view>
+        </view>
+        <view class="scenario">
+          <view class="metric-value">80% Productivity</view>
+          <view class="metric-line"><text>MD Costs</text><text>{{scenario80.mdCostsText}}</text></view>
+          <view class="metric-line"><text>Operating Margin</text><text>{{scenario80.operatingMarginText}}</text></view>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

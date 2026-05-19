@@ -1,0 +1,5 @@
+.filter-row { display: flex; gap: 12rpx; flex-wrap: wrap; margin-bottom: 18rpx; }
+.filter { padding: 8rpx 18rpx; border-radius: 999rpx; background: #f2f4f7; font-size: 24rpx; }
+.filter.active { background: #1f4e79; color: #fff; }
+.precal-title { font-weight: 700; font-size: 30rpx; }
+.search { margin-bottom: 18rpx; }

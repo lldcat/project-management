@@ -1,0 +1,28 @@
+.search {
+  margin-top: 18rpx;
+}
+.filter-row {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin-top: 18rpx;
+}
+.project-title {
+  font-size: 32rpx;
+  font-weight: 800;
+}
+.project-card {
+  overflow: hidden;
+}
+.small-metrics {
+  margin-top: 14rpx;
+  color: #344054;
+  font-size: 24rpx;
+}
+.alert-list {
+  margin-top: 14rpx;
+}
+.action-row {
+  margin-top: 18rpx;
+  justify-content: flex-end;
+}

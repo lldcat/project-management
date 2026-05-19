@@ -1,0 +1,63 @@
+<view class="container">
+  <view class="card">
+    <view class="row">
+      <view>
+        <view class="card-title">{{listTitle}}</view>
+        <view class="muted">{{scopeText}}</view>
+        <view class="muted">用于查看、筛选和复核项目。创建项目请进入“业务”页。</view>
+      </view>
+    </view>
+    <input class="input search" placeholder="搜索项目名称、项目号、客户或 PM" value="{{keyword}}" bindinput="onSearchInput" />
+    <view class="filter-row">
+      <button class="{{filter === 'all' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="all" bindtap="switchFilter">全部</button>
+      <button class="{{filter === 'risk' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="risk" bindtap="switchFilter">风险</button>
+      <button class="{{filter === 'normal' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="normal" bindtap="switchFilter">正常</button>
+      <button class="btn-secondary" size="mini" bindtap="exportCsv">导出CSV</button>
+    </view>
+  </view>
+
+  <view wx:if="{{filteredProjects.length == 0}}" class="empty">暂无项目。需要创建项目时，请进入底部“业务”页。</view>
+
+  <view wx:for="{{filteredProjects}}" wx:key="_id" class="card project-card">
+    <view bindtap="editProject" data-id="{{item._id}}">
+      <view class="row">
+        <view>
+          <view class="project-title">{{item.projectName || '未命名项目'}}</view>
+          <view class="muted">{{item.projectNo || '无项目号'}} ｜ {{item.customerName || '无客户名称'}} ｜ PM：{{item.projectManager || '-'}}</view>
+        </view>
+        <view class="tag {{item.metrics.hasRisk ? 'tag-risk' : 'tag-normal'}}">{{item.metrics.hasRisk ? '风险' : '正常'}}</view>
+      </view>
+      <view class="metric-line">
+        <text>BAC（项目总预算，含差旅）</text>
+        <text class="metric-value">{{item.display.bac}}</text>
+      </view>
+      <view class="metric-line">
+        <text>人工预算（不含差旅）</text>
+        <text class="metric-value">{{item.display.laborBudget}}</text>
+      </view>
+      <view class="metric-line">
+        <text>人员预算工时合计</text>
+        <text class="metric-value">{{item.display.sumEmployeeBudgetHours}}</text>
+      </view>
+      <view class="metric-line">
+        <text>AC（实际成本）</text>
+        <text class="metric-value">{{item.display.actualCost}}</text>
+      </view>
+      <view class="grid-2 small-metrics">
+        <view>CPI（成本绩效）：<text class="metric-value">{{item.display.cpi}}</text></view>
+        <view>SPI（进度绩效）：<text class="metric-value">{{item.display.spi}}</text></view>
+        <view>实际完成：<text class="metric-value">{{item.display.actualCompletionRatio}}</text></view>
+        <view>计划完成：<text class="metric-value">{{item.display.plannedCompletionRatio}}</text></view>
+      </view>
+      <view class="alert-list">
+        <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.level === 'risk' ? 'tag-risk' : (alert.level === 'warning' ? 'tag-warning' : 'tag-normal')}}">
+          {{alert.text}}
+        </view>
+      </view>
+    </view>
+    <view class="row action-row">
+      <button class="btn-secondary" size="mini" bindtap="editProject" data-id="{{item._id}}">{{item._canEdit ? '编辑' : '查看'}}</button>
+      <button wx:if="{{item._canEdit}}" class="btn-danger" size="mini" bindtap="deleteProject" data-id="{{item._id}}">删除</button>
+    </view>
+  </view>
+</view>

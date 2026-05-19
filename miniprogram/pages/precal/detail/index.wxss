@@ -1,0 +1,5 @@
+.title { font-size: 34rpx; font-weight: 800; }
+.actions { display: flex; gap: 12rpx; flex-wrap: wrap; margin-top: 18rpx; }
+.line { padding: 16rpx; border: 1rpx solid #eaecf0; border-radius: 14rpx; margin-bottom: 12rpx; }
+.line-title { font-weight: 700; }
+.scenario { background: #f9fafb; border-radius: 14rpx; padding: 16rpx; margin-bottom: 12rpx; }

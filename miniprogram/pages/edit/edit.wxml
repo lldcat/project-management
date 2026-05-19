@@ -1,0 +1,173 @@
+<view class="container">
+  <view class="card">
+    <view class="card-title">{{pageTitle}}</view>
+    <view class="muted">所有绩效指标由系统自动计算。PM 录入自己负责的项目；部门 Leader 查看全部项目时，非本人项目默认为只读。</view>
+  <view wx:if="{{readOnly}}" class="tag tag-warning">只读模式：这是其他 PM 创建的项目，部门 Leader 可查看但不能修改。</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">基础信息</view>
+    <label class="form-label">项目名称</label>
+    <input class="input" disabled="{{readOnly}}" value="{{form.projectName}}" placeholder="例如：某客户 ESG/追溯咨询项目" data-field="projectName" bindinput="onBasicInput" />
+
+    <label class="form-label">客户名称 / 合同主体</label>
+    <input class="input" disabled="{{readOnly}}" value="{{form.customerName}}" placeholder="请输入客户名称" data-field="customerName" bindinput="onBasicInput" />
+
+    <label class="form-label">项目号 / 订单号</label>
+    <input class="input" disabled="{{readOnly}}" value="{{form.projectNo}}" placeholder="请输入项目号" data-field="projectNo" bindinput="onBasicInput" />
+
+    <view class="grid-2">
+      <view>
+        <label class="form-label">开始日期</label>
+        <picker disabled="{{readOnly}}" mode="date" value="{{form.startDate}}" data-field="startDate" bindchange="onDateChange">
+          <view class="picker-value">{{form.startDate || '请选择'}}</view>
+        </picker>
+      </view>
+      <view>
+        <label class="form-label">结束日期</label>
+        <picker disabled="{{readOnly}}" mode="date" value="{{form.endDate}}" data-field="endDate" bindchange="onDateChange">
+          <view class="picker-value">{{form.endDate || '请选择'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <label class="form-label">项目经理 PM</label>
+    <input class="input" disabled="{{readOnly}}" value="{{form.projectManager}}" placeholder="请输入 PM 姓名；PM 会自动进入人员预算和 AR 工时" data-field="projectManager" bindinput="onBasicInput" />
+
+    <label class="form-label">项目组员</label>
+    <textarea class="textarea" disabled="{{readOnly}}" value="{{membersText}}" placeholder="多个组员用逗号、顿号、空格或换行分隔；不需要重复填写 PM" bindinput="onMembersInput"></textarea>
+    <view class="muted">系统会将“项目经理 PM + 项目组员”同步到人员预算；AR 工时成员自动与人员预算保持一致。</view>
+
+    <label class="form-label">项目状态</label>
+    <picker disabled="{{readOnly}}" value="{{statusIndex}}" range="{{statusOptions}}" range-key="label" bindchange="onStatusChange">
+      <view class="picker-value">{{currentStatusLabel}}</view>
+    </picker>
+  </view>
+
+  <view class="card">
+    <view class="row">
+      <view class="section-title inline-title">子项目预算与计划</view>
+      <button wx:if="{{!readOnly}}" class="btn-secondary" size="mini" bindtap="addSubProject">新增子项目</button>
+    </view>
+
+    <view wx:for="{{form.subProjects}}" wx:key="id" class="sub-card">
+      <view class="row sub-title-row">
+        <view class="sub-title">子项目 {{index + 1}}</view>
+        <button wx:if="{{!readOnly}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeSubProject">删除</button>
+      </view>
+      <label class="form-label">子项目名称</label>
+      <input class="input" disabled="{{readOnly}}" value="{{item.name}}" placeholder="例如：ESG 咨询 / 追溯辅导" data-index="{{index}}" data-field="name" bindinput="onSubProjectInput" />
+
+      <view class="grid-2">
+        <view>
+          <label class="form-label">预算工时</label>
+          <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.budgetHours}}" placeholder="小时" data-index="{{index}}" data-field="budgetHours" bindinput="onSubProjectInput" />
+        </view>
+        <view>
+          <label class="form-label">报价人天单价</label>
+          <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.budgetLaborUnitPrice}}" placeholder="元/人天" data-index="{{index}}" data-field="budgetLaborUnitPrice" bindinput="onSubProjectInput" />
+        </view>
+      </view>
+
+      <label class="form-label">截至当前复盘节点计划完成工时</label>
+      <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.plannedCompletedHours}}" placeholder="小时" data-index="{{index}}" data-field="plannedCompletedHours" bindinput="onSubProjectInput" />
+    </view>
+  </view>
+
+
+  <view class="card">
+    <view class="row">
+      <view>
+        <view class="section-title inline-title">人员预算工时分配</view>
+        <view class="muted">用于把项目预算工时分配到每个员工，并与 AR 工时逐人比较。</view>
+      </view>
+      <view wx:if="{{!readOnly}}" class="row-actions">
+        <button class="btn-secondary" size="mini" bindtap="syncPeopleFromPmAndMembers">同步 PM/组员</button>
+        <button class="btn-secondary" size="mini" bindtap="addEmployeeBudget">新增人员</button>
+      </view>
+    </view>
+
+    <view wx:for="{{form.employeeBudgets}}" wx:key="id" class="sub-card">
+      <view class="row sub-title-row">
+        <view class="sub-title">人员预算 {{index + 1}} <text wx:if="{{item.isPm}}" class="mini-note">PM</text></view>
+        <button wx:if="{{!readOnly && !item.isPm}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeEmployeeBudget">删除</button>
+      </view>
+      <view class="grid-2">
+        <view>
+          <label class="form-label">员工姓名</label>
+          <input class="input" disabled="{{readOnly}}" value="{{item.memberName}}" placeholder="PM 或组员姓名" data-index="{{index}}" data-field="memberName" bindinput="onEmployeeBudgetInput" />
+        </view>
+        <view>
+          <label class="form-label">分配预算工时</label>
+          <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.budgetHours}}" placeholder="小时" data-index="{{index}}" data-field="budgetHours" bindinput="onEmployeeBudgetInput" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">成本参数</view>
+    <label class="form-label">差旅费</label>
+    <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.travelFee}}" placeholder="元；纳入项目总预算 BAC" data-field="travelFee" bindinput="onBasicInput" />
+
+    <label class="form-label">内部人天成本</label>
+    <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.constants.personDayCost}}" placeholder="默认 5000，可按后续规则调整" bindinput="onPersonDayCostInput" />
+    <view class="muted">AC（实际成本）= AR 工时合计 ÷ 8 × 内部人天成本。</view>
+  </view>
+
+  <view class="card">
+    <view class="section-title">AR 工时</view>
+    <view class="muted">AR 成员自动与“人员预算工时分配”保持一致；如需增减成员，请先调整人员预算。PM 会被系统自动保留。</view>
+
+    <view wx:if="{{form.arHours.length == 0}}" class="muted empty-hint">暂无 AR 成员，请先填写项目经理 PM，或在人员预算中新增人员。</view>
+    <view wx:for="{{form.arHours}}" wx:key="id" class="sub-card">
+      <view class="row sub-title-row">
+        <view class="sub-title">{{item.memberName}} <text wx:if="{{item.memberName == form.projectManager}}" class="mini-note">PM</text></view>
+      </view>
+      <label class="form-label">AR 工时</label>
+      <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.hours}}" placeholder="小时；billable + project + travel time" data-index="{{index}}" bindinput="onArHourInput" />
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">自动计算预览</view>
+    <view class="metric-line"><text>人工预算（不含差旅）</text><text class="metric-value">{{preview.display.laborBudget}}</text></view>
+    <view class="metric-line"><text>BAC（项目总预算，含差旅）</text><text class="metric-value">{{preview.display.bac}}</text></view>
+    <view class="metric-line"><text>子项目预算工时合计</text><text class="metric-value">{{preview.display.sumBudgetHours}}</text></view>
+    <view class="metric-line"><text>人员预算工时合计</text><text class="metric-value">{{preview.display.sumEmployeeBudgetHours}}</text></view>
+    <view class="metric-line"><text>人员预算分配差异</text><text class="metric-value">{{preview.display.budgetAllocationDiff}}</text></view>
+    <view class="metric-line"><text>计划完成率</text><text class="metric-value">{{preview.display.plannedCompletionRatio}}</text></view>
+    <view class="metric-line"><text>PV（计划价值）</text><text class="metric-value">{{preview.display.plannedValue}}</text></view>
+    <view class="metric-line"><text>实际完成率</text><text class="metric-value">{{preview.display.actualCompletionRatio}}</text></view>
+    <view class="metric-line"><text>EV（挣值）</text><text class="metric-value">{{preview.display.earnedValue}}</text></view>
+    <view class="metric-line"><text>AC（实际成本）</text><text class="metric-value">{{preview.display.actualCost}}</text></view>
+    <view class="metric-line"><text>CV（成本偏差）</text><text class="metric-value">{{preview.display.costVariance}}</text></view>
+    <view class="metric-line"><text>SV（进度偏差）</text><text class="metric-value">{{preview.display.scheduleVariance}}</text></view>
+    <view class="metric-line"><text>CPI（成本绩效）</text><text class="metric-value">{{preview.display.cpi}}</text></view>
+    <view class="metric-line"><text>SPI（进度绩效）</text><text class="metric-value">{{preview.display.spi}}</text></view>
+
+
+    <view class="section-title">人员预算 vs AR 明细</view>
+    <view wx:if="{{preview.display.memberBudgetComparisons.length == 0}}" class="muted">暂无人员预算或 AR 明细。</view>
+    <view wx:for="{{preview.display.memberBudgetComparisons}}" wx:key="memberName" class="sub-card">
+      <view class="row">
+        <view class="sub-title">{{item.memberName}}</view>
+        <view class="tag {{item.statusClass}}">{{item.statusText}}</view>
+      </view>
+      <view class="metric-line"><text>分配预算工时</text><text class="metric-value">{{item.budgetHours}}</text></view>
+      <view class="metric-line"><text>AR 工时</text><text class="metric-value">{{item.actualHours}}</text></view>
+      <view class="metric-line"><text>剩余/超出工时</text><text class="metric-value">{{item.varianceHours}}</text></view>
+      <view class="metric-line"><text>个人预算使用率</text><text class="metric-value">{{item.usageRatio}}</text></view>
+    </view>
+
+    <view class="section-title">异常提醒</view>
+    <view wx:for="{{preview.metrics.alerts}}" wx:key="code" class="tag {{item.level === 'risk' ? 'tag-risk' : (item.level === 'warning' ? 'tag-warning' : 'tag-normal')}}">
+      {{item.text}}
+    </view>
+  </view>
+
+  <view class="bottom-bar">
+    <button class="btn-ghost" bindtap="goBack">返回</button>
+    <button wx:if="{{!readOnly}}" class="btn-primary" bindtap="saveProject">保存项目</button>
+  </view>
+</view>

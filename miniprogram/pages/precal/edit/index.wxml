@@ -1,0 +1,138 @@
+<view class="container">
+  <view class="card">
+    <view class="card-title">{{pageTitle}}</view>
+    <label class="form-label">Customer Name</label>
+    <input class="input" value="{{form.customerName}}" data-field="customerName" bindinput="onBasicInput" placeholder="请输入客户名称" />
+
+    <label class="form-label">Service</label>
+    <picker mode="selector" range="{{serviceOptions}}" value="{{serviceIndex}}" bindchange="onServiceChange">
+      <view class="picker-value">{{form.service}}</view>
+    </picker>
+
+    <label class="form-label">Remark</label>
+    <textarea class="textarea" value="{{form.remark}}" data-field="remark" bindinput="onBasicInput" placeholder="备注" />
+  </view>
+
+  <view class="section-title">服务明细</view>
+  <view wx:for="{{form.lineItems}}" wx:key="lineId" class="line-card">
+    <view class="row">
+      <view class="line-title">明细 {{index + 1}}</view>
+      <button wx:if="{{form.lineItems.length > 1}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeLine">删除</button>
+    </view>
+
+    <view class="field-grid">
+      <view class="full">
+        <label class="form-label">Service/Product Description</label>
+        <input class="input" value="{{item.productDescription}}" data-index="{{index}}" data-field="productDescription" bindinput="onLineInput" placeholder="服务内容" />
+      </view>
+      <view>
+        <label class="form-label">Order Create Center</label>
+        <picker mode="selector" range="{{orderCreateCenters}}" data-index="{{index}}" value="{{item.centerIndex}}" bindchange="onCenterChange">
+          <view class="picker-value">{{item.orderCreateCenter || '请选择'}}</view>
+        </picker>
+      </view>
+      <view>
+        <label class="form-label">Order Value</label>
+        <input class="input" type="digit" value="{{item.orderValue}}" data-index="{{index}}" data-field="orderValue" bindinput="onLineInput" />
+      </view>
+      <view>
+        <label class="form-label">Onsite MD</label>
+        <input class="input" type="digit" value="{{item.onsiteMD}}" data-index="{{index}}" data-field="onsiteMD" bindinput="onLineInput" />
+      </view>
+      <view>
+        <label class="form-label">Offsite MD</label>
+        <input class="input" type="digit" value="{{item.offsiteMD}}" data-index="{{index}}" data-field="offsiteMD" bindinput="onLineInput" />
+      </view>
+      <view class="full switch-row">
+        <text class="form-label">Quotation MD 覆盖默认值</text>
+        <switch checked="{{item.quotationMDOverridden}}" data-index="{{index}}" data-field="quotationMDOverridden" bindchange="onLineSwitch" />
+      </view>
+      <view>
+        <label class="form-label">Quotation MD</label>
+        <input class="input" type="digit" value="{{item.quotationMD}}" data-index="{{index}}" data-field="quotationMD" bindinput="onLineInput" disabled="{{!item.quotationMDOverridden}}" placeholder="默认自动分摊" />
+      </view>
+      <view>
+        <label class="form-label">默认 Quotation MD</label>
+        <view class="picker-value">{{item.quotationMDDefault || 0}}</view>
+      </view>
+      <view class="full switch-row">
+        <text class="form-label">Travel MD 覆盖默认值</text>
+        <switch checked="{{item.travelMDOverridden}}" data-index="{{index}}" data-field="travelMDOverridden" bindchange="onLineSwitch" />
+      </view>
+      <view>
+        <label class="form-label">Travel MD</label>
+        <input class="input" type="digit" value="{{item.travelMD}}" data-index="{{index}}" data-field="travelMD" bindinput="onLineInput" disabled="{{!item.travelMDOverridden}}" placeholder="默认 Onsite × 10%" />
+      </view>
+      <view>
+        <label class="form-label">默认 Travel MD</label>
+        <view class="picker-value">{{item.travelMDDefault || 0}}</view>
+      </view>
+      <view>
+        <label class="form-label">翻译费</label>
+        <input class="input" type="digit" value="{{item.subcontractingTranslation}}" data-index="{{index}}" data-field="subcontractingTranslation" bindinput="onLineInput" />
+      </view>
+      <view>
+        <label class="form-label">设计费</label>
+        <input class="input" type="digit" value="{{item.subcontractingDesign}}" data-index="{{index}}" data-field="subcontractingDesign" bindinput="onLineInput" />
+      </view>
+      <view>
+        <label class="form-label">差旅费</label>
+        <input class="input" type="digit" value="{{item.subcontractingTravel}}" data-index="{{index}}" data-field="subcontractingTravel" bindinput="onLineInput" />
+      </view>
+      <view>
+        <label class="form-label">Other ext.</label>
+        <input class="input" type="digit" value="{{item.subcontractingOther}}" data-index="{{index}}" data-field="subcontractingOther" bindinput="onLineInput" />
+      </view>
+      <view>
+        <label class="form-label">Subcontracting IC</label>
+        <input class="input" type="digit" value="{{item.subcontractingIC}}" data-index="{{index}}" data-field="subcontractingIC" bindinput="onLineInput" />
+      </view>
+      <view>
+        <label class="form-label">Internal subcon</label>
+        <input class="input" type="digit" value="{{item.internalSubcon}}" data-index="{{index}}" data-field="internalSubcon" bindinput="onLineInput" />
+      </view>
+      <view class="full">
+        <label class="form-label">Other project related costs</label>
+        <input class="input" type="digit" value="{{item.otherProjectCosts}}" data-index="{{index}}" data-field="otherProjectCosts" bindinput="onLineInput" />
+      </view>
+    </view>
+  </view>
+  <button class="btn-secondary" bindtap="addLine">新增服务明细</button>
+
+  <view class="section-title">计算结果</view>
+  <view class="card result-grid">
+    <view wx:for="{{resultItems}}" wx:key="key" class="result-item">
+      <view class="result-label">{{item.label}}</view>
+      <view class="result-value">{{item.value}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row" bindtap="toggleScenario">
+      <view class="card-title">70% / 80% Productivity 情景</view>
+      <view class="muted">{{showScenario ? '收起' : '展开'}}</view>
+    </view>
+    <view wx:if="{{showScenario}}">
+      <view class="section-title">70% Productivity</view>
+      <view class="metric-line"><text>MD Costs</text><text>{{scenario70.mdCostsText}}</text></view>
+      <view class="metric-line"><text>Operating Margin</text><text>{{scenario70.operatingMarginText}}</text></view>
+      <view class="section-title">80% Productivity</view>
+      <view class="metric-line"><text>MD Costs</text><text>{{scenario80.mdCostsText}}</text></view>
+      <view class="metric-line"><text>Operating Margin</text><text>{{scenario80.operatingMarginText}}</text></view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">公式说明</view>
+    <view wx:for="{{formulaList}}" wx:key="key" class="help">
+      <view class="metric-value">{{item.label}}</view>
+      <view>{{item.formula}}</view>
+      <view class="muted">{{item.note}}</view>
+    </view>
+  </view>
+
+  <view class="footer-actions">
+    <button class="btn-secondary" bindtap="saveDraft">保存</button>
+    <button class="btn-primary" bindtap="saveAndSubmit">保存并提交</button>
+  </view>
+</view>

@@ -1,0 +1,68 @@
+<view class="container business-page">
+  <view class="card hero-card">
+    <view class="hero-kicker">业务工作台</view>
+    <view class="hero-title">按角色进入对应功能</view>
+    <view class="muted">当前用户：{{userName}} ｜ 角色：{{roleText || '-'}}</view>
+  </view>
+
+  <view wx:if="{{showProjectOps}}" class="section-block">
+    <view class="section-title">项目管理</view>
+    <view class="action-grid">
+      <view class="action-card primary-action" bindtap="goCreateProject">
+        <view class="action-title">创建项目</view>
+        <view class="action-desc">录入正式项目、预算工时、成本和进度基础信息</view>
+      </view>
+      <view class="action-card" bindtap="goProjectList">
+        <view class="action-title">项目列表</view>
+        <view class="action-desc">查看项目状态、风险、成本和进度情况</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showSalesOps}}" class="section-block">
+    <view class="section-title">售前 Pre-cal</view>
+    <view class="action-grid">
+      <view class="action-card primary-action" bindtap="goNewPrecal">
+        <view class="action-title">新建 Pre-cal</view>
+        <view class="action-desc">Sales 填写报价前预计算并提交</view>
+      </view>
+      <view class="action-card" bindtap="goMyPrecal">
+        <view class="action-title">我的 Pre-cal</view>
+        <view class="action-desc">查看草稿、已提交、已撤销和已绑定 SAP 的记录</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showCSOps}}" class="section-block">
+    <view class="section-title">CS 处理</view>
+    <view class="action-grid">
+      <view class="action-card primary-action" bindtap="goSapBinding">
+        <view class="action-title">SAP 绑定</view>
+        <view class="action-desc">检索已提交 Pre-cal，补充 SAP号和 item号</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showAdminOps}}" class="section-block">
+    <view class="section-title">系统管理</view>
+    <view class="action-grid">
+      <view class="action-card" bindtap="goAdminPrecal">
+        <view class="action-title">Pre-cal 管理</view>
+        <view class="action-desc">查看全部记录、解锁、取消和复核状态</view>
+      </view>
+      <view class="action-card" bindtap="goParameters">
+        <view class="action-title">参数维护</view>
+        <view class="action-desc">维护费率、计划利润率和 Order Create Center</view>
+      </view>
+      <view class="action-card" bindtap="goSettings">
+        <view class="action-title">用户身份</view>
+        <view class="action-desc">查看 openid 和角色，刷新当前身份</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{!showProjectOps && !showSalesOps && !showCSOps && !showAdminOps}}" class="card empty-card">
+    <view class="card-title">暂无可用业务入口</view>
+    <view class="muted">请联系 admin 为当前 openid 配置角色。</view>
+  </view>
+</view>

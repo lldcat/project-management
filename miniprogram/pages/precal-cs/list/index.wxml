@@ -1,0 +1,24 @@
+<view class="container">
+  <view class="card">
+    <view class="card-title">CS - SAP号绑定</view>
+    <view class="muted">仅显示 Submitted / SAP Bound 的 Pre-cal；Draft 和 Withdrawn 不显示。</view>
+  </view>
+
+  <input class="input search" placeholder="搜索客户 / Sales / SAP号" value="{{keyword}}" bindinput="onSearchInput" />
+  <view class="filter-row">
+    <view wx:for="{{statusOptions}}" wx:key="value" class="filter {{filterStatus == item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="switchStatus">{{item.label}}</view>
+  </view>
+
+  <view wx:if="{{records.length == 0}}" class="empty">暂无可处理 Pre-cal</view>
+  <view wx:for="{{records}}" wx:key="_id" class="card" bindtap="goBind" data-id="{{item._id}}">
+    <view class="row">
+      <view>
+        <view class="precal-title">{{item.customerName || '未填写客户'}}</view>
+        <view class="muted">{{item.service}} ｜ Sales：{{item.salesOwnerName || '-'}}</view>
+      </view>
+      <view class="tag {{item.status == 'SAP Bound' ? 'tag-normal' : 'tag-warning'}}">{{item.statusLabel}}</view>
+    </view>
+    <view class="metric-line"><text>总订单金额</text><text>{{item.totalOrderValueText}}</text></view>
+    <view class="metric-line"><text>SAP号</text><text>{{item.sapText || '-'}}</text></view>
+  </view>
+</view>

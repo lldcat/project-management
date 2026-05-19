@@ -1,0 +1,11 @@
+.line-card { border: 1rpx solid #eaecf0; border-radius: 18rpx; padding: 20rpx; margin-bottom: 20rpx; background: #fff; }
+.line-title { font-weight: 700; margin-bottom: 8rpx; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12rpx; }
+.full { grid-column: 1 / span 2; }
+.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14rpx; }
+.result-item { background: #f9fafb; padding: 16rpx; border-radius: 14rpx; }
+.result-label { font-size: 22rpx; color: #667085; }
+.result-value { font-weight: 700; font-size: 28rpx; }
+.footer-actions { display: flex; gap: 16rpx; padding-bottom: 40rpx; }
+.help { padding: 16rpx; background: #f9fafb; border-radius: 14rpx; margin-bottom: 12rpx; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; }

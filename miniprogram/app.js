@@ -1,0 +1,48 @@
+const env = require('./config/env');
+const userService = require('./services/userService');
+const { PROJECT_CONSTANTS } = require('./config/constants');
+
+App({
+  globalData: {
+    envId: env.cloudEnvId,
+    mode: env.mode,
+    user: null,
+    openid: '',
+    constants: {
+      hoursPerDay: PROJECT_CONSTANTS.hoursPerDay,
+      defaultPersonDayCost: PROJECT_CONSTANTS.defaultPersonDayCost
+    }
+  },
+
+  onLaunch() {
+    if (env.mode === 'cloudbase') {
+      if (!wx.cloud) {
+        wx.showModal({
+          title: '基础库版本过低',
+          content: '请升级微信开发者工具或微信版本后再使用云开发功能。',
+          showCancel: false
+        });
+        return;
+      }
+
+      wx.cloud.init({
+        env: env.cloudEnvId,
+        traceUser: true
+      });
+    }
+
+    this.bootstrapUser();
+  },
+
+  bootstrapUser() {
+    userService.login()
+      .then(result => {
+        this.globalData.openid = result.openid || (result.user && result.user.openid) || '';
+        this.globalData.user = result.user || null;
+      })
+      .catch(err => {
+        console.error('login failed', err);
+        wx.showToast({ title: '登录初始化失败', icon: 'none' });
+      });
+  }
+});

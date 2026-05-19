@@ -1,0 +1,53 @@
+.inline-title {
+  margin: 0;
+}
+.sub-card {
+  background: #f9fafb;
+  border: 1rpx solid #e4e7ec;
+  border-radius: 18rpx;
+  padding: 18rpx;
+  margin-bottom: 18rpx;
+}
+.sub-title-row {
+  margin-bottom: 8rpx;
+}
+.sub-title {
+  font-weight: 700;
+  color: #344054;
+}
+.bottom-bar {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 18rpx;
+  padding-bottom: 48rpx;
+}
+.picker-value {
+  line-height: 80rpx;
+  color: #101828;
+}
+.filter-row {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin: 12rpx 0 18rpx;
+}
+
+.row-actions {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.mini-note {
+  display: inline-block;
+  margin-left: 8rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 999rpx;
+  background: #eff8ff;
+  color: #175cd3;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+.empty-hint {
+  margin-top: 12rpx;
+}

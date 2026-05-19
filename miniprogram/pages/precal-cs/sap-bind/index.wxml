@@ -1,0 +1,51 @@
+<view class="container">
+  <view wx:if="{{!record._id}}" class="empty">加载中...</view>
+  <block wx:else>
+    <view class="card">
+      <view class="card-title">{{record.customerName}}</view>
+      <view class="muted">{{record.precalNo}} ｜ {{record.service}} ｜ {{record.status}}</view>
+      <view class="metric-line"><text>Sales</text><text>{{record.salesOwnerName || '-'}}</text></view>
+      <view class="metric-line"><text>总订单金额</text><text>{{summary.totalOrderValueText}}</text></view>
+      <view class="metric-line"><text>Operating Margin</text><text>{{summary.operatingMarginText}}</text></view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">SAP 绑定信息</view>
+      <view wx:for="{{sapBindings}}" wx:key="sapId" class="sap-card">
+        <view class="row">
+          <view class="metric-value">SAP {{index + 1}}</view>
+          <button class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeSap">删除SAP</button>
+        </view>
+        <label class="form-label">SAP号</label>
+        <input class="input" value="{{item.sapNo}}" data-index="{{index}}" data-field="sapNo" bindinput="onSapInput" placeholder="请输入SAP号" />
+
+        <view class="section-title">Item</view>
+        <view wx:for="{{item.items}}" wx:for-item="it" wx:for-index="itemIndex" wx:key="itemId" class="item-card">
+          <view class="row">
+            <view class="metric-value">Item {{itemIndex + 1}}</view>
+            <button class="btn-danger" size="mini" data-sap-index="{{index}}" data-item-index="{{itemIndex}}" bindtap="removeItem">删除Item</button>
+          </view>
+          <label class="form-label">Item号</label>
+          <input class="input" value="{{it.itemNo}}" data-sap-index="{{index}}" data-item-index="{{itemIndex}}" data-field="itemNo" bindinput="onItemInput" />
+          <label class="form-label">Item说明</label>
+          <input class="input" value="{{it.itemDescription}}" data-sap-index="{{index}}" data-item-index="{{itemIndex}}" data-field="itemDescription" bindinput="onItemInput" />
+          <label class="form-label">备注</label>
+          <input class="input" value="{{it.remark}}" data-sap-index="{{index}}" data-item-index="{{itemIndex}}" data-field="remark" bindinput="onItemInput" />
+        </view>
+        <button class="btn-secondary" size="mini" data-index="{{index}}" bindtap="addItem">新增 Item</button>
+      </view>
+      <view class="actions">
+        <button class="btn-secondary" bindtap="addSap">新增 SAP号</button>
+      </view>
+    </view>
+
+    <view class="card">
+      <label class="form-label">保存原因 / 备注</label>
+      <textarea class="textarea" value="{{reason}}" bindinput="onReasonInput" placeholder="例如：首次绑定SAP号 / 修改item号" />
+    </view>
+
+    <view class="actions">
+      <button class="btn-primary" bindtap="saveSap">保存 SAP 绑定</button>
+    </view>
+  </block>
+</view>

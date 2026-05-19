@@ -1,0 +1,30 @@
+<view class="container">
+  <view class="card">
+    <view class="row">
+      <view>
+        <view class="card-title">Admin - Pre-cal 管理</view>
+        <view class="muted">查看全部记录、解锁已绑定 SAP 的 Pre-cal。</view>
+      </view>
+      <button class="btn-secondary" size="mini" bindtap="goParams">参数维护</button>
+    </view>
+  </view>
+  <input class="input search" placeholder="搜索客户 / Sales / SAP号" value="{{keyword}}" bindinput="onSearchInput" />
+  <view class="filter-row">
+    <view wx:for="{{statusOptions}}" wx:key="value" class="filter {{filterStatus == item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="switchStatus">{{item.label}}</view>
+  </view>
+  <view wx:if="{{records.length == 0}}" class="empty">暂无记录</view>
+  <view wx:for="{{records}}" wx:key="_id" class="card" bindtap="goDetail" data-id="{{item._id}}">
+    <view class="row">
+      <view>
+        <view class="metric-value">{{item.customerName || '未填写客户'}}</view>
+        <view class="muted">{{item.service}} ｜ Sales：{{item.salesOwnerName || '-'}}</view>
+      </view>
+      <view class="tag">{{item.statusLabel}}</view>
+    </view>
+    <view class="metric-line"><text>总订单金额</text><text>{{item.totalOrderValueText}}</text></view>
+    <view class="metric-line"><text>SAP号</text><text>{{item.sapText || '-'}}</text></view>
+    <view class="actions" catchtap="noop">
+      <button wx:if="{{item.status == 'SAP Bound'}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="unlock">解锁</button>
+    </view>
+  </view>
+</view>

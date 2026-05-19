@@ -1,0 +1,30 @@
+<view class="container">
+  <view class="card">
+    <view class="card-title">参数版本</view>
+    <label class="form-label">Version Name</label>
+    <input class="input" value="{{parameters.versionName}}" data-field="versionName" bindinput="onBasicInput" />
+    <label class="form-label">Effective Year</label>
+    <input class="input" type="number" value="{{parameters.effectiveYear}}" data-field="effectiveYear" bindinput="onBasicInput" />
+    <label class="form-label">Order Create Centers（用逗号分隔）</label>
+    <textarea class="textarea" value="{{centersText}}" bindinput="onCentersInput" />
+  </view>
+
+  <view class="section-title">Service Rates</view>
+  <view wx:for="{{parameters.serviceRates}}" wx:key="service" class="rate-card">
+    <view class="metric-value">{{item.service}}</view>
+    <view class="grid">
+      <view><label class="form-label">Service Code</label><input class="input" value="{{item.serviceCode}}" data-index="{{index}}" data-field="serviceCode" bindinput="onRateInput" /></view>
+      <view><label class="form-label">Hourly Rate</label><input class="input" type="digit" value="{{item.hourlyRate}}" data-index="{{index}}" data-field="hourlyRate" bindinput="onRateInput" /></view>
+      <view><label class="form-label">Planned Margin %</label><input class="input" type="digit" value="{{item.plannedMarginPercent}}" data-index="{{index}}" data-field="plannedMarginPercent" bindinput="onRateInput" /></view>
+      <view><label class="form-label">Hourly Allocation Cost</label><input class="input" type="digit" value="{{item.hourlyAllocationCost}}" data-index="{{index}}" data-field="hourlyAllocationCost" bindinput="onRateInput" /></view>
+      <view><label class="form-label">Allocation / Ext. Sales</label><input class="input" type="digit" value="{{item.allocationCostExtSalesRatio}}" data-index="{{index}}" data-field="allocationCostExtSalesRatio" bindinput="onRateInput" /></view>
+      <view><label class="form-label">Allocation / IC Sales</label><input class="input" type="digit" value="{{item.allocationCostICSalesRatio}}" data-index="{{index}}" data-field="allocationCostICSalesRatio" bindinput="onRateInput" /></view>
+      <view><label class="form-label">70% Productivity Rate</label><input class="input" type="digit" value="{{item.productivity70HourlyRate}}" data-index="{{index}}" data-field="productivity70HourlyRate" bindinput="onRateInput" /></view>
+      <view><label class="form-label">80% Productivity Rate</label><input class="input" type="digit" value="{{item.productivity80HourlyRate}}" data-index="{{index}}" data-field="productivity80HourlyRate" bindinput="onRateInput" /></view>
+    </view>
+  </view>
+
+  <view class="footer-actions">
+    <button class="btn-primary" bindtap="saveParameters">保存参数</button>
+  </view>
+</view>

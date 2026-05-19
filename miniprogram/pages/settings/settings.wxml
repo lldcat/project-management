@@ -1,0 +1,21 @@
+<view class="container">
+  <view class="card profile-card">
+    <view class="card-title">我的</view>
+    <view class="muted">查看当前登录身份、角色和云环境信息。</view>
+
+    <view class="metric-line">
+      <text>openid</text>
+      <text class="metric-value openid">{{openid || '-'}}</text>
+    </view>
+    <view class="metric-line">
+      <text>角色</text>
+      <text class="metric-value">{{roleText}}</text>
+    </view>
+    <view class="metric-line">
+      <text>云环境</text>
+      <text class="metric-value">{{envId || '-'}}</text>
+    </view>
+
+    <button class="btn-secondary refresh" bindtap="refreshLogin">刷新身份</button>
+  </view>
+</view>

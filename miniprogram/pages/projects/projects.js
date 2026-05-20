@@ -27,7 +27,7 @@ Page({
         const user = res.user || {};
         const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role || 'pm'];
         const role = user.role || roles[0] || 'pm';
-        const privileged = roles.indexOf('leader') >= 0 || roles.indexOf('admin') >= 0 || roles.indexOf('ar') >= 0;
+        const privileged = roles.indexOf('admin') >= 0 || roles.indexOf('ar') >= 0;
         this.setData({
           projects,
           userRole: role,

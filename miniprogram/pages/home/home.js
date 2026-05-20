@@ -55,7 +55,7 @@ Page({
         const user = res.user || {};
         const roles = this.normalizeRoles(user);
         const role = user.role || roles[0] || 'pm';
-        const privileged = role === 'leader' || role === 'admin' || role === 'ar' || roles.indexOf('admin') >= 0 || roles.indexOf('leader') >= 0;
+        const privileged = role === 'admin' || role === 'ar' || roles.indexOf('admin') >= 0;
         this.setData({
           projects,
           riskProjects,
@@ -131,7 +131,6 @@ Page({
   formatRole(role) {
     const map = {
       pm: 'PM',
-      leader: '部门Leader',
       admin: '系统管理员',
       ar: 'AR核对人',
       member: '普通组员',

@@ -342,7 +342,7 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm'];
+  return roles.length ? roles : ['pm','sales','cs','admin','ar'];
 }
 
 function userScore(user, openid) {
@@ -353,8 +353,7 @@ function userScore(user, openid) {
   if (normalizeText(user && user.name)) score += 10;
   const roles = normalizeRoles(user);
   if (roles.indexOf('admin') >= 0) score += 5;
-  if (roles.indexOf('leader') >= 0) score += 4;
-  if (roles.indexOf('sales') >= 0) score += 3;
+    if (roles.indexOf('sales') >= 0) score += 3;
   if (roles.indexOf('cs') >= 0) score += 2;
   return score;
 }
@@ -417,7 +416,7 @@ async function getCurrentUser(openid) {
     return Object.assign({ _id: primary._id }, primary, mergedUser);
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm','sales','cs','admin','ar'] }, [], openid, now);
   try {
     await users.doc(openid).set({ data: newUser });
     return Object.assign({ _id: openid }, newUser);
@@ -441,7 +440,7 @@ function ownsProject(project, openid) {
 function normalizeRoles(user) {
   if (user && Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
   if (user && user.role) return [String(user.role)];
-  return ['pm'];
+  return ['pm','sales','cs','admin','ar'];
 }
 
 function hasRole(user, role) {
@@ -454,7 +453,7 @@ function hasAnyRole(user, roles) {
 }
 
 function canViewAll(user) {
-  return hasAnyRole(user, ['leader', 'admin', 'ar']);
+  return hasAnyRole(user, ['admin', 'ar']);
 }
 
 function canEditAll(user) {

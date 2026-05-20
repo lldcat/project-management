@@ -1,6 +1,5 @@
 const USER_ROLES = {
   PM: 'pm',
-  LEADER: 'leader',
   ADMIN: 'admin',
   AR: 'ar',
   MEMBER: 'member',
@@ -28,7 +27,6 @@ const PRECAL_STATUS_LABEL = {
 
 const ROLE_LABEL = {
   pm: 'PM',
-  leader: '部门Leader',
   admin: '系统管理员',
   ar: 'AR核对人',
   member: '普通组员',

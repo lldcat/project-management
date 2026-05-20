@@ -1,0 +1,3078 @@
+{
+  "sourceWorkbook": "项目成本、进度及绩效管理追踪表.xlsx",
+  "analysisTargetSheet": "附件1：项目成本、进度及绩效管理表 ",
+  "referenceExampleSheet": "项目成本、进度及绩效管理表-示例表",
+  "usedRange": "A1:E24",
+  "mergedCells": [
+    "B14:D14",
+    "A1:E1",
+    "A2:E2",
+    "B3:D3",
+    "B4:D4",
+    "B5:D5",
+    "B6:D6",
+    "B7:D7",
+    "A8:A9",
+    "E8:E9",
+    "B11:D11",
+    "B12:D12",
+    "A16:A17",
+    "E16:E17",
+    "B18:D18",
+    "B19:D19",
+    "B20:D20",
+    "B21:D21",
+    "B22:D22",
+    "B23:D23",
+    "B24:D24",
+    "B15:D15"
+  ],
+  "legend": {
+    "inputMode": {
+      "user_input": "需要PM/用户填写",
+      "auto_calculated": "系统/公式自动计算，用户不应修改",
+      "auto_calculated_expected": "按业务说明应自动计算，但模板中存在缺失或不一致",
+      "locked": "标题、说明、标签或合并占位，通常不允许用户编辑"
+    },
+    "style": {
+      "FFA3DBFF": "蓝色：模板约定为PM填写区域",
+      "FF7CEB99": "绿色：模板约定为公式自动计算区域",
+      "FF0070C0": "深蓝：标题区域",
+      "FFFFFFFF": "白色：普通标签/说明区域"
+    }
+  },
+  "fieldDefinitions": [
+    {
+      "fieldKey": "customerName",
+      "cell": "B3:D3",
+      "inputMode": "user_input",
+      "meaning": "客户名称/合同主体。"
+    },
+    {
+      "fieldKey": "projectNo",
+      "cell": "B4:D4",
+      "inputMode": "user_input",
+      "meaning": "项目号/订单号，一单一表管理主键之一。"
+    },
+    {
+      "fieldKey": "projectPeriod",
+      "cell": "B5:D5",
+      "inputMode": "user_input",
+      "meaning": "项目起止时间；系统中建议拆为startDate、endDate。"
+    },
+    {
+      "fieldKey": "projectManager",
+      "cell": "B6:D6",
+      "inputMode": "user_input",
+      "meaning": "项目经理，负责每月19日前填写和20日例会复盘。"
+    },
+    {
+      "fieldKey": "projectMembers",
+      "cell": "B7:D7",
+      "inputMode": "user_input",
+      "meaning": "项目组员名单；系统中建议使用数组。"
+    },
+    {
+      "fieldKey": "subProjects[].budgetHours",
+      "cell": "B9:D9",
+      "inputMode": "user_input",
+      "meaning": "各子项目预算总工时=报价人天×8。"
+    },
+    {
+      "fieldKey": "subProjects[].budgetLaborUnitPrice",
+      "cell": "B10:D10",
+      "inputMode": "user_input",
+      "meaning": "各子项目报价人工天单价。"
+    },
+    {
+      "fieldKey": "travelFee",
+      "cell": "B11:D11",
+      "inputMode": "user_input",
+      "meaning": "报价单差旅费；当前未被公式引用。"
+    },
+    {
+      "fieldKey": "bac",
+      "cell": "B12:D12",
+      "inputMode": "auto_calculated_expected",
+      "formulaExpected": "=(B9*B10)+(C9*C10)+(D9*D10)",
+      "meaning": "项目总预算/BAC；正式表缺公式，示例表有公式。"
+    },
+    {
+      "fieldKey": "subProjects[].plannedCompletedHours",
+      "cell": "B13:D13",
+      "inputMode": "user_input",
+      "meaning": "按进度表，截至复盘节点应完成的工时。"
+    },
+    {
+      "fieldKey": "plannedCompletionRatio",
+      "cell": "B14:D14",
+      "inputMode": "auto_calculated",
+      "formula": "=SUM(B13:D13)/SUM(B9:D9)",
+      "meaning": "应完成工时合计÷预算总工时合计。"
+    },
+    {
+      "fieldKey": "plannedValue",
+      "cell": "B15:D15",
+      "inputMode": "auto_calculated",
+      "formula": "=B14*B12",
+      "meaning": "PV，计划价值。"
+    },
+    {
+      "fieldKey": "arHours[].hours",
+      "cell": "B17:D17",
+      "inputMode": "user_input_or_ar_sync",
+      "meaning": "PM和组员AR已填报工时，口径为billable + project + travel time。"
+    },
+    {
+      "fieldKey": "actualCompletionRatio",
+      "cell": "B18:D18",
+      "inputMode": "auto_calculated",
+      "formula": "=SUM(B17:D17)/SUM(B9:D9)",
+      "meaning": "实际AR工时合计÷预算总工时合计。"
+    },
+    {
+      "fieldKey": "earnedValue",
+      "cell": "B19:D19",
+      "inputMode": "auto_calculated",
+      "formula": "=B18*B12",
+      "meaning": "EV，挣值。"
+    },
+    {
+      "fieldKey": "actualCost",
+      "cell": "B20:D20",
+      "inputMode": "auto_calculated",
+      "formula": "=SUM(B17:D17)/8*5000",
+      "meaning": "AC，实际成本；按内部5000元/人天估算。"
+    },
+    {
+      "fieldKey": "costVariance",
+      "cell": "B21:D21",
+      "inputMode": "auto_calculated",
+      "formula": "=B19-B20",
+      "meaning": "CV，成本偏差；<0代表超支/亏损风险。"
+    },
+    {
+      "fieldKey": "scheduleVariance",
+      "cell": "B22:D22",
+      "inputMode": "auto_calculated",
+      "formula": "=B19-B15",
+      "meaning": "SV，进度偏差；<0代表滞后。"
+    },
+    {
+      "fieldKey": "costPerformanceIndex",
+      "cell": "B23:D23",
+      "inputMode": "auto_calculated",
+      "formula": "=B19/B20",
+      "meaning": "CPI，成本绩效；>1较好。"
+    },
+    {
+      "fieldKey": "schedulePerformanceIndex",
+      "cell": "B24:D24",
+      "inputMode": "auto_calculated",
+      "formula": "=B19/B15",
+      "meaning": "SPI，进度绩效；>1表示进度超前。"
+    }
+  ],
+  "formulaDefinitions": [
+    {
+      "fieldKey": "bac",
+      "cell": "B12:D12",
+      "currentTemplateFormula": null,
+      "exampleFormula": "=(B9*B10)+(C9*C10)+(D9*D10)",
+      "recommendedFormula": "=SUMPRODUCT(B9:D9,B10:D10)",
+      "meaning": "比原示例公式更容易扩展；如需包含差旅费，可改为=SUMPRODUCT(B9:D9,B10:D10)+B11。"
+    },
+    {
+      "fieldKey": "plannedCompletionRatio",
+      "cell": "B14:D14",
+      "formula": "=SUM(B13:D13)/SUM(B9:D9)",
+      "safeFormulaForSystem": "if totalBudgetHours > 0 then plannedHours/totalBudgetHours else null"
+    },
+    {
+      "fieldKey": "plannedValue",
+      "cell": "B15:D15",
+      "formula": "=B14*B12",
+      "safeFormulaForSystem": "plannedCompletionRatio * bac"
+    },
+    {
+      "fieldKey": "actualCompletionRatio",
+      "cell": "B18:D18",
+      "formula": "=SUM(B17:D17)/SUM(B9:D9)",
+      "safeFormulaForSystem": "if totalBudgetHours > 0 then actualHours/totalBudgetHours else null"
+    },
+    {
+      "fieldKey": "earnedValue",
+      "cell": "B19:D19",
+      "formula": "=B18*B12",
+      "safeFormulaForSystem": "actualCompletionRatio * bac"
+    },
+    {
+      "fieldKey": "actualCost",
+      "cell": "B20:D20",
+      "formula": "=SUM(B17:D17)/8*5000",
+      "safeFormulaForSystem": "actualHours / hoursPerDay * internalPersonDayCost"
+    },
+    {
+      "fieldKey": "costVariance",
+      "cell": "B21:D21",
+      "formula": "=B19-B20",
+      "safeFormulaForSystem": "earnedValue - actualCost"
+    },
+    {
+      "fieldKey": "scheduleVariance",
+      "cell": "B22:D22",
+      "formula": "=B19-B15",
+      "safeFormulaForSystem": "earnedValue - plannedValue"
+    },
+    {
+      "fieldKey": "costPerformanceIndex",
+      "cell": "B23:D23",
+      "formula": "=B19/B20",
+      "safeFormulaForSystem": "if actualCost > 0 then earnedValue/actualCost else null"
+    },
+    {
+      "fieldKey": "schedulePerformanceIndex",
+      "cell": "B24:D24",
+      "formula": "=B19/B15",
+      "safeFormulaForSystem": "if plannedValue > 0 then earnedValue/plannedValue else null"
+    }
+  ],
+  "cellMappings": [
+    {
+      "address": "A1",
+      "row": 1,
+      "column": "A",
+      "mergedRange": "A1:E1",
+      "mergedParent": "A1",
+      "valueInTemplate": "重要提醒：\n1）该表不仅适用于商品检测主体签署的咨询合同，也适用于认证检测主体下签署的合同，一份合同一张表；“一单一表”管理，即每个订单都要单独填写此表；\n2）PM负责填写此表，每个月19日之前完成填写，每个月20号在例会上review；\n3）2026年1月1日以后立项的项目，都需要补充这个表；\n4)蓝色部分需要PM填写，绿色部分有公式，可自动生成数值，勿动，表中数据为模拟测试数据，请使用<项目成本、进度及绩效管理表>填写；",
+      "role": "instruction",
+      "inputMode": "locked",
+      "sourceType": "system_text",
+      "fieldKey": "important_reminder",
+      "label": "重要提醒",
+      "meaning": "表单使用说明：一单一表、PM每月19日前填写、20号例会review、2026年后立项项目需补充、蓝色为PM填写、绿色为自动计算。",
+      "dependencies": [],
+      "style": {
+        "styleId": 31,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B1",
+      "row": 1,
+      "column": "B",
+      "mergedRange": "A1:E1",
+      "mergedParent": "A1",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "important_reminder",
+      "label": "重要提醒",
+      "meaning": "表单使用说明：一单一表、PM每月19日前填写、20号例会review、2026年后立项项目需补充、蓝色为PM填写、绿色为自动计算。",
+      "dependencies": [],
+      "style": {
+        "styleId": 31,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C1",
+      "row": 1,
+      "column": "C",
+      "mergedRange": "A1:E1",
+      "mergedParent": "A1",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "important_reminder",
+      "label": "重要提醒",
+      "meaning": "表单使用说明：一单一表、PM每月19日前填写、20号例会review、2026年后立项项目需补充、蓝色为PM填写、绿色为自动计算。",
+      "dependencies": [],
+      "style": {
+        "styleId": 31,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D1",
+      "row": 1,
+      "column": "D",
+      "mergedRange": "A1:E1",
+      "mergedParent": "A1",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "important_reminder",
+      "label": "重要提醒",
+      "meaning": "表单使用说明：一单一表、PM每月19日前填写、20号例会review、2026年后立项项目需补充、蓝色为PM填写、绿色为自动计算。",
+      "dependencies": [],
+      "style": {
+        "styleId": 31,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E1",
+      "row": 1,
+      "column": "E",
+      "mergedRange": "A1:E1",
+      "mergedParent": "A1",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "important_reminder",
+      "label": "重要提醒",
+      "meaning": "表单使用说明：一单一表、PM每月19日前填写、20号例会review、2026年后立项项目需补充、蓝色为PM填写、绿色为自动计算。",
+      "dependencies": [],
+      "style": {
+        "styleId": 31,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A2",
+      "row": 2,
+      "column": "A",
+      "mergedRange": "A2:E2",
+      "mergedParent": "A2",
+      "valueInTemplate": "项目成本、进度及绩效管理表",
+      "role": "title",
+      "inputMode": "locked",
+      "sourceType": "system_text",
+      "fieldKey": "form_title",
+      "label": "项目成本、进度及绩效管理表",
+      "meaning": "表单标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 32,
+        "fillColor": "FF0070C0",
+        "styleMeaning": "blue_title_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B2",
+      "row": 2,
+      "column": "B",
+      "mergedRange": "A2:E2",
+      "mergedParent": "A2",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "form_title",
+      "label": "项目成本、进度及绩效管理表",
+      "meaning": "表单标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 33,
+        "fillColor": "FF0070C0",
+        "styleMeaning": "blue_title_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C2",
+      "row": 2,
+      "column": "C",
+      "mergedRange": "A2:E2",
+      "mergedParent": "A2",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "form_title",
+      "label": "项目成本、进度及绩效管理表",
+      "meaning": "表单标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 33,
+        "fillColor": "FF0070C0",
+        "styleMeaning": "blue_title_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D2",
+      "row": 2,
+      "column": "D",
+      "mergedRange": "A2:E2",
+      "mergedParent": "A2",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "form_title",
+      "label": "项目成本、进度及绩效管理表",
+      "meaning": "表单标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 33,
+        "fillColor": "FF0070C0",
+        "styleMeaning": "blue_title_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E2",
+      "row": 2,
+      "column": "E",
+      "mergedRange": "A2:E2",
+      "mergedParent": "A2",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "form_title",
+      "label": "项目成本、进度及绩效管理表",
+      "meaning": "表单标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 34,
+        "fillColor": "FF0070C0",
+        "styleMeaning": "blue_title_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A3",
+      "row": 3,
+      "column": "A",
+      "valueInTemplate": "客户名称",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "customerName_label",
+      "label": "客户名称",
+      "meaning": "客户名称字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B3",
+      "row": 3,
+      "column": "B",
+      "mergedRange": "B3:D3",
+      "mergedParent": "B3",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "customerName",
+      "label": "客户名称",
+      "dataType": "text",
+      "required": true,
+      "meaning": "项目对应客户/合同主体名称。",
+      "dependencies": [],
+      "style": {
+        "styleId": 38,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C3",
+      "row": 3,
+      "column": "C",
+      "mergedRange": "B3:D3",
+      "mergedParent": "B3",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "customerName",
+      "label": "客户名称",
+      "dataType": "text",
+      "required": true,
+      "meaning": "项目对应客户/合同主体名称。",
+      "dependencies": [],
+      "style": {
+        "styleId": 39,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D3",
+      "row": 3,
+      "column": "D",
+      "mergedRange": "B3:D3",
+      "mergedParent": "B3",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "customerName",
+      "label": "客户名称",
+      "dataType": "text",
+      "required": true,
+      "meaning": "项目对应客户/合同主体名称。",
+      "dependencies": [],
+      "style": {
+        "styleId": 40,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E3",
+      "row": 3,
+      "column": "E",
+      "valueInTemplate": "-",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "customerName_note",
+      "label": "说明",
+      "meaning": "当前模板中为“-”，没有补充说明。",
+      "dependencies": [],
+      "style": {
+        "styleId": 12,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A4",
+      "row": 4,
+      "column": "A",
+      "valueInTemplate": "项目号",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "projectNo_label",
+      "label": "项目号",
+      "meaning": "项目号字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B4",
+      "row": 4,
+      "column": "B",
+      "mergedRange": "B4:D4",
+      "mergedParent": "B4",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "projectNo",
+      "label": "项目号",
+      "dataType": "text",
+      "required": true,
+      "meaning": "项目/订单编号，用于一单一表管理和后续关联AR、合同、报价等数据。",
+      "dependencies": [],
+      "style": {
+        "styleId": 38,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C4",
+      "row": 4,
+      "column": "C",
+      "mergedRange": "B4:D4",
+      "mergedParent": "B4",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectNo",
+      "label": "项目号",
+      "dataType": "text",
+      "required": true,
+      "meaning": "项目/订单编号，用于一单一表管理和后续关联AR、合同、报价等数据。",
+      "dependencies": [],
+      "style": {
+        "styleId": 39,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D4",
+      "row": 4,
+      "column": "D",
+      "mergedRange": "B4:D4",
+      "mergedParent": "B4",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectNo",
+      "label": "项目号",
+      "dataType": "text",
+      "required": true,
+      "meaning": "项目/订单编号，用于一单一表管理和后续关联AR、合同、报价等数据。",
+      "dependencies": [],
+      "style": {
+        "styleId": 40,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E4",
+      "row": 4,
+      "column": "E",
+      "valueInTemplate": "-",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "projectNo_note",
+      "label": "说明",
+      "meaning": "当前模板中为“-”，没有补充说明。",
+      "dependencies": [],
+      "style": {
+        "styleId": 12,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A5",
+      "row": 5,
+      "column": "A",
+      "valueInTemplate": "项目起止时间",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "projectPeriod_label",
+      "label": "项目起止时间",
+      "meaning": "项目起止时间字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B5",
+      "row": 5,
+      "column": "B",
+      "mergedRange": "B5:D5",
+      "mergedParent": "B5",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "projectPeriod",
+      "label": "项目起止时间",
+      "dataType": "dateRange",
+      "required": true,
+      "meaning": "项目计划开始和结束时间，建议小程序中拆成 startDate/endDate。",
+      "dependencies": [],
+      "style": {
+        "styleId": 38,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C5",
+      "row": 5,
+      "column": "C",
+      "mergedRange": "B5:D5",
+      "mergedParent": "B5",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectPeriod",
+      "label": "项目起止时间",
+      "dataType": "dateRange",
+      "required": true,
+      "meaning": "项目计划开始和结束时间，建议小程序中拆成 startDate/endDate。",
+      "dependencies": [],
+      "style": {
+        "styleId": 39,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D5",
+      "row": 5,
+      "column": "D",
+      "mergedRange": "B5:D5",
+      "mergedParent": "B5",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectPeriod",
+      "label": "项目起止时间",
+      "dataType": "dateRange",
+      "required": true,
+      "meaning": "项目计划开始和结束时间，建议小程序中拆成 startDate/endDate。",
+      "dependencies": [],
+      "style": {
+        "styleId": 40,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E5",
+      "row": 5,
+      "column": "E",
+      "valueInTemplate": "-",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "projectPeriod_note",
+      "label": "说明",
+      "meaning": "当前模板中为“-”，没有补充说明。",
+      "dependencies": [],
+      "style": {
+        "styleId": 12,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A6",
+      "row": 6,
+      "column": "A",
+      "valueInTemplate": "项目经理",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "projectManager_label",
+      "label": "项目经理",
+      "meaning": "项目经理字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B6",
+      "row": 6,
+      "column": "B",
+      "mergedRange": "B6:D6",
+      "mergedParent": "B6",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "projectManager",
+      "label": "项目经理",
+      "dataType": "person",
+      "required": true,
+      "meaning": "负责填写和复盘此表的PM。",
+      "dependencies": [],
+      "style": {
+        "styleId": 38,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C6",
+      "row": 6,
+      "column": "C",
+      "mergedRange": "B6:D6",
+      "mergedParent": "B6",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectManager",
+      "label": "项目经理",
+      "dataType": "person",
+      "required": true,
+      "meaning": "负责填写和复盘此表的PM。",
+      "dependencies": [],
+      "style": {
+        "styleId": 39,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D6",
+      "row": 6,
+      "column": "D",
+      "mergedRange": "B6:D6",
+      "mergedParent": "B6",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectManager",
+      "label": "项目经理",
+      "dataType": "person",
+      "required": true,
+      "meaning": "负责填写和复盘此表的PM。",
+      "dependencies": [],
+      "style": {
+        "styleId": 40,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E6",
+      "row": 6,
+      "column": "E",
+      "valueInTemplate": "-",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "projectManager_note",
+      "label": "说明",
+      "meaning": "当前模板中为“-”，没有补充说明。",
+      "dependencies": [],
+      "style": {
+        "styleId": 12,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A7",
+      "row": 7,
+      "column": "A",
+      "valueInTemplate": "项目组员",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "projectMembers_label",
+      "label": "项目组员",
+      "meaning": "项目组员字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B7",
+      "row": 7,
+      "column": "B",
+      "mergedRange": "B7:D7",
+      "mergedParent": "B7",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "projectMembers",
+      "label": "项目组员",
+      "dataType": "peopleList",
+      "required": true,
+      "meaning": "参与该项目的成员名单。",
+      "dependencies": [],
+      "style": {
+        "styleId": 38,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C7",
+      "row": 7,
+      "column": "C",
+      "mergedRange": "B7:D7",
+      "mergedParent": "B7",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectMembers",
+      "label": "项目组员",
+      "dataType": "peopleList",
+      "required": true,
+      "meaning": "参与该项目的成员名单。",
+      "dependencies": [],
+      "style": {
+        "styleId": 39,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D7",
+      "row": 7,
+      "column": "D",
+      "mergedRange": "B7:D7",
+      "mergedParent": "B7",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "projectMembers",
+      "label": "项目组员",
+      "dataType": "peopleList",
+      "required": true,
+      "meaning": "参与该项目的成员名单。",
+      "dependencies": [],
+      "style": {
+        "styleId": 40,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E7",
+      "row": 7,
+      "column": "E",
+      "valueInTemplate": "-",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "projectMembers_note",
+      "label": "说明",
+      "meaning": "当前模板中为“-”，没有补充说明。",
+      "dependencies": [],
+      "style": {
+        "styleId": 8,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A8",
+      "row": 8,
+      "column": "A",
+      "mergedRange": "A8:A9",
+      "mergedParent": "A8",
+      "valueInTemplate": "预算总工时（小时）",
+      "role": "row_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "budgetHours_label",
+      "label": "预算总工时（小时）",
+      "meaning": "预算总工时的行标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 17,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B8",
+      "row": 8,
+      "column": "B",
+      "valueInTemplate": "子项目1",
+      "role": "column_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "subProject1_name",
+      "label": "子项目1",
+      "meaning": "第1个子项目/报价拆分项的列标题；如果做成小程序，建议改为可增删的子项目数组。",
+      "dependencies": [],
+      "style": {
+        "styleId": 11,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C8",
+      "row": 8,
+      "column": "C",
+      "valueInTemplate": "子项目2",
+      "role": "column_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "subProject2_name",
+      "label": "子项目2",
+      "meaning": "第2个子项目/报价拆分项的列标题；如果做成小程序，建议改为可增删的子项目数组。",
+      "dependencies": [],
+      "style": {
+        "styleId": 11,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D8",
+      "row": 8,
+      "column": "D",
+      "valueInTemplate": "子项目3",
+      "role": "column_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "subProject3_name",
+      "label": "子项目3",
+      "meaning": "第3个子项目/报价拆分项的列标题；如果做成小程序，建议改为可增删的子项目数组。",
+      "dependencies": [],
+      "style": {
+        "styleId": 11,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E8",
+      "row": 8,
+      "column": "E",
+      "mergedRange": "E8:E9",
+      "mergedParent": "E8",
+      "valueInTemplate": "“人天”这里填报价单上的所有人天（onsite+Offsite）*8；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "budgetHours_note",
+      "label": "预算总工时填写说明",
+      "meaning": "“人天”这里填报价单上的所有人天（onsite+Offsite）*8。",
+      "dependencies": [],
+      "style": {
+        "styleId": 19,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A9",
+      "row": 9,
+      "column": "A",
+      "mergedRange": "A8:A9",
+      "mergedParent": "A8",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "budgetHours_label",
+      "label": "预算总工时（小时）",
+      "meaning": "预算总工时的行标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 18,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B9",
+      "row": 9,
+      "column": "B",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[0].budgetHours",
+      "label": "子项目1预算总工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "报价单上的人天数（onsite + offsite）乘以8小时后填入。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C9",
+      "row": 9,
+      "column": "C",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[1].budgetHours",
+      "label": "子项目2预算总工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "报价单上的人天数（onsite + offsite）乘以8小时后填入。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D9",
+      "row": 9,
+      "column": "D",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[2].budgetHours",
+      "label": "子项目3预算总工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "报价单上的人天数（onsite + offsite）乘以8小时后填入。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E9",
+      "row": 9,
+      "column": "E",
+      "mergedRange": "E8:E9",
+      "mergedParent": "E8",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "budgetHours_note",
+      "label": "预算总工时填写说明",
+      "meaning": "“人天”这里填报价单上的所有人天（onsite+Offsite）*8。",
+      "dependencies": [],
+      "style": {
+        "styleId": 20,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A10",
+      "row": 10,
+      "column": "A",
+      "valueInTemplate": "预算人工天单价（元）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "budgetLaborUnitPrice_label",
+      "label": "预算人工天单价（元）",
+      "meaning": "预算人工天单价字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B10",
+      "row": 10,
+      "column": "B",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[0].budgetLaborUnitPrice",
+      "label": "子项目1预算人工天单价",
+      "dataType": "number",
+      "unit": "CNY/person-day",
+      "required": false,
+      "meaning": "报价单上该子项目/报价项的人天单价。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C10",
+      "row": 10,
+      "column": "C",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[1].budgetLaborUnitPrice",
+      "label": "子项目2预算人工天单价",
+      "dataType": "number",
+      "unit": "CNY/person-day",
+      "required": false,
+      "meaning": "报价单上该子项目/报价项的人天单价。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D10",
+      "row": 10,
+      "column": "D",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[2].budgetLaborUnitPrice",
+      "label": "子项目3预算人工天单价",
+      "dataType": "number",
+      "unit": "CNY/person-day",
+      "required": false,
+      "meaning": "报价单上该子项目/报价项的人天单价。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E10",
+      "row": 10,
+      "column": "E",
+      "valueInTemplate": "“人天单价”填写报价单上的价格，如果一个项目里有多个子项目或单价，则分别填写。",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "budgetLaborUnitPrice_note",
+      "label": "预算人工天单价填写说明",
+      "meaning": "填写报价单上的价格；如一个项目里有多个子项目或多个单价，则分别填写。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A11",
+      "row": 11,
+      "column": "A",
+      "valueInTemplate": "差旅费（元）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "travelFee_label",
+      "label": "差旅费（元）",
+      "meaning": "差旅费字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B11",
+      "row": 11,
+      "column": "B",
+      "mergedRange": "B11:D11",
+      "mergedParent": "B11",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "travelFee",
+      "label": "差旅费",
+      "dataType": "number",
+      "unit": "CNY",
+      "required": false,
+      "meaning": "报价单上的差旅费。当前公式未引用该字段。",
+      "dependencies": [],
+      "style": {
+        "styleId": 35,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "164"
+      },
+      "issues": [
+        "当前工作簿公式未引用差旅费B11；如BAC应包含差旅费，需要调整公式。"
+      ]
+    },
+    {
+      "address": "C11",
+      "row": 11,
+      "column": "C",
+      "mergedRange": "B11:D11",
+      "mergedParent": "B11",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "travelFee",
+      "label": "差旅费",
+      "dataType": "number",
+      "unit": "CNY",
+      "required": false,
+      "meaning": "报价单上的差旅费。当前公式未引用该字段。",
+      "dependencies": [],
+      "style": {
+        "styleId": 36,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "D11",
+      "row": 11,
+      "column": "D",
+      "mergedRange": "B11:D11",
+      "mergedParent": "B11",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "travelFee",
+      "label": "差旅费",
+      "dataType": "number",
+      "unit": "CNY",
+      "required": false,
+      "meaning": "报价单上的差旅费。当前公式未引用该字段。",
+      "dependencies": [],
+      "style": {
+        "styleId": 37,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "E11",
+      "row": 11,
+      "column": "E",
+      "valueInTemplate": "此处填写报价单上的差旅费；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "travelFee_note",
+      "label": "差旅费填写说明",
+      "meaning": "此处填写报价单上的差旅费。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A12",
+      "row": 12,
+      "column": "A",
+      "valueInTemplate": "项目总预算（BAC）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "bac_label",
+      "label": "项目总预算（BAC）",
+      "meaning": "项目总预算字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B12",
+      "row": 12,
+      "column": "B",
+      "mergedRange": "B12:D12",
+      "mergedParent": "B12",
+      "formulaExpected": "=(B9*B10)+(C9*C10)+(D9*D10)",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated_expected",
+      "sourceType": "formula_expected",
+      "fieldKey": "bac",
+      "label": "项目总预算（BAC）",
+      "dataType": "number",
+      "unit": "CNY",
+      "meaning": "Budget at Completion，项目完工预算/项目总预算。按示例表公式，应由各子项目预算工时×对应预算人工天单价相加得到；正式空白表此处疑似缺失公式。",
+      "dependencies": [
+        "B9",
+        "B10",
+        "C9",
+        "C10",
+        "D9",
+        "D10"
+      ],
+      "style": {
+        "styleId": 35,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "164"
+      },
+      "issues": [
+        "正式表B12无公式；但示例表B12存在公式=(B9*B10)+(C9*C10)+(D9*D10)，且E12说明为自动生成。",
+        "B12使用蓝色输入样式，但业务说明和示例表公式表明它应为自动计算字段。"
+      ]
+    },
+    {
+      "address": "C12",
+      "row": 12,
+      "column": "C",
+      "mergedRange": "B12:D12",
+      "mergedParent": "B12",
+      "formulaExpected": "=(B9*B10)+(C9*C10)+(D9*D10)",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "bac",
+      "label": "项目总预算（BAC）",
+      "dataType": "number",
+      "unit": "CNY",
+      "meaning": "Budget at Completion，项目完工预算/项目总预算。按示例表公式，应由各子项目预算工时×对应预算人工天单价相加得到；正式空白表此处疑似缺失公式。",
+      "dependencies": [
+        "B9",
+        "B10",
+        "C9",
+        "C10",
+        "D9",
+        "D10"
+      ],
+      "style": {
+        "styleId": 36,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "D12",
+      "row": 12,
+      "column": "D",
+      "mergedRange": "B12:D12",
+      "mergedParent": "B12",
+      "formulaExpected": "=(B9*B10)+(C9*C10)+(D9*D10)",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "bac",
+      "label": "项目总预算（BAC）",
+      "dataType": "number",
+      "unit": "CNY",
+      "meaning": "Budget at Completion，项目完工预算/项目总预算。按示例表公式，应由各子项目预算工时×对应预算人工天单价相加得到；正式空白表此处疑似缺失公式。",
+      "dependencies": [
+        "B9",
+        "B10",
+        "C9",
+        "C10",
+        "D9",
+        "D10"
+      ],
+      "style": {
+        "styleId": 37,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "E12",
+      "row": 12,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。\n",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "bac_note",
+      "label": "BAC说明",
+      "meaning": "注：自动生成，无需填写。",
+      "dependencies": [],
+      "style": {
+        "styleId": 5,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A13",
+      "row": 13,
+      "column": "A",
+      "valueInTemplate": "应完成的工时数（小时）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "plannedCompletedHours_label",
+      "label": "应完成的工时数（小时）",
+      "meaning": "应完成工时字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B13",
+      "row": 13,
+      "column": "B",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[0].plannedCompletedHours",
+      "label": "子项目1应完成工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "按项目进度表拆分到当前复盘节点应完成的工时。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "C13",
+      "row": 13,
+      "column": "C",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[1].plannedCompletedHours",
+      "label": "子项目2应完成工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "按项目进度表拆分到当前复盘节点应完成的工时。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D13",
+      "row": 13,
+      "column": "D",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input",
+      "fieldKey": "subProjects[2].plannedCompletedHours",
+      "label": "子项目3应完成工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "按项目进度表拆分到当前复盘节点应完成的工时。",
+      "dependencies": [],
+      "style": {
+        "styleId": 10,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E13",
+      "row": 13,
+      "column": "E",
+      "valueInTemplate": "结合项目进度表，将总工时分拆到具体每一个步骤中，此处填写按照进步表，应该完成的工时数；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "plannedCompletedHours_note",
+      "label": "应完成工时填写说明",
+      "meaning": "结合项目进度表，将总工时分拆到每一个步骤中；此处填写按照进度表当前应完成的工时数。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A14",
+      "row": 14,
+      "column": "A",
+      "valueInTemplate": "应完工的比例（%）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "plannedCompletionRatio_label",
+      "label": "应完工的比例（%）",
+      "meaning": "应完工的比例（%）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B14",
+      "row": 14,
+      "column": "B",
+      "mergedRange": "B14:D14",
+      "mergedParent": "B14",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=SUM(B13:D13)/SUM(B9:D9)",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "plannedCompletionRatio",
+      "label": "应完工的比例（%）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "计划应完工比例 = 当前节点应完成工时合计 / 预算总工时合计。",
+      "dependencies": [
+        "B13:D13",
+        "B9:D9"
+      ],
+      "style": {
+        "styleId": 22,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C14",
+      "row": 14,
+      "column": "C",
+      "mergedRange": "B14:D14",
+      "mergedParent": "B14",
+      "formulaExpected": "=SUM(B13:D13)/SUM(B9:D9)",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "plannedCompletionRatio",
+      "label": "应完工的比例（%）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "计划应完工比例 = 当前节点应完成工时合计 / 预算总工时合计。",
+      "dependencies": [
+        "B13:D13",
+        "B9:D9"
+      ],
+      "style": {
+        "styleId": 23,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": []
+    },
+    {
+      "address": "D14",
+      "row": 14,
+      "column": "D",
+      "mergedRange": "B14:D14",
+      "mergedParent": "B14",
+      "formulaExpected": "=SUM(B13:D13)/SUM(B9:D9)",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "plannedCompletionRatio",
+      "label": "应完工的比例（%）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "计划应完工比例 = 当前节点应完成工时合计 / 预算总工时合计。",
+      "dependencies": [
+        "B13:D13",
+        "B9:D9"
+      ],
+      "style": {
+        "styleId": 24,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": []
+    },
+    {
+      "address": "E14",
+      "row": 14,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "plannedCompletionRatio_note",
+      "label": "应完工的比例（%）说明",
+      "meaning": "注：自动生成，无需填写。",
+      "dependencies": [],
+      "style": {
+        "styleId": 5,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A15",
+      "row": 15,
+      "column": "A",
+      "valueInTemplate": "计划价值（Planned Value, PV）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "plannedValue_label",
+      "label": "计划价值（Planned Value, PV）",
+      "meaning": "计划价值（Planned Value, PV）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B15",
+      "row": 15,
+      "column": "B",
+      "mergedRange": "B15:D15",
+      "mergedParent": "B15",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=B14*B12",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "plannedValue",
+      "label": "计划价值（Planned Value, PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "PV = 计划应完工比例 × BAC，表示按计划截至当前节点应完成的预算价值。",
+      "dependencies": [
+        "B14",
+        "B12"
+      ],
+      "style": {
+        "styleId": 25,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "164"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C15",
+      "row": 15,
+      "column": "C",
+      "mergedRange": "B15:D15",
+      "mergedParent": "B15",
+      "formulaExpected": "=B14*B12",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "plannedValue",
+      "label": "计划价值（Planned Value, PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "PV = 计划应完工比例 × BAC，表示按计划截至当前节点应完成的预算价值。",
+      "dependencies": [
+        "B14",
+        "B12"
+      ],
+      "style": {
+        "styleId": 26,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "D15",
+      "row": 15,
+      "column": "D",
+      "mergedRange": "B15:D15",
+      "mergedParent": "B15",
+      "formulaExpected": "=B14*B12",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "plannedValue",
+      "label": "计划价值（Planned Value, PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "PV = 计划应完工比例 × BAC，表示按计划截至当前节点应完成的预算价值。",
+      "dependencies": [
+        "B14",
+        "B12"
+      ],
+      "style": {
+        "styleId": 27,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "E15",
+      "row": 15,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "plannedValue_note",
+      "label": "计划价值（Planned Value, PV）说明",
+      "meaning": "注：自动生成，无需填写。",
+      "dependencies": [],
+      "style": {
+        "styleId": 5,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A16",
+      "row": 16,
+      "column": "A",
+      "mergedRange": "A16:A17",
+      "mergedParent": "A16",
+      "valueInTemplate": "实际完工小时数",
+      "role": "row_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "actualHours_label",
+      "label": "实际完工小时数",
+      "meaning": "实际完工小时数的行标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 17,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B16",
+      "row": 16,
+      "column": "B",
+      "valueInTemplate": "PM-AR已填报工时",
+      "role": "column_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "arHours[0].role",
+      "label": "PM-AR已填报工时",
+      "meaning": "PM在AR中已填报工时的列标题；小程序建议支持成员数组，而不是固定2名组员。",
+      "dependencies": [],
+      "style": {
+        "styleId": 6,
+        "fillColor": null,
+        "styleMeaning": "no_fill",
+        "numberFormatId": "9"
+      },
+      "issues": []
+    },
+    {
+      "address": "C16",
+      "row": 16,
+      "column": "C",
+      "valueInTemplate": "组员1-AR已填报工时",
+      "role": "column_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "arHours[1].role",
+      "label": "组员1-AR已填报工时",
+      "meaning": "组员1在AR中已填报工时的列标题；小程序建议支持成员数组，而不是固定2名组员。",
+      "dependencies": [],
+      "style": {
+        "styleId": 6,
+        "fillColor": null,
+        "styleMeaning": "no_fill",
+        "numberFormatId": "9"
+      },
+      "issues": []
+    },
+    {
+      "address": "D16",
+      "row": 16,
+      "column": "D",
+      "valueInTemplate": "组员2-AR已填报工时",
+      "role": "column_header",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "arHours[2].role",
+      "label": "组员2-AR已填报工时",
+      "meaning": "组员2在AR中已填报工时的列标题；小程序建议支持成员数组，而不是固定2名组员。",
+      "dependencies": [],
+      "style": {
+        "styleId": 6,
+        "fillColor": null,
+        "styleMeaning": "no_fill",
+        "numberFormatId": "9"
+      },
+      "issues": []
+    },
+    {
+      "address": "E16",
+      "row": 16,
+      "column": "E",
+      "mergedRange": "E16:E17",
+      "mergedParent": "E16",
+      "valueInTemplate": "截止到当月19号，AR里的所有项目组成员关于本项目的工时加总=(billable time+project time+travel time)；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "actualHours_note",
+      "label": "实际完工小时数填写说明",
+      "meaning": "截止到当月19号，AR里的所有项目组成员关于本项目的工时加总=(billable time+project time+travel time)。",
+      "dependencies": [],
+      "style": {
+        "styleId": 19,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A17",
+      "row": 17,
+      "column": "A",
+      "mergedRange": "A16:A17",
+      "mergedParent": "A16",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "actualHours_label",
+      "label": "实际完工小时数",
+      "meaning": "实际完工小时数的行标题。",
+      "dependencies": [],
+      "style": {
+        "styleId": 18,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B17",
+      "row": 17,
+      "column": "B",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input_or_ar_data",
+      "fieldKey": "arHours[0].hours",
+      "label": "PM-AR已填报工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "截止每月19日，AR里对应项目成员关于本项目的工时合计，口径为 billable time + project time + travel time。",
+      "dependencies": [],
+      "style": {
+        "styleId": 9,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "1"
+      },
+      "issues": []
+    },
+    {
+      "address": "C17",
+      "row": 17,
+      "column": "C",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input_or_ar_data",
+      "fieldKey": "arHours[1].hours",
+      "label": "组员1-AR已填报工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "截止每月19日，AR里对应项目成员关于本项目的工时合计，口径为 billable time + project time + travel time。",
+      "dependencies": [],
+      "style": {
+        "styleId": 9,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "1"
+      },
+      "issues": []
+    },
+    {
+      "address": "D17",
+      "row": 17,
+      "column": "D",
+      "role": "field",
+      "inputMode": "user_input",
+      "sourceType": "pm_input_or_ar_data",
+      "fieldKey": "arHours[2].hours",
+      "label": "组员2-AR已填报工时",
+      "dataType": "number",
+      "unit": "hour",
+      "required": false,
+      "meaning": "截止每月19日，AR里对应项目成员关于本项目的工时合计，口径为 billable time + project time + travel time。",
+      "dependencies": [],
+      "style": {
+        "styleId": 9,
+        "fillColor": "FFA3DBFF",
+        "styleMeaning": "blue_user_input_style",
+        "numberFormatId": "1"
+      },
+      "issues": []
+    },
+    {
+      "address": "E17",
+      "row": 17,
+      "column": "E",
+      "mergedRange": "E16:E17",
+      "mergedParent": "E16",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "actualHours_note",
+      "label": "实际完工小时数填写说明",
+      "meaning": "截止到当月19号，AR里的所有项目组成员关于本项目的工时加总=(billable time+project time+travel time)。",
+      "dependencies": [],
+      "style": {
+        "styleId": 20,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A18",
+      "row": 18,
+      "column": "A",
+      "valueInTemplate": "实际完工的比例（%）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "actualCompletionRatio_label",
+      "label": "实际完工的比例（%）",
+      "meaning": "实际完工的比例（%）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B18",
+      "row": 18,
+      "column": "B",
+      "mergedRange": "B18:D18",
+      "mergedParent": "B18",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=SUM(B17:D17)/SUM(B9:D9)",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "actualCompletionRatio",
+      "label": "实际完工的比例（%）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "实际完工比例 = AR已填报实际工时合计 / 预算总工时合计。",
+      "dependencies": [
+        "B17:D17",
+        "B9:D9"
+      ],
+      "style": {
+        "styleId": 13,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C18",
+      "row": 18,
+      "column": "C",
+      "mergedRange": "B18:D18",
+      "mergedParent": "B18",
+      "formulaExpected": "=SUM(B17:D17)/SUM(B9:D9)",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "actualCompletionRatio",
+      "label": "实际完工的比例（%）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "实际完工比例 = AR已填报实际工时合计 / 预算总工时合计。",
+      "dependencies": [
+        "B17:D17",
+        "B9:D9"
+      ],
+      "style": {
+        "styleId": 14,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D18",
+      "row": 18,
+      "column": "D",
+      "mergedRange": "B18:D18",
+      "mergedParent": "B18",
+      "formulaExpected": "=SUM(B17:D17)/SUM(B9:D9)",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "actualCompletionRatio",
+      "label": "实际完工的比例（%）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "实际完工比例 = AR已填报实际工时合计 / 预算总工时合计。",
+      "dependencies": [
+        "B17:D17",
+        "B9:D9"
+      ],
+      "style": {
+        "styleId": 21,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E18",
+      "row": 18,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "actualCompletionRatio_note",
+      "label": "实际完工的比例（%）说明",
+      "meaning": "注：自动生成，无需填写。",
+      "dependencies": [],
+      "style": {
+        "styleId": 5,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A19",
+      "row": 19,
+      "column": "A",
+      "valueInTemplate": "挣值（Earned Value, EV）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "earnedValue_label",
+      "label": "挣值（Earned Value, EV）",
+      "meaning": "挣值（Earned Value, EV）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 7,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B19",
+      "row": 19,
+      "column": "B",
+      "mergedRange": "B19:D19",
+      "mergedParent": "B19",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=B18*B12",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "earnedValue",
+      "label": "挣值（Earned Value, EV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "EV = 实际完工比例 × BAC，表示按实际完成进度折算的挣值。",
+      "dependencies": [
+        "B18",
+        "B12"
+      ],
+      "style": {
+        "styleId": 22,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C19",
+      "row": 19,
+      "column": "C",
+      "mergedRange": "B19:D19",
+      "mergedParent": "B19",
+      "formulaExpected": "=B18*B12",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "earnedValue",
+      "label": "挣值（Earned Value, EV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "EV = 实际完工比例 × BAC，表示按实际完成进度折算的挣值。",
+      "dependencies": [
+        "B18",
+        "B12"
+      ],
+      "style": {
+        "styleId": 23,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": []
+    },
+    {
+      "address": "D19",
+      "row": 19,
+      "column": "D",
+      "mergedRange": "B19:D19",
+      "mergedParent": "B19",
+      "formulaExpected": "=B18*B12",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "earnedValue",
+      "label": "挣值（Earned Value, EV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "EV = 实际完工比例 × BAC，表示按实际完成进度折算的挣值。",
+      "dependencies": [
+        "B18",
+        "B12"
+      ],
+      "style": {
+        "styleId": 24,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": []
+    },
+    {
+      "address": "E19",
+      "row": 19,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "earnedValue_note",
+      "label": "挣值（Earned Value, EV）说明",
+      "meaning": "注：自动生成，无需填写。",
+      "dependencies": [],
+      "style": {
+        "styleId": 5,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A20",
+      "row": 20,
+      "column": "A",
+      "valueInTemplate": "项目组的实际成本（Actual Cost, AC）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "actualCost_label",
+      "label": "项目组的实际成本（Actual Cost, AC）",
+      "meaning": "项目组的实际成本（Actual Cost, AC）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 7,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B20",
+      "row": 20,
+      "column": "B",
+      "mergedRange": "B20:D20",
+      "mergedParent": "B20",
+      "valueInTemplate": 0,
+      "formulaInTemplate": "=SUM(B17:D17)/8*5000",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "actualCost",
+      "label": "项目组的实际成本（Actual Cost, AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "AC = AR实际工时合计 ÷ 8 × 内部人天成本5000元。",
+      "dependencies": [
+        "B17:D17"
+      ],
+      "style": {
+        "styleId": 25,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "C20",
+      "row": 20,
+      "column": "C",
+      "mergedRange": "B20:D20",
+      "mergedParent": "B20",
+      "formulaExpected": "=SUM(B17:D17)/8*5000",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "actualCost",
+      "label": "项目组的实际成本（Actual Cost, AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "AC = AR实际工时合计 ÷ 8 × 内部人天成本5000元。",
+      "dependencies": [
+        "B17:D17"
+      ],
+      "style": {
+        "styleId": 26,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "D20",
+      "row": 20,
+      "column": "D",
+      "mergedRange": "B20:D20",
+      "mergedParent": "B20",
+      "formulaExpected": "=SUM(B17:D17)/8*5000",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "actualCost",
+      "label": "项目组的实际成本（Actual Cost, AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "AC = AR实际工时合计 ÷ 8 × 内部人天成本5000元。",
+      "dependencies": [
+        "B17:D17"
+      ],
+      "style": {
+        "styleId": 27,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "164"
+      },
+      "issues": []
+    },
+    {
+      "address": "E20",
+      "row": 20,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。“人天单价”我们公司内部定义的人天单价，用50万÷当月ESG部门的人数，暂且都用固定使用5000；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "actualCost_note",
+      "label": "项目组的实际成本（Actual Cost, AC）说明",
+      "meaning": "注：自动生成，无需填写。内部人天单价按5000元/人天暂定。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A21",
+      "row": 21,
+      "column": "A",
+      "valueInTemplate": "成本偏差（CV = EV - AC）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "costVariance_label",
+      "label": "成本偏差（CV = EV - AC）",
+      "meaning": "成本偏差（CV = EV - AC）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B21",
+      "row": 21,
+      "column": "B",
+      "mergedRange": "B21:D21",
+      "mergedParent": "B21",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=B19-B20",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "costVariance",
+      "label": "成本偏差（CV = EV - AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "CV = EV - AC；小于0表示成本超支/亏损风险。",
+      "dependencies": [
+        "B19",
+        "B20"
+      ],
+      "style": {
+        "styleId": 28,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "2"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C21",
+      "row": 21,
+      "column": "C",
+      "mergedRange": "B21:D21",
+      "mergedParent": "B21",
+      "formulaExpected": "=B19-B20",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "costVariance",
+      "label": "成本偏差（CV = EV - AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "CV = EV - AC；小于0表示成本超支/亏损风险。",
+      "dependencies": [
+        "B19",
+        "B20"
+      ],
+      "style": {
+        "styleId": 29,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "2"
+      },
+      "issues": []
+    },
+    {
+      "address": "D21",
+      "row": 21,
+      "column": "D",
+      "mergedRange": "B21:D21",
+      "mergedParent": "B21",
+      "formulaExpected": "=B19-B20",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "costVariance",
+      "label": "成本偏差（CV = EV - AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "CV = EV - AC；小于0表示成本超支/亏损风险。",
+      "dependencies": [
+        "B19",
+        "B20"
+      ],
+      "style": {
+        "styleId": 30,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "2"
+      },
+      "issues": []
+    },
+    {
+      "address": "E21",
+      "row": 21,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。衡量成本是否超支，＜0代表亏损了；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "costVariance_note",
+      "label": "成本偏差（CV = EV - AC）说明",
+      "meaning": "注：自动生成，无需填写。衡量成本是否超支，＜0代表亏损。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A22",
+      "row": 22,
+      "column": "A",
+      "valueInTemplate": "进度偏差（SV = EV - PV）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "scheduleVariance_label",
+      "label": "进度偏差（SV = EV - PV）",
+      "meaning": "进度偏差（SV = EV - PV）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B22",
+      "row": 22,
+      "column": "B",
+      "mergedRange": "B22:D22",
+      "mergedParent": "B22",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=B19-B15",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "scheduleVariance",
+      "label": "进度偏差（SV = EV - PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "SV = EV - PV；小于0表示进度落后。",
+      "dependencies": [
+        "B19",
+        "B15"
+      ],
+      "style": {
+        "styleId": 13,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "9"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C22",
+      "row": 22,
+      "column": "C",
+      "mergedRange": "B22:D22",
+      "mergedParent": "B22",
+      "formulaExpected": "=B19-B15",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "scheduleVariance",
+      "label": "进度偏差（SV = EV - PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "SV = EV - PV；小于0表示进度落后。",
+      "dependencies": [
+        "B19",
+        "B15"
+      ],
+      "style": {
+        "styleId": 14,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D22",
+      "row": 22,
+      "column": "D",
+      "mergedRange": "B22:D22",
+      "mergedParent": "B22",
+      "formulaExpected": "=B19-B15",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "scheduleVariance",
+      "label": "进度偏差（SV = EV - PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "SV = EV - PV；小于0表示进度落后。",
+      "dependencies": [
+        "B19",
+        "B15"
+      ],
+      "style": {
+        "styleId": 15,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E22",
+      "row": 22,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。衡量进度是否落后或超前，＜0就能看出滞后了；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "scheduleVariance_note",
+      "label": "进度偏差（SV = EV - PV）说明",
+      "meaning": "注：自动生成，无需填写。衡量进度是否落后或超前，＜0代表滞后。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A23",
+      "row": 23,
+      "column": "A",
+      "valueInTemplate": "成本绩效（CPI = EV / AC）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "costPerformanceIndex_label",
+      "label": "成本绩效（CPI = EV / AC）",
+      "meaning": "成本绩效（CPI = EV / AC）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B23",
+      "row": 23,
+      "column": "B",
+      "mergedRange": "B23:D23",
+      "mergedParent": "B23",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=B19/B20",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "costPerformanceIndex",
+      "label": "成本绩效（CPI = EV / AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "CPI = EV / AC；大于1表示成本绩效较好/盈利。",
+      "dependencies": [
+        "B19",
+        "B20"
+      ],
+      "style": {
+        "styleId": 16,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C23",
+      "row": 23,
+      "column": "C",
+      "mergedRange": "B23:D23",
+      "mergedParent": "B23",
+      "formulaExpected": "=B19/B20",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "costPerformanceIndex",
+      "label": "成本绩效（CPI = EV / AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "CPI = EV / AC；大于1表示成本绩效较好/盈利。",
+      "dependencies": [
+        "B19",
+        "B20"
+      ],
+      "style": {
+        "styleId": 14,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D23",
+      "row": 23,
+      "column": "D",
+      "mergedRange": "B23:D23",
+      "mergedParent": "B23",
+      "formulaExpected": "=B19/B20",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "costPerformanceIndex",
+      "label": "成本绩效（CPI = EV / AC）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "CPI = EV / AC；大于1表示成本绩效较好/盈利。",
+      "dependencies": [
+        "B19",
+        "B20"
+      ],
+      "style": {
+        "styleId": 15,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E23",
+      "row": 23,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。CPI > 1 表示是盈利的；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "costPerformanceIndex_note",
+      "label": "成本绩效（CPI = EV / AC）说明",
+      "meaning": "注：自动生成，无需填写。CPI > 1 表示盈利/成本绩效较好。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "A24",
+      "row": 24,
+      "column": "A",
+      "valueInTemplate": "进度绩效（SPI = EV / PV）",
+      "role": "label",
+      "inputMode": "locked",
+      "sourceType": "label",
+      "fieldKey": "schedulePerformanceIndex_label",
+      "label": "进度绩效（SPI = EV / PV）",
+      "meaning": "进度绩效（SPI = EV / PV）字段标签。",
+      "dependencies": [],
+      "style": {
+        "styleId": 2,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "B24",
+      "row": 24,
+      "column": "B",
+      "mergedRange": "B24:D24",
+      "mergedParent": "B24",
+      "valueInTemplate": "#DIV/0!",
+      "formulaInTemplate": "=B19/B15",
+      "role": "calculated_field",
+      "inputMode": "auto_calculated",
+      "sourceType": "formula",
+      "fieldKey": "schedulePerformanceIndex",
+      "label": "进度绩效（SPI = EV / PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "SPI = EV / PV；大于1表示进度超前。",
+      "dependencies": [
+        "B19",
+        "B15"
+      ],
+      "style": {
+        "styleId": 16,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": [
+        "空白模板因分母为空显示除零错误；系统实现时建议在输入不足时返回null或0并提示缺少预算总工时。"
+      ]
+    },
+    {
+      "address": "C24",
+      "row": 24,
+      "column": "C",
+      "mergedRange": "B24:D24",
+      "mergedParent": "B24",
+      "formulaExpected": "=B19/B15",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "schedulePerformanceIndex",
+      "label": "进度绩效（SPI = EV / PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "SPI = EV / PV；大于1表示进度超前。",
+      "dependencies": [
+        "B19",
+        "B15"
+      ],
+      "style": {
+        "styleId": 14,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "D24",
+      "row": 24,
+      "column": "D",
+      "mergedRange": "B24:D24",
+      "mergedParent": "B24",
+      "formulaExpected": "=B19/B15",
+      "role": "merged_child",
+      "inputMode": "locked",
+      "sourceType": "merged_cell_child",
+      "fieldKey": "schedulePerformanceIndex",
+      "label": "进度绩效（SPI = EV / PV）",
+      "dataType": "number",
+      "required": false,
+      "meaning": "SPI = EV / PV；大于1表示进度超前。",
+      "dependencies": [
+        "B19",
+        "B15"
+      ],
+      "style": {
+        "styleId": 15,
+        "fillColor": "FF7CEB99",
+        "styleMeaning": "green_formula_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    },
+    {
+      "address": "E24",
+      "row": 24,
+      "column": "E",
+      "valueInTemplate": "注：自动生成，无需填写。SPI > 1 表示进度超前，没有滞后；",
+      "role": "note",
+      "inputMode": "locked",
+      "sourceType": "note",
+      "fieldKey": "schedulePerformanceIndex_note",
+      "label": "进度绩效（SPI = EV / PV）说明",
+      "meaning": "注：自动生成，无需填写。SPI > 1 表示进度超前。",
+      "dependencies": [],
+      "style": {
+        "styleId": 4,
+        "fillColor": "FFFFFFFF",
+        "styleMeaning": "white_normal_style",
+        "numberFormatId": "0"
+      },
+      "issues": []
+    }
+  ],
+  "recommendedDataModelForMiniProgram": {
+    "project": {
+      "customerName": "",
+      "projectNo": "",
+      "startDate": "",
+      "endDate": "",
+      "projectManager": "",
+      "projectMembers": []
+    },
+    "budget": {
+      "subProjects": [
+        {
+          "name": "子项目1",
+          "budgetHours": null,
+          "budgetLaborUnitPrice": null,
+          "plannedCompletedHours": null
+        }
+      ],
+      "travelFee": null,
+      "bac": "auto"
+    },
+    "actual": {
+      "arHours": [
+        {
+          "memberName": "PM",
+          "hours": null
+        }
+      ],
+      "actualCompletionRatio": "auto",
+      "earnedValue": "auto",
+      "actualCost": "auto"
+    },
+    "performance": {
+      "plannedCompletionRatio": "auto",
+      "plannedValue": "auto",
+      "costVariance": "auto",
+      "scheduleVariance": "auto",
+      "cpi": "auto",
+      "spi": "auto"
+    },
+    "constants": {
+      "hoursPerDay": 8,
+      "internalPersonDayCost": 5000
+    },
+    "implementationNotes": [
+      "不要把Excel中的B/C/D固定列直接搬进数据库，子项目和成员建议用数组结构。",
+      "公式单元格前端应只读，后端统一重算，避免多人协作时公式被覆盖。",
+      "除法类指标在分母为空或为0时返回null，并提示缺少基础输入，避免出现#DIV/0!。"
+    ]
+  },
+  "auditFindings": [
+    {
+      "severity": "high",
+      "cell": "B12:D12",
+      "finding": "正式空白表B12没有公式，但E12写明自动生成，示例表B12有公式；建议补回公式或在系统中后端自动计算。"
+    },
+    {
+      "severity": "medium",
+      "cell": "B12:D12 / B11:D11",
+      "finding": "示例表BAC公式只计算预算工时×人工天单价，没有加入差旅费B11；若项目总预算应包含差旅费，需要调整口径。"
+    },
+    {
+      "severity": "medium",
+      "cell": "B12:D12",
+      "finding": "B12:D12使用蓝色输入样式，但业务说明为自动生成；颜色和权限逻辑不一致。"
+    },
+    {
+      "severity": "medium",
+      "cell": "B20:D20",
+      "finding": "AC公式硬编码内部人天成本5000元，建议在系统中做成可配置常量。"
+    },
+    {
+      "severity": "low",
+      "cell": "B14:D24",
+      "finding": "空白模板公式在未填写预算工时时显示#DIV/0!；小程序中建议做零分母保护。"
+    },
+    {
+      "severity": "low",
+      "cell": "B8:D10 / B16:D17",
+      "finding": "模板固定3个子项目和PM+2个组员，实际项目可能更多；系统设计建议支持动态增删。"
+    }
+  ]
+}

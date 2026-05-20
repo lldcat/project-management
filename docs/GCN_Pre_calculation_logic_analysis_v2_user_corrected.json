@@ -1,0 +1,6172 @@
+{
+  "document_type": "excel_logic_analysis_json",
+  "source_file": "GCN Pre calculation Sheet Template V202602-ESG_示例.xlsx",
+  "generated_at_local_time": "2026-05-15 17:04:32",
+  "workbook_metadata": {
+    "creator": "yu-cr",
+    "last_modified_by": "Wang, Irene",
+    "created_utc": "2013-03-08T03:09:38Z",
+    "modified_utc": "2026-05-13T08:30:27Z",
+    "calculation_property": {
+      "calcId": "191028"
+    },
+    "formula_error_scan": "No #REF!, #DIV/0!, #VALUE!, #NAME?, #N/A matched in inspected cells.",
+    "external_links": [
+      {
+        "relationship_file": "xl/externalLinks/_rels/externalLink1.xml.rels",
+        "target": "file:///\\\\Scncann01002.cn001.itgr.net\\rf-unitap1\\Controlling\\2021\\5a Lab costing\\EV BAT lab\\202104\\MASTER_Machine Hour_Calculation Template_Plan 2021_41701331_20210426.xlsx",
+        "target_mode": "External"
+      },
+      {
+        "relationship_file": "xl/externalLinks/_rels/externalLink2.xml.rels",
+        "target": "file:///D:\\backup 1107\\Documents\\2011\\Template-Inv plan\\From HQ\\updated Nov 2012\\pro-con-tool-v2.xlsm",
+        "target_mode": "External"
+      },
+      {
+        "relationship_file": "xl/externalLinks/_rels/externalLink3.xml.rels",
+        "target": "file:///D:\\Tuev\\Profile\\yu-cr\\Documents\\TUV SUD - Christina YU\\Controlling\\Investment\\2013\\Template\\pro-con-tool.xlsm",
+        "target_mode": "External"
+      }
+    ],
+    "sheets": [
+      {
+        "name": "Instruction",
+        "dimension": "A6:L66",
+        "cell_count_nonempty_or_formula": 43,
+        "formula_count": 0,
+        "merged_ranges": [
+          "B65:L66",
+          "B40:L42",
+          "B12:L13",
+          "B61:L62",
+          "B26:L26",
+          "B27:L27",
+          "B45:L53",
+          "B28:L28",
+          "B33:L33",
+          "B35:L35",
+          "B36:L36"
+        ],
+        "data_validation_count": 0
+      },
+      {
+        "name": "Instruction_AUD",
+        "dimension": "A3:C18",
+        "cell_count_nonempty_or_formula": 30,
+        "formula_count": 0,
+        "merged_ranges": [],
+        "data_validation_count": 0
+      },
+      {
+        "name": "AUD Pre-cal",
+        "dimension": "A1:X65",
+        "cell_count_nonempty_or_formula": 337,
+        "formula_count": 216,
+        "merged_ranges": [
+          "B35:H35",
+          "W1:W3",
+          "V1:V3",
+          "P1:P3",
+          "Q1:Q3",
+          "R1:R3",
+          "S1:S3",
+          "T1:T3",
+          "U1:U3"
+        ],
+        "data_validation_count": 2
+      },
+      {
+        "name": "P&L",
+        "dimension": "A1:G76",
+        "cell_count_nonempty_or_formula": 354,
+        "formula_count": 110,
+        "merged_ranges": [
+          "A9:B9",
+          "A13:A14"
+        ],
+        "data_validation_count": 0
+      },
+      {
+        "name": "Hourly Rate",
+        "dimension": "A1:K23",
+        "cell_count_nonempty_or_formula": 161,
+        "formula_count": 0,
+        "merged_ranges": [
+          "A7:B7",
+          "A10:B10"
+        ],
+        "data_validation_count": 0
+      },
+      {
+        "name": "Mapping",
+        "dimension": "A1:G26",
+        "cell_count_nonempty_or_formula": 164,
+        "formula_count": 0,
+        "merged_ranges": [],
+        "data_validation_count": 0
+      }
+    ]
+  },
+  "overall_purpose_cn": "该工作簿用于项目报价阶段的订单盈利性预计算。核心目标是在签约/报价前基于订单金额、人天、分包费用、内部人工成本、间接分摊成本等，模拟 Result of order、RO Margin、Operating Result、Operating Margin，并与计划利润率进行比较。",
+  "calculation_engine_requirements": [
+    "本 JSON 为 v2_user_corrected：已根据用户确认修正 AUD Pre-cal!V5 的目标公式，并按公式确认 D13:H13 的差旅 MD 逻辑。源 Excel 文件本身未在本 JSON 生成过程中修改。",
+    "使用 XLOOKUP/VLOOKUP/SUMPRODUCT 等公式；旧版 Excel 可能不支持 XLOOKUP（XML 中显示为 _xlfn.XLOOKUP）。",
+    "JSON 中的 current_cached_value 来自工作簿缓存值，未重新计算 Excel 公式。",
+    "蓝色区域一般代表可输入或可调整区域；其中部分蓝色单元格本身带默认公式，业务上可能允许人工覆盖。"
+  ],
+  "data_flow_cn": [
+    "Instruction / Instruction_AUD 提供使用说明和 AUD 服务类别映射。",
+    "Mapping 提供 P&L 科目到 prorata/分摊基础的映射。",
+    "P&L 读取预算 P&L 数据，并通过 Mapping 计算替代分摊成本比例、计划 OR% 等。",
+    "Hourly Rate 提供不同 Profit Center / Skillgroup 的小时费率与 CtC 数据。",
+    "AUD Pre-cal 是主计算表：录入客户、服务类别、订单中心、订单金额、人天和分包成本；从 P&L / Hourly Rate 取费率和计划指标；输出 RO、RO Margin、Overhead、Operating Result、Operating Margin，并做 70%/80% Productivity 情景测算。"
+  ],
+  "primary_backend_formula_spec_cn": {
+    "entities": {
+      "project": [
+        "customerName",
+        "service",
+        "serviceCode",
+        "totalOrderValue",
+        "plannedMargin"
+      ],
+      "line_item": [
+        "productColumn",
+        "orderCreateCenter",
+        "productDescription",
+        "orderValue",
+        "onsiteMD",
+        "offsiteMD",
+        "quotationMD",
+        "travelMD",
+        "subcontractingExt",
+        "subcontractingIC",
+        "internalSubcon",
+        "otherProjectCosts"
+      ],
+      "rate_source": [
+        "hourlyRate",
+        "hourlyAllocationCost",
+        "allocationCostExternalSalesRatio",
+        "allocationCostICSalesRatio",
+        "plannedMarginPercent"
+      ]
+    },
+    "core_rules": [
+      {
+        "name": "service_code_lookup",
+        "excel_location": "AUD Pre-cal!D3",
+        "excel_formula": "IFERROR(XLOOKUP(C3,P4:P5,Q4:Q5),\"\")",
+        "backend_logic": "serviceCode = serviceLookup[service].center_service_code"
+      },
+      {
+        "name": "order_total",
+        "excel_location": "AUD Pre-cal!C9",
+        "excel_formula": "SUM(D9:H9)",
+        "backend_logic": "totalOrderValue = sum(lineItem.orderValue)"
+      },
+      {
+        "name": "quotation_md_default_allocation",
+        "excel_location": "AUD Pre-cal!D12:H12",
+        "excel_formula": "IF(productOrderValue>0, 0.5*productOrderValue/totalOrderValue, 0)",
+        "backend_logic": "quotationMD is allocated from a default 0.5 MD by each product/order value share; user may override."
+      },
+      {
+        "name": "travel_md_default",
+        "excel_location": "AUD Pre-cal!D13:H13",
+        "excel_formula": "onsiteMD*0.1",
+        "backend_logic": "travelMD = onsiteMD * 10%。本版按用户确认以公式为准；Excel 行名中的 “20% of Quotation MD” 不作为计算逻辑。",
+        "user_confirmed_logic": true,
+        "original_workbook_label_note": "原表行名为 “MD for Travel (20% of Quotation MD)”，但计算应按 D10:H10 * 0.1。"
+      },
+      {
+        "name": "total_md_and_hours",
+        "excel_location": "AUD Pre-cal!D14:H16",
+        "excel_formula": "totalMD = onsiteMD + quotationMD + travelMD + offsiteMD; hours = totalMD*8",
+        "backend_logic": "totalMD and hours are calculated per product line, then summed in column C."
+      },
+      {
+        "name": "net_sales",
+        "excel_location": "AUD Pre-cal!D24:H24",
+        "excel_formula": "orderValue - SUM(subcontractingExt, subcontractingIC, internalSubcon)",
+        "backend_logic": "netSales = orderValue - subcontracting costs directly assigned to the line item."
+      },
+      {
+        "name": "md_costs",
+        "excel_location": "AUD Pre-cal!D26:H26",
+        "excel_formula": "hours * hourlyRate",
+        "backend_logic": "mdCosts = lineHours * hourlyRate. In the current template, hourlyRate is selected by service code, not by each order create center."
+      },
+      {
+        "name": "result_of_order_and_margin",
+        "excel_location": "AUD Pre-cal!D27:H28 / C27:C28",
+        "excel_formula": "RO = netSales - otherProjectCosts - mdCosts; RO Margin = RO/orderValue",
+        "backend_logic": "RO and RO margin are calculated per line and for total."
+      },
+      {
+        "name": "allocation_cost_simulation",
+        "excel_location": "AUD Pre-cal!D41:H44",
+        "excel_formula": "allocationByExtSales = orderValue*allocationCostExternalSalesRatio; allocationByICSales = orderValue*ICSubconRate*allocationCostICSalesRatio; allocationByHour = hours*hourlyAllocationCost; simulation = if center=2160 then ext+IC-hour else ext-hour",
+        "backend_logic": "simulates overhead gap between sales-based allocation and hour-based allocation. Negative values are ignored in the final overhead row."
+      },
+      {
+        "name": "overhead_and_operating_margin",
+        "excel_location": "AUD Pre-cal!D29:H31 / C29:C31",
+        "excel_formula": "overhead=max(allocationCostSimulation,0); operatingResult = netSales - otherProjectCosts - mdCosts - overhead; operatingMargin=operatingResult/orderValue",
+        "backend_logic": "overhead is added only when allocation simulation is positive."
+      },
+      {
+        "name": "planned_margin_comparison",
+        "excel_location": "AUD Pre-cal!C32/C55/C65",
+        "excel_formula": "VLOOKUP(serviceCode, Q4:S5, 3, 0)/100",
+        "backend_logic": "plannedMarginDecimal = plannedMarginPercentFromP&L / 100."
+      },
+      {
+        "name": "productivity_scenarios",
+        "excel_location": "AUD Pre-cal!Rows 48-65",
+        "excel_formula": "scenario MD costs use hard-coded scenario hourly rates in D48:H48 and D58:H58; downstream formulas mirror base-case RO/Operating calculations.",
+        "backend_logic": "70%/80% productivity scenarios recalculate mdCosts, RO, RO margin, operating result and operating margin using scenario rates."
+      }
+    ]
+  },
+  "sheets_detail": {
+    "Instruction": {
+      "role_cn": "使用说明页，说明预计算表的目的、适用门槛、部门和 Controller 分工、人工成本、分包成本、分摊成本模拟逻辑和签批要求。",
+      "important_points_cn": [
+        "订单金额达到指定门槛时需要准备预计算表。",
+        "蓝色区域为输入区域。",
+        "人工成本 = 自有员工工时 * 小时成本率。",
+        "分摊成本模拟用于补足按小时分摊低于按销售分摊的差额。"
+      ]
+    },
+    "Instruction_AUD": {
+      "role_cn": "AUD 服务收入类别映射表，指明具体项目服务属于 CSR 还是 ESG。",
+      "service_category_mapping": [
+        {
+          "sales_revenue": "WRAP",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "SA8000",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "BSCI",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "CoC",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "SEDEX",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "RBA",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "ESG",
+          "category": "ESG"
+        },
+        {
+          "sales_revenue": "CDP",
+          "category": "ESG"
+        },
+        {
+          "sales_revenue": "GRS",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "ASI",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "BEPI",
+          "category": "CSR"
+        },
+        {
+          "sales_revenue": "RSCI",
+          "category": "CSR"
+        }
+      ]
+    },
+    "AUD Pre-cal": {
+      "role_cn": "核心项目预计算表。",
+      "input_fields_blue_area": [
+        {
+          "cell": "C2",
+          "row_label": "Customer Name",
+          "column_context": "ESG",
+          "current_value": "XXX",
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D2",
+          "row_label": "Customer Name",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E2",
+          "row_label": "Customer Name",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F2",
+          "row_label": "Customer Name",
+          "column_context": "咨询",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G2",
+          "row_label": "Customer Name",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H2",
+          "row_label": "Customer Name",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "C3",
+          "row_label": "Service",
+          "column_context": "ESG",
+          "current_value": "ESG",
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D4",
+          "row_label": "Order create Center",
+          "column_context": "报告",
+          "current_value": "2160",
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E4",
+          "row_label": "Order create Center",
+          "column_context": "鉴证",
+          "current_value": "4820",
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F4",
+          "row_label": "Order create Center",
+          "column_context": "咨询",
+          "current_value": "2160",
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G4",
+          "row_label": "Order create Center",
+          "column_context": "审核",
+          "current_value": "4820",
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H4",
+          "row_label": "Order create Center",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D7",
+          "row_label": "Service/Product (Description)",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E7",
+          "row_label": "Service/Product (Description)",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F7",
+          "row_label": "Service/Product (Description)",
+          "column_context": "咨询",
+          "current_value": "供应链尽职调查",
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G7",
+          "row_label": "Service/Product (Description)",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H7",
+          "row_label": "Service/Product (Description)",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D9",
+          "row_label": "Order Value",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E9",
+          "row_label": "Order Value",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F9",
+          "row_label": "Order Value",
+          "column_context": "咨询",
+          "current_value": 138000,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G9",
+          "row_label": "Order Value",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D10",
+          "row_label": "MD for onsite",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E10",
+          "row_label": "MD for onsite",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F10",
+          "row_label": "MD for onsite",
+          "column_context": "咨询",
+          "current_value": 4,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G10",
+          "row_label": "MD for onsite",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D11",
+          "row_label": "MD for offsite",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E11",
+          "row_label": "MD for offsite",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F11",
+          "row_label": "MD for offsite",
+          "column_context": "咨询",
+          "current_value": 10,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G11",
+          "row_label": "MD for offsite",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D12",
+          "row_label": "MD for Quotation Phase",
+          "column_context": "报告",
+          "current_value": 0,
+          "formula": "IF(D9>0,0.5*D$9/$C$9,0)",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "E12",
+          "row_label": "MD for Quotation Phase",
+          "column_context": "鉴证",
+          "current_value": 0,
+          "formula": "IF(E9>0,0.5*E$9/$C$9,0)",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "F12",
+          "row_label": "MD for Quotation Phase",
+          "column_context": "咨询",
+          "current_value": 0.5,
+          "formula": "IF(F9>0,0.5*F$9/$C$9,0)",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "G12",
+          "row_label": "MD for Quotation Phase",
+          "column_context": "审核",
+          "current_value": 0,
+          "formula": "IF(G9>0,0.5*G$9/$C$9,0)",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "H12",
+          "row_label": "MD for Quotation Phase",
+          "column_context": "Product 5",
+          "current_value": 0,
+          "formula": "IF(H9>0,0.5*H$9/$C$9,0)",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "D13",
+          "row_label": "MD for Travel (20% of Quotation MD)",
+          "column_context": "报告",
+          "current_value": 0,
+          "formula": "D10*0.1",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "E13",
+          "row_label": "MD for Travel (20% of Quotation MD)",
+          "column_context": "鉴证",
+          "current_value": 0,
+          "formula": "E10*0.1",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "F13",
+          "row_label": "MD for Travel (20% of Quotation MD)",
+          "column_context": "咨询",
+          "current_value": 0.4,
+          "formula": "F10*0.1",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "G13",
+          "row_label": "MD for Travel (20% of Quotation MD)",
+          "column_context": "审核",
+          "current_value": 0,
+          "formula": "G10*0.1",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "H13",
+          "row_label": "MD for Travel (20% of Quotation MD)",
+          "column_context": "Product 5",
+          "current_value": 0,
+          "formula": "H10*0.1",
+          "type": "editable_formula_default"
+        },
+        {
+          "cell": "D18",
+          "row_label": "Subcontracting ext.-翻译费",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E18",
+          "row_label": "Subcontracting ext.-翻译费",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F18",
+          "row_label": "Subcontracting ext.-翻译费",
+          "column_context": "咨询",
+          "current_value": 15000,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G18",
+          "row_label": "Subcontracting ext.-翻译费",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H18",
+          "row_label": "Subcontracting ext.-翻译费",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D19",
+          "row_label": "Subcontracting ext.-设计费",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E19",
+          "row_label": "Subcontracting ext.-设计费",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F19",
+          "row_label": "Subcontracting ext.-设计费",
+          "column_context": "咨询",
+          "current_value": 20000,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G19",
+          "row_label": "Subcontracting ext.-设计费",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H19",
+          "row_label": "Subcontracting ext.-设计费",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D20",
+          "row_label": "Subcontracting ext.-差旅费",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E20",
+          "row_label": "Subcontracting ext.-差旅费",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F20",
+          "row_label": "Subcontracting ext.-差旅费",
+          "column_context": "咨询",
+          "current_value": 5000,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G20",
+          "row_label": "Subcontracting ext.-差旅费",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D21",
+          "row_label": "Subcontracting ext.-Other",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E21",
+          "row_label": "Subcontracting ext.-Other",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F21",
+          "row_label": "Subcontracting ext.-Other",
+          "column_context": "咨询",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G21",
+          "row_label": "Subcontracting ext.-Other",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H21",
+          "row_label": "Subcontracting ext.-Other",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D22",
+          "row_label": "Subcontracting IC",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E22",
+          "row_label": "Subcontracting IC",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F22",
+          "row_label": "Subcontracting IC",
+          "column_context": "咨询",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G22",
+          "row_label": "Subcontracting IC",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H22",
+          "row_label": "Subcontracting IC",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D23",
+          "row_label": "internal subcon",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E23",
+          "row_label": "internal subcon",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F23",
+          "row_label": "internal subcon",
+          "column_context": "咨询",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G23",
+          "row_label": "internal subcon",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H23",
+          "row_label": "internal subcon",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D25",
+          "row_label": "Other project related costs",
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E25",
+          "row_label": "Other project related costs",
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F25",
+          "row_label": "Other project related costs",
+          "column_context": "咨询",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G25",
+          "row_label": "Other project related costs",
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H25",
+          "row_label": "Other project related costs",
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "B35",
+          "row_label": null,
+          "column_context": "Order create Center",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "C35",
+          "row_label": null,
+          "column_context": "ESG",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "D35",
+          "row_label": null,
+          "column_context": "报告",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "E35",
+          "row_label": null,
+          "column_context": "鉴证",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "F35",
+          "row_label": null,
+          "column_context": "咨询",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "G35",
+          "row_label": null,
+          "column_context": "审核",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        },
+        {
+          "cell": "H35",
+          "row_label": null,
+          "column_context": "Product 5",
+          "current_value": null,
+          "formula": null,
+          "type": "manual_input_or_blank"
+        }
+      ],
+      "data_validations": [
+        {
+          "target_range": "D4:H4",
+          "type": "list",
+          "source_range": "AUD Pre-cal!$P$6:$U$6",
+          "allowed_values": [
+            [
+              "1800",
+              "2160",
+              "4820",
+              "4830",
+              "4840",
+              "4850"
+            ]
+          ]
+        },
+        {
+          "target_range": "C3",
+          "type": "list",
+          "source_range": "AUD Pre-cal!$P$4:$P$5",
+          "allowed_values": [
+            "ESG",
+            "CSR"
+          ]
+        }
+      ],
+      "center_and_rate_lookup_table": [
+        {
+          "business_line": "ESG",
+          "center_service_code": "1350",
+          "hourly_rate": {
+            "cell": "R4",
+            "value": 681.98,
+            "formula": "'Hourly Rate'!F16"
+          },
+          "planned_margin_percent": {
+            "cell": "S4",
+            "value": 8.06211900503957,
+            "formula": "'P&L'!D65"
+          },
+          "allocation_cost_total_costs_ratio": {
+            "cell": "T4",
+            "value": 0.1255947752239753,
+            "formula": "'P&L'!D69"
+          },
+          "hourly_allocation_cost": {
+            "cell": "U4",
+            "value": 85.65312480724668,
+            "formula": "R4*T4"
+          },
+          "allocation_cost_external_sales_ratio": {
+            "cell": "V4",
+            "value": 0.09053186682359064,
+            "formula": "'P&L'!D68"
+          },
+          "allocation_cost_ic_sales_ratio": {
+            "cell": "W4",
+            "value": 0.03695998846020505,
+            "formula": "'P&L'!D71"
+          }
+        },
+        {
+          "business_line": "CSR",
+          "center_service_code": "1351",
+          "hourly_rate": {
+            "cell": "R5",
+            "value": 532.25,
+            "formula": "'Hourly Rate'!F17"
+          },
+          "planned_margin_percent": {
+            "cell": "S5",
+            "value": 2.848558499490884,
+            "formula": "'P&L'!E65"
+          },
+          "allocation_cost_total_costs_ratio": {
+            "cell": "T5",
+            "value": 0.13773451694205027,
+            "formula": "'P&L'!E69"
+          },
+          "hourly_allocation_cost": {
+            "cell": "U5",
+            "value": 73.30919664240626,
+            "formula": "R5*T5"
+          },
+          "allocation_cost_external_sales_ratio": {
+            "cell": "V5",
+            "value": 0.09596833090084642,
+            "formula": "'P&L'!E68",
+            "original_formula_in_workbook": "'P&L'!D69",
+            "original_cached_value_in_workbook": 0.1255947752239753,
+            "user_confirmed_correction": true,
+            "correction_note_cn": "用户确认 CSR 行 Alternative allocation cost / Ext. sales 应取 P&L!E68。"
+          },
+          "allocation_cost_ic_sales_ratio": {
+            "cell": "W5",
+            "value": 0.14867204776308413,
+            "formula": "'P&L'!E71"
+          }
+        }
+      ],
+      "allowed_order_create_centers": [
+        "1800",
+        "2160",
+        "4820",
+        "4830",
+        "4840",
+        "4850"
+      ],
+      "calculation_sections": [
+        {
+          "row": 3,
+          "label": "Service",
+          "values_by_column": {
+            "C": "ESG",
+            "D": "1350"
+          },
+          "formulas_by_column": {
+            "D": "IFERROR(_xlfn.XLOOKUP(C3,P4:P5,Q4:Q5),\"\")"
+          }
+        },
+        {
+          "row": 5,
+          "label": null,
+          "values_by_column": {
+            "D": "21601350",
+            "E": "48201350",
+            "F": "21601350",
+            "G": "48201350",
+            "H": "1350"
+          },
+          "formulas_by_column": {
+            "D": "D4&$D$3",
+            "E": "E4&$D$3",
+            "F": "F4&$D$3",
+            "G": "G4&$D$3",
+            "H": "H4&$D$3"
+          }
+        },
+        {
+          "row": 9,
+          "label": "Order Value",
+          "values_by_column": {
+            "C": 138000,
+            "F": 138000
+          },
+          "formulas_by_column": {
+            "C": "SUM(D9:H9)"
+          }
+        },
+        {
+          "row": 10,
+          "label": "MD for onsite",
+          "values_by_column": {
+            "C": 4,
+            "F": 4
+          },
+          "formulas_by_column": {
+            "C": "SUM(D10:H10)"
+          }
+        },
+        {
+          "row": 11,
+          "label": "MD for offsite",
+          "values_by_column": {
+            "C": 10,
+            "F": 10
+          },
+          "formulas_by_column": {
+            "C": "SUM(D11:H11)"
+          }
+        },
+        {
+          "row": 12,
+          "label": "MD for Quotation Phase",
+          "values_by_column": {
+            "C": 0.5,
+            "D": 0,
+            "E": 0,
+            "F": 0.5,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D12:H12)",
+            "D": "IF(D9>0,0.5*D$9/$C$9,0)",
+            "E": "IF(E9>0,0.5*E$9/$C$9,0)",
+            "F": "IF(F9>0,0.5*F$9/$C$9,0)",
+            "G": "IF(G9>0,0.5*G$9/$C$9,0)",
+            "H": "IF(H9>0,0.5*H$9/$C$9,0)"
+          }
+        },
+        {
+          "row": 13,
+          "label": "MD for Travel (20% of Quotation MD)",
+          "values_by_column": {
+            "C": 0.4,
+            "D": 0,
+            "E": 0,
+            "F": 0.4,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D13:H13)",
+            "D": "D10*0.1",
+            "E": "E10*0.1",
+            "F": "F10*0.1",
+            "G": "G10*0.1",
+            "H": "H10*0.1"
+          }
+        },
+        {
+          "row": 14,
+          "label": "Total MD",
+          "values_by_column": {
+            "C": 14.9,
+            "D": 0,
+            "E": 0,
+            "F": 14.9,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D14:H14)",
+            "D": "D10+D12+D13+D11",
+            "E": "E10+E12+E13+E11",
+            "F": "F10+F12+F13+F11",
+            "G": "G10+G12+G13+G11",
+            "H": "H10+H12+H13+H11"
+          }
+        },
+        {
+          "row": 15,
+          "label": "IC Subcon Rate",
+          "values_by_column": {
+            "D": 0.8,
+            "E": 0,
+            "F": 0.8,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "D": "IF(D$4=\"2160\",80%,0)",
+            "E": "IF(E$4=\"2160\",80%,0)",
+            "F": "IF(F$4=\"2160\",80%,0)",
+            "G": "IF(G$4=\"2160\",80%,0)",
+            "H": "IF(H$4=\"2160\",80%,0)"
+          }
+        },
+        {
+          "row": 16,
+          "label": "Hours",
+          "values_by_column": {
+            "C": 119.2,
+            "D": 0,
+            "E": 0,
+            "F": 119.2,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D16:H16)",
+            "D": "D14*8",
+            "E": "E14*8",
+            "F": "F14*8",
+            "G": "G14*8",
+            "H": "H14*8"
+          }
+        },
+        {
+          "row": 18,
+          "label": "Subcontracting ext.-翻译费",
+          "values_by_column": {
+            "C": 15000,
+            "F": 15000
+          },
+          "formulas_by_column": {
+            "C": "SUM(D18:H18)"
+          }
+        },
+        {
+          "row": 19,
+          "label": "Subcontracting ext.-设计费",
+          "values_by_column": {
+            "C": 20000,
+            "F": 20000
+          },
+          "formulas_by_column": {
+            "C": "SUM(D19:H19)"
+          }
+        },
+        {
+          "row": 20,
+          "label": "Subcontracting ext.-差旅费",
+          "values_by_column": {
+            "C": 5000,
+            "F": 5000
+          },
+          "formulas_by_column": {
+            "C": "SUM(D20:H20)"
+          }
+        },
+        {
+          "row": 21,
+          "label": "Subcontracting ext.-Other",
+          "values_by_column": {
+            "C": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D21:H21)"
+          }
+        },
+        {
+          "row": 22,
+          "label": "Subcontracting IC",
+          "values_by_column": {
+            "C": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D22:H22)"
+          }
+        },
+        {
+          "row": 23,
+          "label": "internal subcon",
+          "values_by_column": {
+            "C": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D23:H23)"
+          }
+        },
+        {
+          "row": 24,
+          "label": "Net Sales",
+          "values_by_column": {
+            "C": 98000,
+            "D": 0,
+            "E": 0,
+            "F": 98000,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D24:H24)",
+            "D": "D9-SUM(D18:D23)",
+            "E": "E9-SUM(E18:E23)",
+            "F": "F9-SUM(F18:F23)",
+            "G": "G9-SUM(G18:G23)",
+            "H": "H9-SUM(H18:H23)"
+          }
+        },
+        {
+          "row": 25,
+          "label": "Other project related costs",
+          "values_by_column": {
+            "C": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D25:H25)"
+          }
+        },
+        {
+          "row": 26,
+          "label": "MD Costs",
+          "values_by_column": {
+            "C": 81292.016,
+            "D": 0,
+            "E": 0,
+            "F": 81292.016,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D26:H26)",
+            "D": "D16*D37",
+            "E": "E16*E37",
+            "F": "F16*F37",
+            "G": "G16*G37",
+            "H": "H16*H37"
+          }
+        },
+        {
+          "row": 27,
+          "label": "Result of order (RO)",
+          "values_by_column": {
+            "C": 16707.983999999997,
+            "D": 0,
+            "E": 0,
+            "F": 16707.983999999997,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D27:H27)",
+            "D": "D24-D25-D26",
+            "E": "E24-E25-E26",
+            "F": "F24-F25-F26",
+            "G": "G24-G25-G26",
+            "H": "H24-H25-H26"
+          }
+        },
+        {
+          "row": 28,
+          "label": "RO-Margin %",
+          "values_by_column": {
+            "C": 0.12107234782608693,
+            "D": 0,
+            "E": 0,
+            "F": 0.12107234782608693,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(C27/C9,0)",
+            "D": "IFERROR(D27/D9,0)",
+            "E": "IFERROR(E27/E9,0)",
+            "F": "IFERROR(F27/F9,0)",
+            "G": "IFERROR(G27/G9,0)",
+            "H": "IFERROR(H27/H9,0)"
+          }
+        },
+        {
+          "row": 29,
+          "label": "Overhead",
+          "values_by_column": {
+            "C": 2283.545144631704,
+            "D": 0,
+            "E": 0,
+            "F": 2283.545144631704,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D29:H29)",
+            "D": "IF(D44<0,0,D44)",
+            "E": "IF(E44<0,0,E44)",
+            "F": "IF(F44<0,0,F44)",
+            "G": "IF(G44<0,0,G44)",
+            "H": "IF(H44<0,0,H44)"
+          }
+        },
+        {
+          "row": 30,
+          "label": "Operating Result",
+          "values_by_column": {
+            "C": 14424.438855368295,
+            "D": 0,
+            "E": 0,
+            "F": 14424.438855368295,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "C24-SUM(C25,C26,C29)",
+            "D": "D24-SUM(D25,D26,D29)",
+            "E": "E24-SUM(E25,E26,E29)",
+            "F": "F24-SUM(F25,F26,F29)",
+            "G": "G24-SUM(G25,G26,G29)",
+            "H": "H24-SUM(H25,H26,H29)"
+          }
+        },
+        {
+          "row": 31,
+          "label": "Operating Margin",
+          "values_by_column": {
+            "C": 0.10452491924179924,
+            "D": 0,
+            "E": 0,
+            "F": 0.10452491924179924,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(C30/(C9),0)",
+            "D": "IFERROR(D30/(D9),0)",
+            "E": "IFERROR(E30/(E9),0)",
+            "F": "IFERROR(F30/(F9),0)",
+            "G": "IFERROR(G30/(G9),0)",
+            "H": "IFERROR(H30/(H9),0)"
+          }
+        },
+        {
+          "row": 32,
+          "label": "Planned OR/Sales",
+          "values_by_column": {
+            "C": 0.0806211900503957
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(VLOOKUP($D$3,$Q$4:$S$5,3,0),0)/100"
+          }
+        },
+        {
+          "row": 33,
+          "label": "Subcontracing/Sales",
+          "values_by_column": {
+            "C": 0.2898550724637681,
+            "D": null,
+            "E": null,
+            "F": 0.2898550724637681,
+            "G": null,
+            "H": null
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(SUM(C18:C22)/C9,\"\")",
+            "D": "IFERROR(SUM(D18:D22)/D9,\"\")",
+            "E": "IFERROR(SUM(E18:E22)/E9,\"\")",
+            "F": "IFERROR(SUM(F18:F22)/F9,\"\")",
+            "G": "IFERROR(SUM(G18:G22)/G9,\"\")",
+            "H": "IFERROR(SUM(H18:H22)/H9,\"\")"
+          }
+        },
+        {
+          "row": 37,
+          "label": "Hourly Rate",
+          "values_by_column": {
+            "D": 681.98,
+            "E": 681.98,
+            "F": 681.98,
+            "G": 681.98,
+            "H": 681.98
+          },
+          "formulas_by_column": {
+            "D": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+            "E": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+            "F": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+            "G": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+            "H": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)"
+          }
+        },
+        {
+          "row": 38,
+          "label": "Hourly Rates / Allocation Costs",
+          "values_by_column": {
+            "D": 85.65312480724668,
+            "E": 85.65312480724668,
+            "F": 85.65312480724668,
+            "G": 85.65312480724668,
+            "H": 85.65312480724668
+          },
+          "formulas_by_column": {
+            "D": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+            "E": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+            "F": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+            "G": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+            "H": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)"
+          }
+        },
+        {
+          "row": 39,
+          "label": "Allocation cost / Ext. sales",
+          "values_by_column": {
+            "D": 0.09053186682359064,
+            "E": 0.09053186682359064,
+            "F": 0.09053186682359064,
+            "G": 0.09053186682359064,
+            "H": 0.09053186682359064
+          },
+          "formulas_by_column": {
+            "D": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+            "E": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+            "F": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+            "G": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+            "H": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)"
+          }
+        },
+        {
+          "row": 41,
+          "label": "Allocation cost by Ext. sales",
+          "values_by_column": {
+            "D": 0,
+            "E": 0,
+            "F": 12493.39762165551,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "D": "D9*D39",
+            "E": "E9*E39",
+            "F": "F9*F39",
+            "G": "G9*G39",
+            "H": "H9*H39"
+          }
+        },
+        {
+          "row": 42,
+          "label": "Allocation cost by IC sales",
+          "values_by_column": {
+            "D": 0,
+            "E": 0,
+            "F": 0,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "D": "D9*D15*D40",
+            "E": "E9*E15*E40",
+            "F": "F9*F15*F40",
+            "G": "G9*G15*G40",
+            "H": "H9*H15*H40"
+          }
+        },
+        {
+          "row": 43,
+          "label": "Allocation costs by hour",
+          "values_by_column": {
+            "D": 0,
+            "E": 0,
+            "F": 10209.852477023805,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "D": "D16*D38",
+            "E": "E16*E38",
+            "F": "F16*F38",
+            "G": "G16*G38",
+            "H": "H16*H38"
+          }
+        },
+        {
+          "row": 44,
+          "label": "Allocation cost simulation",
+          "values_by_column": {
+            "D": 0,
+            "E": 0,
+            "F": 2283.545144631704,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "D": "IF(D$4=\"2160\",D41+D42-D43,D41-D43)",
+            "E": "IF(E$4=\"2160\",E41+E42-E43,E41-E43)",
+            "F": "IF(F$4=\"2160\",F41+F42-F43,F41-F43)",
+            "G": "IF(G$4=\"2160\",G41+G42-G43,G41-G43)",
+            "H": "IF(H$4=\"2160\",H41+H42-H43,H41-H43)"
+          }
+        },
+        {
+          "row": 49,
+          "label": "MD Costs",
+          "values_by_column": {
+            "C": 68403.71066227043,
+            "D": 0,
+            "E": 0,
+            "F": 68403.71066227043,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D49:H49)",
+            "D": "D16*D48",
+            "E": "E16*E48",
+            "F": "F16*F48",
+            "G": "G16*G48",
+            "H": "H16*H48"
+          }
+        },
+        {
+          "row": 50,
+          "label": "Result of order (RO)",
+          "values_by_column": {
+            "C": 29596.28933772957,
+            "D": 0,
+            "E": 0,
+            "F": 29596.28933772957,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D50:H50)",
+            "D": "D24-D25-D49",
+            "E": "E24-E25-E49",
+            "F": "F24-F25-F49",
+            "G": "G24-G25-G49",
+            "H": "H24-H25-H49"
+          }
+        },
+        {
+          "row": 51,
+          "label": "RO-Margin %",
+          "values_by_column": {
+            "C": 0.2144658647661563,
+            "D": 0,
+            "E": 0,
+            "F": 0.2144658647661563,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(C50/C9,0)",
+            "D": "IFERROR(D50/D9,0)",
+            "E": "IFERROR(E50/E9,0)",
+            "F": "IFERROR(F50/F9,0)",
+            "G": "IFERROR(G50/G9,0)",
+            "H": "IFERROR(H50/H9,0)"
+          }
+        },
+        {
+          "row": 52,
+          "label": "Overhead",
+          "values_by_column": {
+            "C": 2283.545144631704,
+            "D": 0,
+            "E": 0,
+            "F": 2283.545144631704,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "C29",
+            "D": "D29",
+            "E": "E29",
+            "F": "F29",
+            "G": "G29",
+            "H": "H29"
+          }
+        },
+        {
+          "row": 53,
+          "label": "Operating Result",
+          "values_by_column": {
+            "C": 27312.744193097868,
+            "D": 0,
+            "E": 0,
+            "F": 27312.744193097868,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "C24-SUM(C25,C49,C52)",
+            "D": "D24-SUM(D25,D49,D52)",
+            "E": "E24-SUM(E25,E49,E52)",
+            "F": "F24-SUM(F25,F49,F52)",
+            "G": "G24-SUM(G25,G49,G52)",
+            "H": "H24-SUM(H25,H49,H52)"
+          }
+        },
+        {
+          "row": 54,
+          "label": "Operating Margin",
+          "values_by_column": {
+            "C": 0.1979184361818686,
+            "D": 0,
+            "E": 0,
+            "F": 0.1979184361818686,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(C53/(C9),0)",
+            "D": "IFERROR(D53/(D9),0)",
+            "E": "IFERROR(E53/(E9),0)",
+            "F": "IFERROR(F53/(F9),0)",
+            "G": "IFERROR(G53/(G9),0)",
+            "H": "IFERROR(H53/(H9),0)"
+          }
+        },
+        {
+          "row": 55,
+          "label": "Planned OR/Sales",
+          "values_by_column": {
+            "C": 0.0806211900503957
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(VLOOKUP($D$3,$Q$4:$S$5,3,0),0)/100"
+          }
+        },
+        {
+          "row": 59,
+          "label": "MD Costs",
+          "values_by_column": {
+            "C": 59853.24682948663,
+            "D": 0,
+            "E": 0,
+            "F": 59853.24682948663,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D59:H59)",
+            "D": "D16*D58",
+            "E": "E16*E58",
+            "F": "F16*F58",
+            "G": "G16*G58",
+            "H": "H16*H58"
+          }
+        },
+        {
+          "row": 60,
+          "label": "Result of order (RO)",
+          "values_by_column": {
+            "C": 38146.75317051337,
+            "D": 0,
+            "E": 0,
+            "F": 38146.75317051337,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "SUM(D60:H60)",
+            "D": "D24-D25-D59",
+            "E": "E24-E25-E59",
+            "F": "F24-F25-F59",
+            "G": "G24-G25-G59",
+            "H": "H24-H25-H59"
+          }
+        },
+        {
+          "row": 61,
+          "label": "RO-Margin %",
+          "values_by_column": {
+            "C": 0.27642574761241573,
+            "D": 0,
+            "E": 0,
+            "F": 0.27642574761241573,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(C60/C$9,0)",
+            "D": "IFERROR(D60/D$9,0)",
+            "E": "IFERROR(E60/E$9,0)",
+            "F": "IFERROR(F60/F$9,0)",
+            "G": "IFERROR(G60/G$9,0)",
+            "H": "IFERROR(H60/H$9,0)"
+          }
+        },
+        {
+          "row": 62,
+          "label": "Overhead",
+          "values_by_column": {
+            "C": 2283.545144631704,
+            "D": 0,
+            "E": 0,
+            "F": 2283.545144631704,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "C29",
+            "D": "D29",
+            "E": "E29",
+            "F": "F29",
+            "G": "G29",
+            "H": "H29"
+          }
+        },
+        {
+          "row": 63,
+          "label": "Operating Result",
+          "values_by_column": {
+            "C": 35863.20802588167,
+            "D": 0,
+            "E": 0,
+            "F": 35863.20802588167,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "C24-SUM(C25,C59,C62)",
+            "D": "D24-SUM(D25,D59,D62)",
+            "E": "E24-SUM(E25,E59,E62)",
+            "F": "F24-SUM(F25,F59,F62)",
+            "G": "G24-SUM(G25,G59,G62)",
+            "H": "H24-SUM(H25,H59,H62)"
+          }
+        },
+        {
+          "row": 64,
+          "label": "Operating Margin",
+          "values_by_column": {
+            "C": 0.2598783190281281,
+            "D": 0,
+            "E": 0,
+            "F": 0.2598783190281281,
+            "G": 0,
+            "H": 0
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(C63/(C$9),0)",
+            "D": "IFERROR(D63/(D$9),0)",
+            "E": "IFERROR(E63/(E$9),0)",
+            "F": "IFERROR(F63/(F$9),0)",
+            "G": "IFERROR(G63/(G$9),0)",
+            "H": "IFERROR(H63/(H$9),0)"
+          }
+        },
+        {
+          "row": 65,
+          "label": "Planned OR/Sales",
+          "values_by_column": {
+            "C": 0.0806211900503957
+          },
+          "formulas_by_column": {
+            "C": "IFERROR(VLOOKUP($D$3,$Q$4:$S$5,3,0),0)/100"
+          }
+        }
+      ],
+      "current_example_outputs": {
+        "base_case": {
+          "order_value_total_C9": 138000,
+          "net_sales_C24": 98000,
+          "md_costs_C26": 81292.016,
+          "result_of_order_RO_C27": 16707.983999999997,
+          "ro_margin_C28": 0.12107234782608693,
+          "overhead_C29": 2283.545144631704,
+          "operating_result_C30": 14424.438855368295,
+          "operating_margin_C31": 0.10452491924179924,
+          "planned_or_sales_C32": 0.0806211900503957,
+          "subcontracting_sales_C33": 0.2898550724637681
+        },
+        "scenario_70_percent_productivity": {
+          "rate_D48_to_H48": {
+            "D": 573.8566330727385,
+            "E": 573.8566330727385,
+            "F": 573.8566330727385,
+            "G": 573.8566330727385,
+            "H": 573.8566330727385
+          },
+          "md_costs_C49": 68403.71066227043,
+          "ro_margin_C51": 0.2144658647661563,
+          "operating_margin_C54": 0.1979184361818686
+        },
+        "scenario_80_percent_productivity": {
+          "rate_D58_to_H58": {
+            "D": 502.12455393864616,
+            "E": 502.12455393864616,
+            "F": 502.12455393864616,
+            "G": 502.12455393864616,
+            "H": 502.12455393864616
+          },
+          "md_costs_C59": 59853.24682948663,
+          "ro_margin_C61": 0.27642574761241573,
+          "operating_margin_C64": 0.2598783190281281
+        }
+      },
+      "comments": [
+        {
+          "sheet": "AUD Pre-cal",
+          "cell": "B21",
+          "text": "eg:AA1000 logo fee"
+        },
+        {
+          "sheet": "AUD Pre-cal",
+          "cell": "B25",
+          "text": "travel cost for sales person etc..."
+        }
+      ]
+    },
+    "P&L": {
+      "role_cn": "预算 P&L 数据与替代分摊成本比例计算页。",
+      "important_formulas_cn": [
+        "F/G 列用 XLOOKUP 从 Mapping 表拉取 prorata 和 allocation basis。",
+        "D67/E67 使用 SUMPRODUCT(P&L金额, prorata) 计算 Alternative allocation cost。",
+        "D68/E68 = Alternative allocation cost / Ext. Sales。",
+        "D69/E69 = Alternative allocation cost / Total Costs。",
+        "D70/E70 使用部分 Assessment/Accounting 费用估算与 IC sales 相关的 alternative allocation cost。",
+        "D71/E71 = Alternative allocation cost related to IC sales / IC Sales。"
+      ],
+      "key_rows": [
+        {
+          "row": 16,
+          "key_figure": "Sales",
+          "AUD_C": 56448147.14,
+          "ESG_D": 20584916.31,
+          "CSR_E": 35863230.83,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A16,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A16,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 17,
+          "key_figure": "Ext. Sales",
+          "AUD_C": 46755730.61,
+          "ESG_D": 13820706,
+          "CSR_E": 32935024.61,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A17,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A17,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 18,
+          "key_figure": "IC Sales",
+          "AUD_C": 9692416.53,
+          "ESG_D": 6764210.31,
+          "CSR_E": 2928206.22,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A18,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A18,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 20,
+          "key_figure": "Subcontracting",
+          "AUD_C": 20856759.45,
+          "ESG_D": 8963024.03,
+          "CSR_E": 11893735.42,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A20,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A20,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 21,
+          "key_figure": "Subcontracting ext.",
+          "AUD_C": 6995725.27,
+          "ESG_D": 2165228.84,
+          "CSR_E": 4830496.43,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A21,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A21,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 22,
+          "key_figure": "Subcontracting IC",
+          "AUD_C": 13861034.18,
+          "ESG_D": 6797795.19,
+          "CSR_E": 7063238.99,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A22,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A22,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 23,
+          "key_figure": "Computer Costs",
+          "AUD_C": 2019422.52,
+          "ESG_D": 516482.26,
+          "CSR_E": 1502940.26,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A23,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A23,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 33,
+          "key_figure": "Professional fees",
+          "AUD_C": 297945.79,
+          "ESG_D": 488525.28,
+          "CSR_E": -190579.49,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A33,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A33,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 37,
+          "key_figure": "Service Accounting/Procurement",
+          "AUD_C": 412395.51,
+          "ESG_D": 178020.35,
+          "CSR_E": 234375.16,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A37,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A37,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 39,
+          "key_figure": "Marketing",
+          "AUD_C": 485296.76,
+          "ESG_D": 103580.08,
+          "CSR_E": 381716.68,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A39,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A39,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 46,
+          "key_figure": "Management fee",
+          "AUD_C": 1167888.31,
+          "ESG_D": 348348.6,
+          "CSR_E": 819539.71,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A46,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A46,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 52,
+          "key_figure": "Charging/Assessment",
+          "AUD_C": 2298723.75,
+          "ESG_D": 580903.34,
+          "CSR_E": 1717820.41,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A52,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A52,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 64,
+          "key_figure": "Total Costs",
+          "AUD_C": 32910222.13,
+          "ESG_D": 9962311.83,
+          "CSR_E": 22947910.3,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A64,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A64,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 65,
+          "key_figure": "OR%",
+          "AUD_C": 4.749784883727541,
+          "ESG_D": 8.06211900503957,
+          "CSR_E": 2.848558499490884,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "F": "(_xlfn.XLOOKUP(A65,Mapping!C:C,Mapping!E:E,\"\"))",
+            "G": "(_xlfn.XLOOKUP(A65,Mapping!C:C,Mapping!F:F,\"\"))"
+          }
+        },
+        {
+          "row": 67,
+          "key_figure": "Alternative allocation cost",
+          "AUD_C": null,
+          "ESG_D": 1251214.3150000002,
+          "CSR_E": 3160719.3400000003,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "D": "SUMPRODUCT(D$14:D$65,$F$14:$F$65)",
+            "E": "SUMPRODUCT(E$14:E$65,$F$14:$F$65)"
+          }
+        },
+        {
+          "row": 68,
+          "key_figure": "Alternative allocation cost  / Ext. sales",
+          "AUD_C": null,
+          "ESG_D": 0.09053186682359064,
+          "CSR_E": 0.09596833090084642,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "D": "D67/D17",
+            "E": "E67/E17"
+          }
+        },
+        {
+          "row": 69,
+          "key_figure": "Alternative allocation cost  / Total Costs",
+          "AUD_C": null,
+          "ESG_D": 0.1255947752239753,
+          "CSR_E": 0.13773451694205027,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "D": "D67/D64",
+            "E": "E67/E64"
+          }
+        },
+        {
+          "row": 70,
+          "key_figure": "Alternative allocation cost - related to IC sales",
+          "AUD_C": null,
+          "ESG_D": 250005.135,
+          "CSR_E": 435342.41500000004,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "D": "(D59+D58+D55)*0.5+D38",
+            "E": "(E59+E58+E55)*0.5+E38"
+          }
+        },
+        {
+          "row": 71,
+          "key_figure": "Alternative allocation cost  /IC. sales",
+          "AUD_C": null,
+          "ESG_D": 0.03695998846020505,
+          "CSR_E": 0.14867204776308413,
+          "prorata_F": null,
+          "basis_G": null,
+          "formulas": {
+            "D": "D70/D18",
+            "E": "E70/E18"
+          }
+        }
+      ]
+    },
+    "Hourly Rate": {
+      "role_cn": "小时费率数据源，来自 C83 Overview hourly rates。主要字段包括 Profit Center、Activity Type、Skillgroup、Local Currency、Settlement Own Work、Settlement Internal Performance、CtC 等。",
+      "records": [
+        {
+          "profit_center": "18001350",
+          "profit_center_name": "HK PS CPS AUD",
+          "activity_type": "T01AST",
+          "skillgroup": "0180/#",
+          "currency": "HKD",
+          "settlement_own_work": 756.87,
+          "settlement_internal_performance": 756.87,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 756.87,
+          "calculation_kp26_version1_2026": 756.87,
+          "ctc": 236.89
+        },
+        {
+          "profit_center": "18001351",
+          "profit_center_name": "HK PS CPS AUD CSR",
+          "activity_type": "T01AST",
+          "skillgroup": "0180/#",
+          "currency": "HKD",
+          "settlement_own_work": 590.7,
+          "settlement_internal_performance": 590.7,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 479.61,
+          "calculation_kp26_version1_2026": 479.61,
+          "ctc": 236.89
+        },
+        {
+          "profit_center": "21601350",
+          "profit_center_name": "PSB Electr. PS AUD",
+          "activity_type": "T01AST",
+          "skillgroup": "0216/#",
+          "currency": "CNY",
+          "settlement_own_work": 681.98,
+          "settlement_internal_performance": 681.98,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 681.98,
+          "calculation_kp26_version1_2026": 681.98,
+          "ctc": 289.35
+        },
+        {
+          "profit_center": "34601350",
+          "profit_center_name": "GI PS CPS AUD",
+          "activity_type": "T01AST",
+          "skillgroup": "0346/#",
+          "currency": "HKD",
+          "settlement_own_work": null,
+          "settlement_internal_performance": null,
+          "settlement_non_productive": null,
+          "settlement_kp26_version0_2026": 1,
+          "calculation_kp26_version1_2026": 0.98,
+          "ctc": 0
+        },
+        {
+          "profit_center": "48201222",
+          "profit_center_name": "SHG PS CPS HDL eCom",
+          "activity_type": "T01AST",
+          "skillgroup": "0482/#",
+          "currency": "CNY",
+          "settlement_own_work": 879.03,
+          "settlement_internal_performance": 879.03,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 879.03,
+          "calculation_kp26_version1_2026": 879.03,
+          "ctc": 289.35
+        },
+        {
+          "profit_center": "48201350",
+          "profit_center_name": "SHG PS CPS AUD",
+          "activity_type": "T01AST",
+          "skillgroup": "0482/#",
+          "currency": "CNY",
+          "settlement_own_work": 681.98,
+          "settlement_internal_performance": 681.98,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 681.98,
+          "calculation_kp26_version1_2026": 681.98,
+          "ctc": 289.35
+        },
+        {
+          "profit_center": "48201351",
+          "profit_center_name": "SHG PS CPS AUD CSR",
+          "activity_type": "T01AST",
+          "skillgroup": "0482/#",
+          "currency": "CNY",
+          "settlement_own_work": 532.25,
+          "settlement_internal_performance": 532.25,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 443.06,
+          "calculation_kp26_version1_2026": 443.06,
+          "ctc": 289.35
+        },
+        {
+          "profit_center": "48301350",
+          "profit_center_name": "BJS PS CPS AUD",
+          "activity_type": "T01AST",
+          "skillgroup": "0483/#",
+          "currency": "CNY",
+          "settlement_own_work": 681.98,
+          "settlement_internal_performance": 681.98,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 681.98,
+          "calculation_kp26_version1_2026": 681.98,
+          "ctc": 308.84
+        },
+        {
+          "profit_center": "48301351",
+          "profit_center_name": "BJS PS CPS AUD CSR",
+          "activity_type": "T01AST",
+          "skillgroup": "0483/#",
+          "currency": "CNY",
+          "settlement_own_work": 532.25,
+          "settlement_internal_performance": 532.25,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 443.06,
+          "calculation_kp26_version1_2026": 443.06,
+          "ctc": 135.98
+        },
+        {
+          "profit_center": "48401350",
+          "profit_center_name": "CAN PS CPS AUD",
+          "activity_type": "T01AST",
+          "skillgroup": "0484/#",
+          "currency": "CNY",
+          "settlement_own_work": 681.98,
+          "settlement_internal_performance": 681.98,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 681.98,
+          "calculation_kp26_version1_2026": 681.98,
+          "ctc": 175.74
+        },
+        {
+          "profit_center": "48401351",
+          "profit_center_name": "CAN PS CPS AUD CSR",
+          "activity_type": "T01AST",
+          "skillgroup": "0484/#",
+          "currency": "CNY",
+          "settlement_own_work": 532.25,
+          "settlement_internal_performance": 532.25,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 443.06,
+          "calculation_kp26_version1_2026": 443.06,
+          "ctc": 175.74
+        },
+        {
+          "profit_center": "48501350",
+          "profit_center_name": "SHZ PS CPS AUD",
+          "activity_type": "T01AST",
+          "skillgroup": "0485/#",
+          "currency": "CNY",
+          "settlement_own_work": 681.98,
+          "settlement_internal_performance": 681.98,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 681.98,
+          "calculation_kp26_version1_2026": 681.98,
+          "ctc": 196.33
+        },
+        {
+          "profit_center": "48501351",
+          "profit_center_name": "SHZ PS CPS AUD CSR",
+          "activity_type": "T01AST",
+          "skillgroup": "0485/#",
+          "currency": "CNY",
+          "settlement_own_work": 532.25,
+          "settlement_internal_performance": 532.25,
+          "settlement_non_productive": 0,
+          "settlement_kp26_version0_2026": 532.25,
+          "calculation_kp26_version1_2026": 532.25,
+          "ctc": 196.33
+        }
+      ]
+    },
+    "Mapping": {
+      "role_cn": "P&L 科目映射表，说明哪些账户代码纳入 alternative allocation cost，以及 prorata 和分摊基础。",
+      "records": [
+        {
+          "items": 1,
+          "account": "Professional fees",
+          "account_code": "TUEV/49998009",
+          "description": "BU/BL costs",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 2,
+          "account": "Accounting Service",
+          "account_code": "TUEV/91015090",
+          "description": "Accounting",
+          "prorata": 1,
+          "allocation_basis": "total sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 3,
+          "account": "Marketing",
+          "account_code": "TUEV/49992309",
+          "description": "Services Marketing",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 4,
+          "account": "Marketing",
+          "account_code": "TUEV/91351007",
+          "description": "Marketing",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 5,
+          "account": "Marketing",
+          "account_code": "TUEV/91015040",
+          "description": "Marketing",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 6,
+          "account": "Management fee",
+          "account_code": "TUEV/49994008",
+          "description": "Service charges CN",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 7,
+          "account": "Management fee",
+          "account_code": "TUEV/49994009",
+          "description": "Service charges CN",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 8,
+          "account": "Management fee",
+          "account_code": "TUEV/49994109",
+          "description": "Service charges CN",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new add in 2019"
+        },
+        {
+          "items": 9,
+          "account": "Management fee",
+          "account_code": "TUEV/49995009",
+          "description": "Services divisions",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 10,
+          "account": "Management fee",
+          "account_code": "TUEV/49995109",
+          "description": "Division costs",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 11,
+          "account": "Management fee",
+          "account_code": "TUEV/49997009",
+          "description": "Services Region",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 12,
+          "account": "Management fee",
+          "account_code": "TUEV/49997108",
+          "description": "Services Region",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 13,
+          "account": "Management fee",
+          "account_code": "TUEV/49997109",
+          "description": "Services Region",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 14,
+          "account": "Management fee",
+          "account_code": "TUEV/49999009",
+          "description": "Management fee AG",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": null
+        },
+        {
+          "items": 15,
+          "account": "Charging/Assessment",
+          "account_code": "TUEV/91011040",
+          "description": "Controlling",
+          "prorata": 0.5,
+          "allocation_basis": "total sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 16,
+          "account": "Charging/Assessment",
+          "account_code": "TUEV/91351000",
+          "description": "General Costs",
+          "prorata": 0.5,
+          "allocation_basis": "net. Sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 17,
+          "account": "Charging/Assessment",
+          "account_code": "TUEV/91351001",
+          "description": "CEO/ADM",
+          "prorata": 0.5,
+          "allocation_basis": "net. Sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 18,
+          "account": "Charging/Assessment",
+          "account_code": "TUEV/91351017",
+          "description": "Sales",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 19,
+          "account": "Charging/Assessment",
+          "account_code": "TUEV/91110031",
+          "description": "Procurement",
+          "prorata": 0.5,
+          "allocation_basis": "ext. sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 20,
+          "account": "Charging/Assessment",
+          "account_code": "TUEV/91351008",
+          "description": "Certification",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new GL account"
+        },
+        {
+          "items": 21,
+          "account": "Computer cost",
+          "account_code": "TUEV/49993509",
+          "description": "IT opex",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new add in 2020"
+        },
+        {
+          "items": 22,
+          "account": "Service Accounting",
+          "account_code": "TUEV/49991009",
+          "description": "Service Accounting",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new add in 2022"
+        },
+        {
+          "items": 23,
+          "account": "Service Procurement",
+          "account_code": "TUEV/49991609",
+          "description": "Service Procurement",
+          "prorata": 0.5,
+          "allocation_basis": "ext. sales",
+          "note": "new add in 2022"
+        },
+        {
+          "items": 24,
+          "account": "Charging/Assessment",
+          "account_code": "TUEV/91011050",
+          "description": "Management (CEO)",
+          "prorata": 1,
+          "allocation_basis": "ext. sales",
+          "note": "new add in 2023"
+        }
+      ]
+    }
+  },
+  "formula_inventory_full": {
+    "AUD Pre-cal": [
+      {
+        "cell": "D3",
+        "row_label": "Service",
+        "column_context": "报告",
+        "formula": "IFERROR(_xlfn.XLOOKUP(C3,P4:P5,Q4:Q5),\"\")",
+        "formula_category": "lookup",
+        "current_cached_value": "1350",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "R4",
+        "row_label": "Order create Center",
+        "column_context": "4820",
+        "formula": "'Hourly Rate'!F16",
+        "formula_category": "other",
+        "current_cached_value": 681.98,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "S4",
+        "row_label": "Order create Center",
+        "column_context": "4830",
+        "formula": "'P&L'!D65",
+        "formula_category": "other",
+        "current_cached_value": 8.06211900503957,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "T4",
+        "row_label": "Order create Center",
+        "column_context": "4840",
+        "formula": "'P&L'!D69",
+        "formula_category": "other",
+        "current_cached_value": 0.1255947752239753,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "U4",
+        "row_label": "Order create Center",
+        "column_context": "4850",
+        "formula": "R4*T4",
+        "formula_category": "arithmetic",
+        "current_cached_value": 85.65312480724668,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "V4",
+        "row_label": "Order create Center",
+        "column_context": 0.09053186682359064,
+        "formula": "'P&L'!D68",
+        "formula_category": "other",
+        "current_cached_value": 0.09053186682359064,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "W4",
+        "row_label": "Order create Center",
+        "column_context": 0.03695998846020505,
+        "formula": "'P&L'!D71",
+        "formula_category": "other",
+        "current_cached_value": 0.03695998846020505,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D5",
+        "row_label": null,
+        "column_context": "报告",
+        "formula": "D4&$D$3",
+        "formula_category": "other",
+        "current_cached_value": "21601350",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E5",
+        "row_label": null,
+        "column_context": "鉴证",
+        "formula": "E4&$D$3",
+        "formula_category": "other",
+        "current_cached_value": "48201350",
+        "shared_formula_note": {
+          "shared_formula_si": "0",
+          "master_cell": "E5",
+          "shared_ref": "E5:H5",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F5",
+        "row_label": null,
+        "column_context": "咨询",
+        "formula": "F4&$D$3",
+        "formula_category": "other",
+        "current_cached_value": "21601350",
+        "shared_formula_note": {
+          "shared_formula_si": "0",
+          "master_cell": "E5",
+          "master_formula": "E4&$D$3",
+          "translated": true,
+          "shared_ref": "E5:H5"
+        }
+      },
+      {
+        "cell": "G5",
+        "row_label": null,
+        "column_context": "审核",
+        "formula": "G4&$D$3",
+        "formula_category": "other",
+        "current_cached_value": "48201350",
+        "shared_formula_note": {
+          "shared_formula_si": "0",
+          "master_cell": "E5",
+          "master_formula": "E4&$D$3",
+          "translated": true,
+          "shared_ref": "E5:H5"
+        }
+      },
+      {
+        "cell": "H5",
+        "row_label": null,
+        "column_context": "Product 5",
+        "formula": "H4&$D$3",
+        "formula_category": "other",
+        "current_cached_value": "1350",
+        "shared_formula_note": {
+          "shared_formula_si": "0",
+          "master_cell": "E5",
+          "master_formula": "E4&$D$3",
+          "translated": true,
+          "shared_ref": "E5:H5"
+        }
+      },
+      {
+        "cell": "R5",
+        "row_label": null,
+        "column_context": "4820",
+        "formula": "'Hourly Rate'!F17",
+        "formula_category": "other",
+        "current_cached_value": 532.25,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "S5",
+        "row_label": null,
+        "column_context": "4830",
+        "formula": "'P&L'!E65",
+        "formula_category": "other",
+        "current_cached_value": 2.848558499490884,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "T5",
+        "row_label": null,
+        "column_context": "4840",
+        "formula": "'P&L'!E69",
+        "formula_category": "other",
+        "current_cached_value": 0.13773451694205027,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "U5",
+        "row_label": null,
+        "column_context": "4850",
+        "formula": "R5*T5",
+        "formula_category": "arithmetic",
+        "current_cached_value": 73.30919664240626,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "V5",
+        "row_label": null,
+        "column_context": 0.09053186682359064,
+        "formula": "'P&L'!E68",
+        "formula_category": "other",
+        "current_cached_value": 0.09596833090084642,
+        "shared_formula_note": null,
+        "original_formula_in_workbook": "'P&L'!D69",
+        "original_cached_value_in_workbook": 0.1255947752239753,
+        "user_confirmed_correction": true,
+        "correction_note_cn": "原工作簿该单元格为 'P&L'!D69；用户确认应为 'P&L'!E68。JSON 已按目标逻辑修正。"
+      },
+      {
+        "cell": "W5",
+        "row_label": null,
+        "column_context": 0.03695998846020505,
+        "formula": "'P&L'!E71",
+        "formula_category": "other",
+        "current_cached_value": 0.14867204776308413,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C9",
+        "row_label": "Order Value",
+        "column_context": "ESG",
+        "formula": "SUM(D9:H9)",
+        "formula_category": "aggregation",
+        "current_cached_value": 138000,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C10",
+        "row_label": "MD for onsite",
+        "column_context": "ESG",
+        "formula": "SUM(D10:H10)",
+        "formula_category": "aggregation",
+        "current_cached_value": 4,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C11",
+        "row_label": "MD for offsite",
+        "column_context": "ESG",
+        "formula": "SUM(D11:H11)",
+        "formula_category": "aggregation",
+        "current_cached_value": 10,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C12",
+        "row_label": "MD for Quotation Phase",
+        "column_context": "ESG",
+        "formula": "SUM(D12:H12)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0.5,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D12",
+        "row_label": "MD for Quotation Phase",
+        "column_context": "报告",
+        "formula": "IF(D9>0,0.5*D$9/$C$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E12",
+        "row_label": "MD for Quotation Phase",
+        "column_context": "鉴证",
+        "formula": "IF(E9>0,0.5*E$9/$C$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "1",
+          "master_cell": "E12",
+          "shared_ref": "E12:H12",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F12",
+        "row_label": "MD for Quotation Phase",
+        "column_context": "咨询",
+        "formula": "IF(F9>0,0.5*F$9/$C$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.5,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G12",
+        "row_label": "MD for Quotation Phase",
+        "column_context": "审核",
+        "formula": "IF(G9>0,0.5*G$9/$C$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "1",
+          "master_cell": "E12",
+          "master_formula": "IF(E9>0,0.5*E$9/$C$9,0)",
+          "translated": true,
+          "shared_ref": "E12:H12"
+        }
+      },
+      {
+        "cell": "H12",
+        "row_label": "MD for Quotation Phase",
+        "column_context": "Product 5",
+        "formula": "IF(H9>0,0.5*H$9/$C$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "1",
+          "master_cell": "E12",
+          "master_formula": "IF(E9>0,0.5*E$9/$C$9,0)",
+          "translated": true,
+          "shared_ref": "E12:H12"
+        }
+      },
+      {
+        "cell": "C13",
+        "row_label": "MD for Travel (20% of Quotation MD)",
+        "column_context": "ESG",
+        "formula": "SUM(D13:H13)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0.4,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D13",
+        "row_label": "MD for Travel (20% of Quotation MD)",
+        "column_context": "报告",
+        "formula": "D10*0.1",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E13",
+        "row_label": "MD for Travel (20% of Quotation MD)",
+        "column_context": "鉴证",
+        "formula": "E10*0.1",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "2",
+          "master_cell": "E13",
+          "shared_ref": "E13:H13",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F13",
+        "row_label": "MD for Travel (20% of Quotation MD)",
+        "column_context": "咨询",
+        "formula": "F10*0.1",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0.4,
+        "shared_formula_note": {
+          "shared_formula_si": "2",
+          "master_cell": "E13",
+          "master_formula": "E10*0.1",
+          "translated": true,
+          "shared_ref": "E13:H13"
+        }
+      },
+      {
+        "cell": "G13",
+        "row_label": "MD for Travel (20% of Quotation MD)",
+        "column_context": "审核",
+        "formula": "G10*0.1",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "2",
+          "master_cell": "E13",
+          "master_formula": "E10*0.1",
+          "translated": true,
+          "shared_ref": "E13:H13"
+        }
+      },
+      {
+        "cell": "H13",
+        "row_label": "MD for Travel (20% of Quotation MD)",
+        "column_context": "Product 5",
+        "formula": "H10*0.1",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "2",
+          "master_cell": "E13",
+          "master_formula": "E10*0.1",
+          "translated": true,
+          "shared_ref": "E13:H13"
+        }
+      },
+      {
+        "cell": "C14",
+        "row_label": "Total MD",
+        "column_context": "ESG",
+        "formula": "SUM(D14:H14)",
+        "formula_category": "aggregation",
+        "current_cached_value": 14.9,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D14",
+        "row_label": "Total MD",
+        "column_context": "报告",
+        "formula": "D10+D12+D13+D11",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "3",
+          "master_cell": "D14",
+          "shared_ref": "D14:E14",
+          "translated": false
+        }
+      },
+      {
+        "cell": "E14",
+        "row_label": "Total MD",
+        "column_context": "鉴证",
+        "formula": "E10+E12+E13+E11",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "3",
+          "master_cell": "D14",
+          "master_formula": "D10+D12+D13+D11",
+          "translated": true,
+          "shared_ref": "D14:E14"
+        }
+      },
+      {
+        "cell": "F14",
+        "row_label": "Total MD",
+        "column_context": "咨询",
+        "formula": "F10+F12+F13+F11",
+        "formula_category": "arithmetic",
+        "current_cached_value": 14.9,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G14",
+        "row_label": "Total MD",
+        "column_context": "审核",
+        "formula": "G10+G12+G13+G11",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "4",
+          "master_cell": "G14",
+          "shared_ref": "G14:H14",
+          "translated": false
+        }
+      },
+      {
+        "cell": "H14",
+        "row_label": "Total MD",
+        "column_context": "Product 5",
+        "formula": "H10+H12+H13+H11",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "4",
+          "master_cell": "G14",
+          "master_formula": "G10+G12+G13+G11",
+          "translated": true,
+          "shared_ref": "G14:H14"
+        }
+      },
+      {
+        "cell": "D15",
+        "row_label": "IC Subcon Rate",
+        "column_context": "报告",
+        "formula": "IF(D$4=\"2160\",80%,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.8,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E15",
+        "row_label": "IC Subcon Rate",
+        "column_context": "鉴证",
+        "formula": "IF(E$4=\"2160\",80%,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "5",
+          "master_cell": "E15",
+          "shared_ref": "E15:H15",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F15",
+        "row_label": "IC Subcon Rate",
+        "column_context": "咨询",
+        "formula": "IF(F$4=\"2160\",80%,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.8,
+        "shared_formula_note": {
+          "shared_formula_si": "5",
+          "master_cell": "E15",
+          "master_formula": "IF(E$4=\"2160\",80%,0)",
+          "translated": true,
+          "shared_ref": "E15:H15"
+        }
+      },
+      {
+        "cell": "G15",
+        "row_label": "IC Subcon Rate",
+        "column_context": "审核",
+        "formula": "IF(G$4=\"2160\",80%,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "5",
+          "master_cell": "E15",
+          "master_formula": "IF(E$4=\"2160\",80%,0)",
+          "translated": true,
+          "shared_ref": "E15:H15"
+        }
+      },
+      {
+        "cell": "H15",
+        "row_label": "IC Subcon Rate",
+        "column_context": "Product 5",
+        "formula": "IF(H$4=\"2160\",80%,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "5",
+          "master_cell": "E15",
+          "master_formula": "IF(E$4=\"2160\",80%,0)",
+          "translated": true,
+          "shared_ref": "E15:H15"
+        }
+      },
+      {
+        "cell": "C16",
+        "row_label": "Hours",
+        "column_context": "ESG",
+        "formula": "SUM(D16:H16)",
+        "formula_category": "aggregation",
+        "current_cached_value": 119.2,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D16",
+        "row_label": "Hours",
+        "column_context": "报告",
+        "formula": "D14*8",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E16",
+        "row_label": "Hours",
+        "column_context": "鉴证",
+        "formula": "E14*8",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "6",
+          "master_cell": "E16",
+          "shared_ref": "E16:H16",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F16",
+        "row_label": "Hours",
+        "column_context": "咨询",
+        "formula": "F14*8",
+        "formula_category": "arithmetic",
+        "current_cached_value": 119.2,
+        "shared_formula_note": {
+          "shared_formula_si": "6",
+          "master_cell": "E16",
+          "master_formula": "E14*8",
+          "translated": true,
+          "shared_ref": "E16:H16"
+        }
+      },
+      {
+        "cell": "G16",
+        "row_label": "Hours",
+        "column_context": "审核",
+        "formula": "G14*8",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "6",
+          "master_cell": "E16",
+          "master_formula": "E14*8",
+          "translated": true,
+          "shared_ref": "E16:H16"
+        }
+      },
+      {
+        "cell": "H16",
+        "row_label": "Hours",
+        "column_context": "Product 5",
+        "formula": "H14*8",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "6",
+          "master_cell": "E16",
+          "master_formula": "E14*8",
+          "translated": true,
+          "shared_ref": "E16:H16"
+        }
+      },
+      {
+        "cell": "C18",
+        "row_label": "Subcontracting ext.-翻译费",
+        "column_context": "ESG",
+        "formula": "SUM(D18:H18)",
+        "formula_category": "aggregation",
+        "current_cached_value": 15000,
+        "shared_formula_note": {
+          "shared_formula_si": "7",
+          "master_cell": "C18",
+          "shared_ref": "C18:C24",
+          "translated": false
+        }
+      },
+      {
+        "cell": "C19",
+        "row_label": "Subcontracting ext.-设计费",
+        "column_context": "ESG",
+        "formula": "SUM(D19:H19)",
+        "formula_category": "aggregation",
+        "current_cached_value": 20000,
+        "shared_formula_note": {
+          "shared_formula_si": "7",
+          "master_cell": "C18",
+          "master_formula": "SUM(D18:H18)",
+          "translated": true,
+          "shared_ref": "C18:C24"
+        }
+      },
+      {
+        "cell": "C20",
+        "row_label": "Subcontracting ext.-差旅费",
+        "column_context": "ESG",
+        "formula": "SUM(D20:H20)",
+        "formula_category": "aggregation",
+        "current_cached_value": 5000,
+        "shared_formula_note": {
+          "shared_formula_si": "7",
+          "master_cell": "C18",
+          "master_formula": "SUM(D18:H18)",
+          "translated": true,
+          "shared_ref": "C18:C24"
+        }
+      },
+      {
+        "cell": "C21",
+        "row_label": "Subcontracting ext.-Other",
+        "column_context": "ESG",
+        "formula": "SUM(D21:H21)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "8",
+          "master_cell": "C21",
+          "shared_ref": "C21",
+          "translated": false
+        }
+      },
+      {
+        "cell": "C22",
+        "row_label": "Subcontracting IC",
+        "column_context": "ESG",
+        "formula": "SUM(D22:H22)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C23",
+        "row_label": "internal subcon",
+        "column_context": "ESG",
+        "formula": "SUM(D23:H23)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "7",
+          "master_cell": "C18",
+          "master_formula": "SUM(D18:H18)",
+          "translated": true,
+          "shared_ref": "C18:C24"
+        }
+      },
+      {
+        "cell": "C24",
+        "row_label": "Net Sales",
+        "column_context": "ESG",
+        "formula": "SUM(D24:H24)",
+        "formula_category": "aggregation",
+        "current_cached_value": 98000,
+        "shared_formula_note": {
+          "shared_formula_si": "7",
+          "master_cell": "C18",
+          "master_formula": "SUM(D18:H18)",
+          "translated": true,
+          "shared_ref": "C18:C24"
+        }
+      },
+      {
+        "cell": "D24",
+        "row_label": "Net Sales",
+        "column_context": "报告",
+        "formula": "D9-SUM(D18:D23)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E24",
+        "row_label": "Net Sales",
+        "column_context": "鉴证",
+        "formula": "E9-SUM(E18:E23)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F24",
+        "row_label": "Net Sales",
+        "column_context": "咨询",
+        "formula": "F9-SUM(F18:F23)",
+        "formula_category": "aggregation",
+        "current_cached_value": 98000,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G24",
+        "row_label": "Net Sales",
+        "column_context": "审核",
+        "formula": "G9-SUM(G18:G23)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H24",
+        "row_label": "Net Sales",
+        "column_context": "Product 5",
+        "formula": "H9-SUM(H18:H23)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C25",
+        "row_label": "Other project related costs",
+        "column_context": "ESG",
+        "formula": "SUM(D25:H25)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C26",
+        "row_label": "MD Costs",
+        "column_context": "ESG",
+        "formula": "SUM(D26:H26)",
+        "formula_category": "aggregation",
+        "current_cached_value": 81292.016,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D26",
+        "row_label": "MD Costs",
+        "column_context": "报告",
+        "formula": "D16*D37",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E26",
+        "row_label": "MD Costs",
+        "column_context": "鉴证",
+        "formula": "E16*E37",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F26",
+        "row_label": "MD Costs",
+        "column_context": "咨询",
+        "formula": "F16*F37",
+        "formula_category": "arithmetic",
+        "current_cached_value": 81292.016,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G26",
+        "row_label": "MD Costs",
+        "column_context": "审核",
+        "formula": "G16*G37",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H26",
+        "row_label": "MD Costs",
+        "column_context": "Product 5",
+        "formula": "H16*H37",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C27",
+        "row_label": "Result of order (RO)",
+        "column_context": "ESG",
+        "formula": "SUM(D27:H27)",
+        "formula_category": "aggregation",
+        "current_cached_value": 16707.983999999997,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D27",
+        "row_label": "Result of order (RO)",
+        "column_context": "报告",
+        "formula": "D24-D25-D26",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E27",
+        "row_label": "Result of order (RO)",
+        "column_context": "鉴证",
+        "formula": "E24-E25-E26",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "9",
+          "master_cell": "E27",
+          "shared_ref": "E27:H27",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F27",
+        "row_label": "Result of order (RO)",
+        "column_context": "咨询",
+        "formula": "F24-F25-F26",
+        "formula_category": "arithmetic",
+        "current_cached_value": 16707.983999999997,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G27",
+        "row_label": "Result of order (RO)",
+        "column_context": "审核",
+        "formula": "G24-G25-G26",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "9",
+          "master_cell": "E27",
+          "master_formula": "E24-E25-E26",
+          "translated": true,
+          "shared_ref": "E27:H27"
+        }
+      },
+      {
+        "cell": "H27",
+        "row_label": "Result of order (RO)",
+        "column_context": "Product 5",
+        "formula": "H24-H25-H26",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "9",
+          "master_cell": "E27",
+          "master_formula": "E24-E25-E26",
+          "translated": true,
+          "shared_ref": "E27:H27"
+        }
+      },
+      {
+        "cell": "C28",
+        "row_label": "RO-Margin %",
+        "column_context": "ESG",
+        "formula": "IFERROR(C27/C9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.12107234782608693,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D28",
+        "row_label": "RO-Margin %",
+        "column_context": "报告",
+        "formula": "IFERROR(D27/D9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E28",
+        "row_label": "RO-Margin %",
+        "column_context": "鉴证",
+        "formula": "IFERROR(E27/E9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "10",
+          "master_cell": "E28",
+          "shared_ref": "E28:H28",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F28",
+        "row_label": "RO-Margin %",
+        "column_context": "咨询",
+        "formula": "IFERROR(F27/F9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.12107234782608693,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G28",
+        "row_label": "RO-Margin %",
+        "column_context": "审核",
+        "formula": "IFERROR(G27/G9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "10",
+          "master_cell": "E28",
+          "master_formula": "IFERROR(E27/E9,0)",
+          "translated": true,
+          "shared_ref": "E28:H28"
+        }
+      },
+      {
+        "cell": "H28",
+        "row_label": "RO-Margin %",
+        "column_context": "Product 5",
+        "formula": "IFERROR(H27/H9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "10",
+          "master_cell": "E28",
+          "master_formula": "IFERROR(E27/E9,0)",
+          "translated": true,
+          "shared_ref": "E28:H28"
+        }
+      },
+      {
+        "cell": "C29",
+        "row_label": "Overhead",
+        "column_context": "ESG",
+        "formula": "SUM(D29:H29)",
+        "formula_category": "aggregation",
+        "current_cached_value": 2283.545144631704,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D29",
+        "row_label": "Overhead",
+        "column_context": "报告",
+        "formula": "IF(D44<0,0,D44)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E29",
+        "row_label": "Overhead",
+        "column_context": "鉴证",
+        "formula": "IF(E44<0,0,E44)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F29",
+        "row_label": "Overhead",
+        "column_context": "咨询",
+        "formula": "IF(F44<0,0,F44)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 2283.545144631704,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G29",
+        "row_label": "Overhead",
+        "column_context": "审核",
+        "formula": "IF(G44<0,0,G44)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "11",
+          "master_cell": "G29",
+          "shared_ref": "F29:H29",
+          "translated": false
+        }
+      },
+      {
+        "cell": "H29",
+        "row_label": "Overhead",
+        "column_context": "Product 5",
+        "formula": "IF(H44<0,0,H44)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "11",
+          "master_cell": "G29",
+          "master_formula": "IF(G44<0,0,G44)",
+          "translated": true,
+          "shared_ref": "F29:H29"
+        }
+      },
+      {
+        "cell": "C30",
+        "row_label": "Operating Result",
+        "column_context": "ESG",
+        "formula": "C24-SUM(C25,C26,C29)",
+        "formula_category": "aggregation",
+        "current_cached_value": 14424.438855368295,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D30",
+        "row_label": "Operating Result",
+        "column_context": "报告",
+        "formula": "D24-SUM(D25,D26,D29)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E30",
+        "row_label": "Operating Result",
+        "column_context": "鉴证",
+        "formula": "E24-SUM(E25,E26,E29)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "12",
+          "master_cell": "E30",
+          "shared_ref": "E30:H30",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F30",
+        "row_label": "Operating Result",
+        "column_context": "咨询",
+        "formula": "F24-SUM(F25,F26,F29)",
+        "formula_category": "aggregation",
+        "current_cached_value": 14424.438855368295,
+        "shared_formula_note": {
+          "shared_formula_si": "12",
+          "master_cell": "E30",
+          "master_formula": "E24-SUM(E25,E26,E29)",
+          "translated": true,
+          "shared_ref": "E30:H30"
+        }
+      },
+      {
+        "cell": "G30",
+        "row_label": "Operating Result",
+        "column_context": "审核",
+        "formula": "G24-SUM(G25,G26,G29)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "12",
+          "master_cell": "E30",
+          "master_formula": "E24-SUM(E25,E26,E29)",
+          "translated": true,
+          "shared_ref": "E30:H30"
+        }
+      },
+      {
+        "cell": "H30",
+        "row_label": "Operating Result",
+        "column_context": "Product 5",
+        "formula": "H24-SUM(H25,H26,H29)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "12",
+          "master_cell": "E30",
+          "master_formula": "E24-SUM(E25,E26,E29)",
+          "translated": true,
+          "shared_ref": "E30:H30"
+        }
+      },
+      {
+        "cell": "C31",
+        "row_label": "Operating Margin",
+        "column_context": "ESG",
+        "formula": "IFERROR(C30/(C9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.10452491924179924,
+        "shared_formula_note": {
+          "shared_formula_si": "13",
+          "master_cell": "C31",
+          "shared_ref": "C31:H31",
+          "translated": false
+        }
+      },
+      {
+        "cell": "D31",
+        "row_label": "Operating Margin",
+        "column_context": "报告",
+        "formula": "IFERROR(D30/(D9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "13",
+          "master_cell": "C31",
+          "master_formula": "IFERROR(C30/(C9),0)",
+          "translated": true,
+          "shared_ref": "C31:H31"
+        }
+      },
+      {
+        "cell": "E31",
+        "row_label": "Operating Margin",
+        "column_context": "鉴证",
+        "formula": "IFERROR(E30/(E9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "13",
+          "master_cell": "C31",
+          "master_formula": "IFERROR(C30/(C9),0)",
+          "translated": true,
+          "shared_ref": "C31:H31"
+        }
+      },
+      {
+        "cell": "F31",
+        "row_label": "Operating Margin",
+        "column_context": "咨询",
+        "formula": "IFERROR(F30/(F9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.10452491924179924,
+        "shared_formula_note": {
+          "shared_formula_si": "13",
+          "master_cell": "C31",
+          "master_formula": "IFERROR(C30/(C9),0)",
+          "translated": true,
+          "shared_ref": "C31:H31"
+        }
+      },
+      {
+        "cell": "G31",
+        "row_label": "Operating Margin",
+        "column_context": "审核",
+        "formula": "IFERROR(G30/(G9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "13",
+          "master_cell": "C31",
+          "master_formula": "IFERROR(C30/(C9),0)",
+          "translated": true,
+          "shared_ref": "C31:H31"
+        }
+      },
+      {
+        "cell": "H31",
+        "row_label": "Operating Margin",
+        "column_context": "Product 5",
+        "formula": "IFERROR(H30/(H9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "13",
+          "master_cell": "C31",
+          "master_formula": "IFERROR(C30/(C9),0)",
+          "translated": true,
+          "shared_ref": "C31:H31"
+        }
+      },
+      {
+        "cell": "C32",
+        "row_label": "Planned OR/Sales",
+        "column_context": "ESG",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$S$5,3,0),0)/100",
+        "formula_category": "lookup",
+        "current_cached_value": 0.0806211900503957,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C33",
+        "row_label": "Subcontracing/Sales",
+        "column_context": "ESG",
+        "formula": "IFERROR(SUM(C18:C22)/C9,\"\")",
+        "formula_category": "aggregation",
+        "current_cached_value": 0.2898550724637681,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D33",
+        "row_label": "Subcontracing/Sales",
+        "column_context": "报告",
+        "formula": "IFERROR(SUM(D18:D22)/D9,\"\")",
+        "formula_category": "aggregation",
+        "current_cached_value": null,
+        "shared_formula_note": {
+          "shared_formula_si": "14",
+          "master_cell": "D33",
+          "shared_ref": "D33:H33",
+          "translated": false
+        }
+      },
+      {
+        "cell": "E33",
+        "row_label": "Subcontracing/Sales",
+        "column_context": "鉴证",
+        "formula": "IFERROR(SUM(E18:E22)/E9,\"\")",
+        "formula_category": "aggregation",
+        "current_cached_value": null,
+        "shared_formula_note": {
+          "shared_formula_si": "14",
+          "master_cell": "D33",
+          "master_formula": "IFERROR(SUM(D18:D22)/D9,\"\")",
+          "translated": true,
+          "shared_ref": "D33:H33"
+        }
+      },
+      {
+        "cell": "F33",
+        "row_label": "Subcontracing/Sales",
+        "column_context": "咨询",
+        "formula": "IFERROR(SUM(F18:F22)/F9,\"\")",
+        "formula_category": "aggregation",
+        "current_cached_value": 0.2898550724637681,
+        "shared_formula_note": {
+          "shared_formula_si": "14",
+          "master_cell": "D33",
+          "master_formula": "IFERROR(SUM(D18:D22)/D9,\"\")",
+          "translated": true,
+          "shared_ref": "D33:H33"
+        }
+      },
+      {
+        "cell": "G33",
+        "row_label": "Subcontracing/Sales",
+        "column_context": "审核",
+        "formula": "IFERROR(SUM(G18:G22)/G9,\"\")",
+        "formula_category": "aggregation",
+        "current_cached_value": null,
+        "shared_formula_note": {
+          "shared_formula_si": "14",
+          "master_cell": "D33",
+          "master_formula": "IFERROR(SUM(D18:D22)/D9,\"\")",
+          "translated": true,
+          "shared_ref": "D33:H33"
+        }
+      },
+      {
+        "cell": "H33",
+        "row_label": "Subcontracing/Sales",
+        "column_context": "Product 5",
+        "formula": "IFERROR(SUM(H18:H22)/H9,\"\")",
+        "formula_category": "aggregation",
+        "current_cached_value": null,
+        "shared_formula_note": {
+          "shared_formula_si": "14",
+          "master_cell": "D33",
+          "master_formula": "IFERROR(SUM(D18:D22)/D9,\"\")",
+          "translated": true,
+          "shared_ref": "D33:H33"
+        }
+      },
+      {
+        "cell": "D37",
+        "row_label": "Hourly Rate",
+        "column_context": "报告",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 681.98,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E37",
+        "row_label": "Hourly Rate",
+        "column_context": "鉴证",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 681.98,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F37",
+        "row_label": "Hourly Rate",
+        "column_context": "咨询",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 681.98,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G37",
+        "row_label": "Hourly Rate",
+        "column_context": "审核",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 681.98,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H37",
+        "row_label": "Hourly Rate",
+        "column_context": "Product 5",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$R$5,2,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 681.98,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D38",
+        "row_label": "Hourly Rates / Allocation Costs",
+        "column_context": "报告",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 85.65312480724668,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E38",
+        "row_label": "Hourly Rates / Allocation Costs",
+        "column_context": "鉴证",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 85.65312480724668,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F38",
+        "row_label": "Hourly Rates / Allocation Costs",
+        "column_context": "咨询",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 85.65312480724668,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G38",
+        "row_label": "Hourly Rates / Allocation Costs",
+        "column_context": "审核",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 85.65312480724668,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H38",
+        "row_label": "Hourly Rates / Allocation Costs",
+        "column_context": "Product 5",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$U$5,5,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 85.65312480724668,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D39",
+        "row_label": "Allocation cost / Ext. sales",
+        "column_context": "报告",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 0.09053186682359064,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E39",
+        "row_label": "Allocation cost / Ext. sales",
+        "column_context": "鉴证",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 0.09053186682359064,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F39",
+        "row_label": "Allocation cost / Ext. sales",
+        "column_context": "咨询",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 0.09053186682359064,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G39",
+        "row_label": "Allocation cost / Ext. sales",
+        "column_context": "审核",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 0.09053186682359064,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H39",
+        "row_label": "Allocation cost / Ext. sales",
+        "column_context": "Product 5",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$V$5,6,0),0)",
+        "formula_category": "lookup",
+        "current_cached_value": 0.09053186682359064,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D41",
+        "row_label": "Allocation cost by Ext. sales",
+        "column_context": "报告",
+        "formula": "D9*D39",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E41",
+        "row_label": "Allocation cost by Ext. sales",
+        "column_context": "鉴证",
+        "formula": "E9*E39",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F41",
+        "row_label": "Allocation cost by Ext. sales",
+        "column_context": "咨询",
+        "formula": "F9*F39",
+        "formula_category": "arithmetic",
+        "current_cached_value": 12493.39762165551,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G41",
+        "row_label": "Allocation cost by Ext. sales",
+        "column_context": "审核",
+        "formula": "G9*G39",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H41",
+        "row_label": "Allocation cost by Ext. sales",
+        "column_context": "Product 5",
+        "formula": "H9*H39",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D42",
+        "row_label": "Allocation cost by IC sales",
+        "column_context": "报告",
+        "formula": "D9*D15*D40",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E42",
+        "row_label": "Allocation cost by IC sales",
+        "column_context": "鉴证",
+        "formula": "E9*E15*E40",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F42",
+        "row_label": "Allocation cost by IC sales",
+        "column_context": "咨询",
+        "formula": "F9*F15*F40",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G42",
+        "row_label": "Allocation cost by IC sales",
+        "column_context": "审核",
+        "formula": "G9*G15*G40",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H42",
+        "row_label": "Allocation cost by IC sales",
+        "column_context": "Product 5",
+        "formula": "H9*H15*H40",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D43",
+        "row_label": "Allocation costs by hour",
+        "column_context": "报告",
+        "formula": "D16*D38",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E43",
+        "row_label": "Allocation costs by hour",
+        "column_context": "鉴证",
+        "formula": "E16*E38",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F43",
+        "row_label": "Allocation costs by hour",
+        "column_context": "咨询",
+        "formula": "F16*F38",
+        "formula_category": "arithmetic",
+        "current_cached_value": 10209.852477023805,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G43",
+        "row_label": "Allocation costs by hour",
+        "column_context": "审核",
+        "formula": "G16*G38",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H43",
+        "row_label": "Allocation costs by hour",
+        "column_context": "Product 5",
+        "formula": "H16*H38",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D44",
+        "row_label": "Allocation cost simulation",
+        "column_context": "报告",
+        "formula": "IF(D$4=\"2160\",D41+D42-D43,D41-D43)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E44",
+        "row_label": "Allocation cost simulation",
+        "column_context": "鉴证",
+        "formula": "IF(E$4=\"2160\",E41+E42-E43,E41-E43)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "15",
+          "master_cell": "E44",
+          "shared_ref": "E44:H44",
+          "translated": false
+        }
+      },
+      {
+        "cell": "F44",
+        "row_label": "Allocation cost simulation",
+        "column_context": "咨询",
+        "formula": "IF(F$4=\"2160\",F41+F42-F43,F41-F43)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 2283.545144631704,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G44",
+        "row_label": "Allocation cost simulation",
+        "column_context": "审核",
+        "formula": "IF(G$4=\"2160\",G41+G42-G43,G41-G43)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "15",
+          "master_cell": "E44",
+          "master_formula": "IF(E$4=\"2160\",E41+E42-E43,E41-E43)",
+          "translated": true,
+          "shared_ref": "E44:H44"
+        }
+      },
+      {
+        "cell": "H44",
+        "row_label": "Allocation cost simulation",
+        "column_context": "Product 5",
+        "formula": "IF(H$4=\"2160\",H41+H42-H43,H41-H43)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "15",
+          "master_cell": "E44",
+          "master_formula": "IF(E$4=\"2160\",E41+E42-E43,E41-E43)",
+          "translated": true,
+          "shared_ref": "E44:H44"
+        }
+      },
+      {
+        "cell": "B48",
+        "row_label": "Hourly Rate",
+        "column_context": "Order create Center",
+        "formula": "B37",
+        "formula_category": "other",
+        "current_cached_value": "Hourly Rate",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C49",
+        "row_label": "MD Costs",
+        "column_context": "ESG",
+        "formula": "SUM(D49:H49)",
+        "formula_category": "aggregation",
+        "current_cached_value": 68403.71066227043,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D49",
+        "row_label": "MD Costs",
+        "column_context": "报告",
+        "formula": "D16*D48",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E49",
+        "row_label": "MD Costs",
+        "column_context": "鉴证",
+        "formula": "E16*E48",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F49",
+        "row_label": "MD Costs",
+        "column_context": "咨询",
+        "formula": "F16*F48",
+        "formula_category": "arithmetic",
+        "current_cached_value": 68403.71066227043,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G49",
+        "row_label": "MD Costs",
+        "column_context": "审核",
+        "formula": "G16*G48",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H49",
+        "row_label": "MD Costs",
+        "column_context": "Product 5",
+        "formula": "H16*H48",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C50",
+        "row_label": "Result of order (RO)",
+        "column_context": "ESG",
+        "formula": "SUM(D50:H50)",
+        "formula_category": "aggregation",
+        "current_cached_value": 29596.28933772957,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D50",
+        "row_label": "Result of order (RO)",
+        "column_context": "报告",
+        "formula": "D24-D25-D49",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E50",
+        "row_label": "Result of order (RO)",
+        "column_context": "鉴证",
+        "formula": "E24-E25-E49",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F50",
+        "row_label": "Result of order (RO)",
+        "column_context": "咨询",
+        "formula": "F24-F25-F49",
+        "formula_category": "arithmetic",
+        "current_cached_value": 29596.28933772957,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G50",
+        "row_label": "Result of order (RO)",
+        "column_context": "审核",
+        "formula": "G24-G25-G49",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H50",
+        "row_label": "Result of order (RO)",
+        "column_context": "Product 5",
+        "formula": "H24-H25-H49",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C51",
+        "row_label": "RO-Margin %",
+        "column_context": "ESG",
+        "formula": "IFERROR(C50/C9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.2144658647661563,
+        "shared_formula_note": {
+          "shared_formula_si": "16",
+          "master_cell": "C51",
+          "shared_ref": "C51:H51",
+          "translated": false
+        }
+      },
+      {
+        "cell": "D51",
+        "row_label": "RO-Margin %",
+        "column_context": "报告",
+        "formula": "IFERROR(D50/D9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "16",
+          "master_cell": "C51",
+          "master_formula": "IFERROR(C50/C9,0)",
+          "translated": true,
+          "shared_ref": "C51:H51"
+        }
+      },
+      {
+        "cell": "E51",
+        "row_label": "RO-Margin %",
+        "column_context": "鉴证",
+        "formula": "IFERROR(E50/E9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "16",
+          "master_cell": "C51",
+          "master_formula": "IFERROR(C50/C9,0)",
+          "translated": true,
+          "shared_ref": "C51:H51"
+        }
+      },
+      {
+        "cell": "F51",
+        "row_label": "RO-Margin %",
+        "column_context": "咨询",
+        "formula": "IFERROR(F50/F9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.2144658647661563,
+        "shared_formula_note": {
+          "shared_formula_si": "16",
+          "master_cell": "C51",
+          "master_formula": "IFERROR(C50/C9,0)",
+          "translated": true,
+          "shared_ref": "C51:H51"
+        }
+      },
+      {
+        "cell": "G51",
+        "row_label": "RO-Margin %",
+        "column_context": "审核",
+        "formula": "IFERROR(G50/G9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "16",
+          "master_cell": "C51",
+          "master_formula": "IFERROR(C50/C9,0)",
+          "translated": true,
+          "shared_ref": "C51:H51"
+        }
+      },
+      {
+        "cell": "H51",
+        "row_label": "RO-Margin %",
+        "column_context": "Product 5",
+        "formula": "IFERROR(H50/H9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "16",
+          "master_cell": "C51",
+          "master_formula": "IFERROR(C50/C9,0)",
+          "translated": true,
+          "shared_ref": "C51:H51"
+        }
+      },
+      {
+        "cell": "C52",
+        "row_label": "Overhead",
+        "column_context": "ESG",
+        "formula": "C29",
+        "formula_category": "other",
+        "current_cached_value": 2283.545144631704,
+        "shared_formula_note": {
+          "shared_formula_si": "17",
+          "master_cell": "C52",
+          "shared_ref": "C52:H52",
+          "translated": false
+        }
+      },
+      {
+        "cell": "D52",
+        "row_label": "Overhead",
+        "column_context": "报告",
+        "formula": "D29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "17",
+          "master_cell": "C52",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C52:H52"
+        }
+      },
+      {
+        "cell": "E52",
+        "row_label": "Overhead",
+        "column_context": "鉴证",
+        "formula": "E29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "17",
+          "master_cell": "C52",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C52:H52"
+        }
+      },
+      {
+        "cell": "F52",
+        "row_label": "Overhead",
+        "column_context": "咨询",
+        "formula": "F29",
+        "formula_category": "other",
+        "current_cached_value": 2283.545144631704,
+        "shared_formula_note": {
+          "shared_formula_si": "17",
+          "master_cell": "C52",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C52:H52"
+        }
+      },
+      {
+        "cell": "G52",
+        "row_label": "Overhead",
+        "column_context": "审核",
+        "formula": "G29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "17",
+          "master_cell": "C52",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C52:H52"
+        }
+      },
+      {
+        "cell": "H52",
+        "row_label": "Overhead",
+        "column_context": "Product 5",
+        "formula": "H29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "17",
+          "master_cell": "C52",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C52:H52"
+        }
+      },
+      {
+        "cell": "C53",
+        "row_label": "Operating Result",
+        "column_context": "ESG",
+        "formula": "C24-SUM(C25,C49,C52)",
+        "formula_category": "aggregation",
+        "current_cached_value": 27312.744193097868,
+        "shared_formula_note": {
+          "shared_formula_si": "18",
+          "master_cell": "C53",
+          "shared_ref": "C53:H53",
+          "translated": false
+        }
+      },
+      {
+        "cell": "D53",
+        "row_label": "Operating Result",
+        "column_context": "报告",
+        "formula": "D24-SUM(D25,D49,D52)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "18",
+          "master_cell": "C53",
+          "master_formula": "C24-SUM(C25,C49,C52)",
+          "translated": true,
+          "shared_ref": "C53:H53"
+        }
+      },
+      {
+        "cell": "E53",
+        "row_label": "Operating Result",
+        "column_context": "鉴证",
+        "formula": "E24-SUM(E25,E49,E52)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "18",
+          "master_cell": "C53",
+          "master_formula": "C24-SUM(C25,C49,C52)",
+          "translated": true,
+          "shared_ref": "C53:H53"
+        }
+      },
+      {
+        "cell": "F53",
+        "row_label": "Operating Result",
+        "column_context": "咨询",
+        "formula": "F24-SUM(F25,F49,F52)",
+        "formula_category": "aggregation",
+        "current_cached_value": 27312.744193097868,
+        "shared_formula_note": {
+          "shared_formula_si": "18",
+          "master_cell": "C53",
+          "master_formula": "C24-SUM(C25,C49,C52)",
+          "translated": true,
+          "shared_ref": "C53:H53"
+        }
+      },
+      {
+        "cell": "G53",
+        "row_label": "Operating Result",
+        "column_context": "审核",
+        "formula": "G24-SUM(G25,G49,G52)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "18",
+          "master_cell": "C53",
+          "master_formula": "C24-SUM(C25,C49,C52)",
+          "translated": true,
+          "shared_ref": "C53:H53"
+        }
+      },
+      {
+        "cell": "H53",
+        "row_label": "Operating Result",
+        "column_context": "Product 5",
+        "formula": "H24-SUM(H25,H49,H52)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "18",
+          "master_cell": "C53",
+          "master_formula": "C24-SUM(C25,C49,C52)",
+          "translated": true,
+          "shared_ref": "C53:H53"
+        }
+      },
+      {
+        "cell": "C54",
+        "row_label": "Operating Margin",
+        "column_context": "ESG",
+        "formula": "IFERROR(C53/(C9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.1979184361818686,
+        "shared_formula_note": {
+          "shared_formula_si": "19",
+          "master_cell": "C54",
+          "shared_ref": "C54:H54",
+          "translated": false
+        }
+      },
+      {
+        "cell": "D54",
+        "row_label": "Operating Margin",
+        "column_context": "报告",
+        "formula": "IFERROR(D53/(D9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "19",
+          "master_cell": "C54",
+          "master_formula": "IFERROR(C53/(C9),0)",
+          "translated": true,
+          "shared_ref": "C54:H54"
+        }
+      },
+      {
+        "cell": "E54",
+        "row_label": "Operating Margin",
+        "column_context": "鉴证",
+        "formula": "IFERROR(E53/(E9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "19",
+          "master_cell": "C54",
+          "master_formula": "IFERROR(C53/(C9),0)",
+          "translated": true,
+          "shared_ref": "C54:H54"
+        }
+      },
+      {
+        "cell": "F54",
+        "row_label": "Operating Margin",
+        "column_context": "咨询",
+        "formula": "IFERROR(F53/(F9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.1979184361818686,
+        "shared_formula_note": {
+          "shared_formula_si": "19",
+          "master_cell": "C54",
+          "master_formula": "IFERROR(C53/(C9),0)",
+          "translated": true,
+          "shared_ref": "C54:H54"
+        }
+      },
+      {
+        "cell": "G54",
+        "row_label": "Operating Margin",
+        "column_context": "审核",
+        "formula": "IFERROR(G53/(G9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "19",
+          "master_cell": "C54",
+          "master_formula": "IFERROR(C53/(C9),0)",
+          "translated": true,
+          "shared_ref": "C54:H54"
+        }
+      },
+      {
+        "cell": "H54",
+        "row_label": "Operating Margin",
+        "column_context": "Product 5",
+        "formula": "IFERROR(H53/(H9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "19",
+          "master_cell": "C54",
+          "master_formula": "IFERROR(C53/(C9),0)",
+          "translated": true,
+          "shared_ref": "C54:H54"
+        }
+      },
+      {
+        "cell": "C55",
+        "row_label": "Planned OR/Sales",
+        "column_context": "ESG",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$S$5,3,0),0)/100",
+        "formula_category": "lookup",
+        "current_cached_value": 0.0806211900503957,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C59",
+        "row_label": "MD Costs",
+        "column_context": "ESG",
+        "formula": "SUM(D59:H59)",
+        "formula_category": "aggregation",
+        "current_cached_value": 59853.24682948663,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D59",
+        "row_label": "MD Costs",
+        "column_context": "报告",
+        "formula": "D16*D58",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E59",
+        "row_label": "MD Costs",
+        "column_context": "鉴证",
+        "formula": "E16*E58",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F59",
+        "row_label": "MD Costs",
+        "column_context": "咨询",
+        "formula": "F16*F58",
+        "formula_category": "arithmetic",
+        "current_cached_value": 59853.24682948663,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G59",
+        "row_label": "MD Costs",
+        "column_context": "审核",
+        "formula": "G16*G58",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H59",
+        "row_label": "MD Costs",
+        "column_context": "Product 5",
+        "formula": "H16*H58",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C60",
+        "row_label": "Result of order (RO)",
+        "column_context": "ESG",
+        "formula": "SUM(D60:H60)",
+        "formula_category": "aggregation",
+        "current_cached_value": 38146.75317051337,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D60",
+        "row_label": "Result of order (RO)",
+        "column_context": "报告",
+        "formula": "D24-D25-D59",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E60",
+        "row_label": "Result of order (RO)",
+        "column_context": "鉴证",
+        "formula": "E24-E25-E59",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F60",
+        "row_label": "Result of order (RO)",
+        "column_context": "咨询",
+        "formula": "F24-F25-F59",
+        "formula_category": "arithmetic",
+        "current_cached_value": 38146.75317051337,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G60",
+        "row_label": "Result of order (RO)",
+        "column_context": "审核",
+        "formula": "G24-G25-G59",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "H60",
+        "row_label": "Result of order (RO)",
+        "column_context": "Product 5",
+        "formula": "H24-H25-H59",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "C61",
+        "row_label": "RO-Margin %",
+        "column_context": "ESG",
+        "formula": "IFERROR(C60/C$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.27642574761241573,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D61",
+        "row_label": "RO-Margin %",
+        "column_context": "报告",
+        "formula": "IFERROR(D60/D$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "20",
+          "master_cell": "D61",
+          "shared_ref": "D61:H61",
+          "translated": false
+        }
+      },
+      {
+        "cell": "E61",
+        "row_label": "RO-Margin %",
+        "column_context": "鉴证",
+        "formula": "IFERROR(E60/E$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "20",
+          "master_cell": "D61",
+          "master_formula": "IFERROR(D60/D$9,0)",
+          "translated": true,
+          "shared_ref": "D61:H61"
+        }
+      },
+      {
+        "cell": "F61",
+        "row_label": "RO-Margin %",
+        "column_context": "咨询",
+        "formula": "IFERROR(F60/F$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.27642574761241573,
+        "shared_formula_note": {
+          "shared_formula_si": "20",
+          "master_cell": "D61",
+          "master_formula": "IFERROR(D60/D$9,0)",
+          "translated": true,
+          "shared_ref": "D61:H61"
+        }
+      },
+      {
+        "cell": "G61",
+        "row_label": "RO-Margin %",
+        "column_context": "审核",
+        "formula": "IFERROR(G60/G$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "20",
+          "master_cell": "D61",
+          "master_formula": "IFERROR(D60/D$9,0)",
+          "translated": true,
+          "shared_ref": "D61:H61"
+        }
+      },
+      {
+        "cell": "H61",
+        "row_label": "RO-Margin %",
+        "column_context": "Product 5",
+        "formula": "IFERROR(H60/H$9,0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "20",
+          "master_cell": "D61",
+          "master_formula": "IFERROR(D60/D$9,0)",
+          "translated": true,
+          "shared_ref": "D61:H61"
+        }
+      },
+      {
+        "cell": "C62",
+        "row_label": "Overhead",
+        "column_context": "ESG",
+        "formula": "C29",
+        "formula_category": "other",
+        "current_cached_value": 2283.545144631704,
+        "shared_formula_note": {
+          "shared_formula_si": "21",
+          "master_cell": "C62",
+          "shared_ref": "C62:H62",
+          "translated": false
+        }
+      },
+      {
+        "cell": "D62",
+        "row_label": "Overhead",
+        "column_context": "报告",
+        "formula": "D29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "21",
+          "master_cell": "C62",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C62:H62"
+        }
+      },
+      {
+        "cell": "E62",
+        "row_label": "Overhead",
+        "column_context": "鉴证",
+        "formula": "E29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "21",
+          "master_cell": "C62",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C62:H62"
+        }
+      },
+      {
+        "cell": "F62",
+        "row_label": "Overhead",
+        "column_context": "咨询",
+        "formula": "F29",
+        "formula_category": "other",
+        "current_cached_value": 2283.545144631704,
+        "shared_formula_note": {
+          "shared_formula_si": "21",
+          "master_cell": "C62",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C62:H62"
+        }
+      },
+      {
+        "cell": "G62",
+        "row_label": "Overhead",
+        "column_context": "审核",
+        "formula": "G29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "21",
+          "master_cell": "C62",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C62:H62"
+        }
+      },
+      {
+        "cell": "H62",
+        "row_label": "Overhead",
+        "column_context": "Product 5",
+        "formula": "H29",
+        "formula_category": "other",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "21",
+          "master_cell": "C62",
+          "master_formula": "C29",
+          "translated": true,
+          "shared_ref": "C62:H62"
+        }
+      },
+      {
+        "cell": "C63",
+        "row_label": "Operating Result",
+        "column_context": "ESG",
+        "formula": "C24-SUM(C25,C59,C62)",
+        "formula_category": "aggregation",
+        "current_cached_value": 35863.20802588167,
+        "shared_formula_note": {
+          "shared_formula_si": "22",
+          "master_cell": "C63",
+          "shared_ref": "C63:H63",
+          "translated": false
+        }
+      },
+      {
+        "cell": "D63",
+        "row_label": "Operating Result",
+        "column_context": "报告",
+        "formula": "D24-SUM(D25,D59,D62)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "22",
+          "master_cell": "C63",
+          "master_formula": "C24-SUM(C25,C59,C62)",
+          "translated": true,
+          "shared_ref": "C63:H63"
+        }
+      },
+      {
+        "cell": "E63",
+        "row_label": "Operating Result",
+        "column_context": "鉴证",
+        "formula": "E24-SUM(E25,E59,E62)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "22",
+          "master_cell": "C63",
+          "master_formula": "C24-SUM(C25,C59,C62)",
+          "translated": true,
+          "shared_ref": "C63:H63"
+        }
+      },
+      {
+        "cell": "F63",
+        "row_label": "Operating Result",
+        "column_context": "咨询",
+        "formula": "F24-SUM(F25,F59,F62)",
+        "formula_category": "aggregation",
+        "current_cached_value": 35863.20802588167,
+        "shared_formula_note": {
+          "shared_formula_si": "22",
+          "master_cell": "C63",
+          "master_formula": "C24-SUM(C25,C59,C62)",
+          "translated": true,
+          "shared_ref": "C63:H63"
+        }
+      },
+      {
+        "cell": "G63",
+        "row_label": "Operating Result",
+        "column_context": "审核",
+        "formula": "G24-SUM(G25,G59,G62)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "22",
+          "master_cell": "C63",
+          "master_formula": "C24-SUM(C25,C59,C62)",
+          "translated": true,
+          "shared_ref": "C63:H63"
+        }
+      },
+      {
+        "cell": "H63",
+        "row_label": "Operating Result",
+        "column_context": "Product 5",
+        "formula": "H24-SUM(H25,H59,H62)",
+        "formula_category": "aggregation",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "22",
+          "master_cell": "C63",
+          "master_formula": "C24-SUM(C25,C59,C62)",
+          "translated": true,
+          "shared_ref": "C63:H63"
+        }
+      },
+      {
+        "cell": "C64",
+        "row_label": "Operating Margin",
+        "column_context": "ESG",
+        "formula": "IFERROR(C63/(C$9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.2598783190281281,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D64",
+        "row_label": "Operating Margin",
+        "column_context": "报告",
+        "formula": "IFERROR(D63/(D$9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "23",
+          "master_cell": "D64",
+          "shared_ref": "D64:H64",
+          "translated": false
+        }
+      },
+      {
+        "cell": "E64",
+        "row_label": "Operating Margin",
+        "column_context": "鉴证",
+        "formula": "IFERROR(E63/(E$9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "23",
+          "master_cell": "D64",
+          "master_formula": "IFERROR(D63/(D$9),0)",
+          "translated": true,
+          "shared_ref": "D64:H64"
+        }
+      },
+      {
+        "cell": "F64",
+        "row_label": "Operating Margin",
+        "column_context": "咨询",
+        "formula": "IFERROR(F63/(F$9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0.2598783190281281,
+        "shared_formula_note": {
+          "shared_formula_si": "23",
+          "master_cell": "D64",
+          "master_formula": "IFERROR(D63/(D$9),0)",
+          "translated": true,
+          "shared_ref": "D64:H64"
+        }
+      },
+      {
+        "cell": "G64",
+        "row_label": "Operating Margin",
+        "column_context": "审核",
+        "formula": "IFERROR(G63/(G$9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "23",
+          "master_cell": "D64",
+          "master_formula": "IFERROR(D63/(D$9),0)",
+          "translated": true,
+          "shared_ref": "D64:H64"
+        }
+      },
+      {
+        "cell": "H64",
+        "row_label": "Operating Margin",
+        "column_context": "Product 5",
+        "formula": "IFERROR(H63/(H$9),0)",
+        "formula_category": "conditional_or_error_handling",
+        "current_cached_value": 0,
+        "shared_formula_note": {
+          "shared_formula_si": "23",
+          "master_cell": "D64",
+          "master_formula": "IFERROR(D63/(D$9),0)",
+          "translated": true,
+          "shared_ref": "D64:H64"
+        }
+      },
+      {
+        "cell": "C65",
+        "row_label": "Planned OR/Sales",
+        "column_context": "ESG",
+        "formula": "IFERROR(VLOOKUP($D$3,$Q$4:$S$5,3,0),0)/100",
+        "formula_category": "lookup",
+        "current_cached_value": 0.0806211900503957,
+        "shared_formula_note": null
+      }
+    ],
+    "P&L": [
+      {
+        "cell": "F16",
+        "row_label": "Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A16,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G16",
+        "row_label": "Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A16,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F17",
+        "row_label": "Ext. Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A17,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G17",
+        "row_label": "Ext. Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A17,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F18",
+        "row_label": "IC Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A18,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G18",
+        "row_label": "IC Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A18,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F19",
+        "row_label": "CtC (POC)",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A19,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G19",
+        "row_label": "CtC (POC)",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A19,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F20",
+        "row_label": "Subcontracting",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A20,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G20",
+        "row_label": "Subcontracting",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A20,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F21",
+        "row_label": "Subcontracting ext.",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A21,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G21",
+        "row_label": "Subcontracting ext.",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A21,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F22",
+        "row_label": "Subcontracting IC",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A22,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G22",
+        "row_label": "Subcontracting IC",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A22,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F23",
+        "row_label": "Computer Costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A23,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G23",
+        "row_label": "Computer Costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A23,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F24",
+        "row_label": "IT Applications",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A24,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G24",
+        "row_label": "IT Applications",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A24,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F25",
+        "row_label": "IT - SAP costs IC",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A25,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G25",
+        "row_label": "IT - SAP costs IC",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A25,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F26",
+        "row_label": "IT Consulting/Development",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A26,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G26",
+        "row_label": "IT Consulting/Development",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A26,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F27",
+        "row_label": "IT - App. DV PS IC",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A27,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G27",
+        "row_label": "IT - App. DV PS IC",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A27,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F28",
+        "row_label": "IT Infrastructure",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A28,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G28",
+        "row_label": "IT Infrastructure",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A28,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F29",
+        "row_label": "IT Maintenance",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A29,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G29",
+        "row_label": "IT Maintenance",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A29,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F30",
+        "row_label": "IT Training",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A30,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G30",
+        "row_label": "IT Training",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A30,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F31",
+        "row_label": "IT Allocation/Accumulation",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A31,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G31",
+        "row_label": "IT Allocation/Accumulation",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A31,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F32",
+        "row_label": "Assessment IT",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A32,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G32",
+        "row_label": "Assessment IT",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A32,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F33",
+        "row_label": "Professional fees",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A33,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G33",
+        "row_label": "Professional fees",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A33,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F34",
+        "row_label": "Professional Fee",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A34,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G34",
+        "row_label": "Professional Fee",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A34,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F35",
+        "row_label": "Professional Fee",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A35,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G35",
+        "row_label": "Professional Fee",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A35,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F36",
+        "row_label": "BU/BL costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A36,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G36",
+        "row_label": "BU/BL costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A36,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F37",
+        "row_label": "Service Accounting/Procurement",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A37,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G37",
+        "row_label": "Service Accounting/Procurement",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A37,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F38",
+        "row_label": "Assessment Accountin",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A38,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G38",
+        "row_label": "Assessment Accountin",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A38,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "total sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F39",
+        "row_label": "Marketing",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A39,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G39",
+        "row_label": "Marketing",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A39,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F40",
+        "row_label": "Website and Intranet",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A40,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G40",
+        "row_label": "Website and Intranet",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A40,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F41",
+        "row_label": "Offline trade fairs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A41,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G41",
+        "row_label": "Offline trade fairs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A41,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F42",
+        "row_label": "Assessment Marketing",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A42,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G42",
+        "row_label": "Assessment Marketing",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A42,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F43",
+        "row_label": "Consulting / Insurance",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A43,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G43",
+        "row_label": "Consulting / Insurance",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A43,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F44",
+        "row_label": "Other Charges",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A44,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G44",
+        "row_label": "Other Charges",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A44,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F45",
+        "row_label": "Liability Insurance",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A45,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G45",
+        "row_label": "Liability Insurance",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A45,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F46",
+        "row_label": "Management fee",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A46,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G46",
+        "row_label": "Management fee",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A46,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F47",
+        "row_label": "Holding Fee China",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A47,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G47",
+        "row_label": "Holding Fee China",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A47,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F48",
+        "row_label": "Service charge CSPF",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A48,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G48",
+        "row_label": "Service charge CSPF",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A48,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F49",
+        "row_label": "Charg division costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A49,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G49",
+        "row_label": "Charg division costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A49,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F50",
+        "row_label": "Services Region",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A50,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G50",
+        "row_label": "Services Region",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A50,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F51",
+        "row_label": "Management fee AG",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A51,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G51",
+        "row_label": "Management fee AG",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A51,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F52",
+        "row_label": "Charging/Assessment",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A52,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G52",
+        "row_label": "Charging/Assessment",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A52,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F53",
+        "row_label": "Nonproductive Services",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A53,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G53",
+        "row_label": "Nonproductive Services",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A53,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F54",
+        "row_label": "Assessment",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A54,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G54",
+        "row_label": "Assessment",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A54,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F55",
+        "row_label": "Assessm. Controlling",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A55,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 0.5,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G55",
+        "row_label": "Assessm. Controlling",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A55,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "total sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F56",
+        "row_label": "Management (CEO)",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A56,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G56",
+        "row_label": "Management (CEO)",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A56,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F57",
+        "row_label": "Assessment Procureme",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A57,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 0.5,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G57",
+        "row_label": "Assessment Procureme",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A57,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F58",
+        "row_label": "Assessment General",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A58,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 0.5,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G58",
+        "row_label": "Assessment General",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A58,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "net. Sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F59",
+        "row_label": "Assessment CEO/ADM",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A59,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 0.5,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G59",
+        "row_label": "Assessment CEO/ADM",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A59,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "net. Sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F60",
+        "row_label": "Assessment Legal",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A60,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G60",
+        "row_label": "Assessment Legal",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A60,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F61",
+        "row_label": "Assessment Cert",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A61,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G61",
+        "row_label": "Assessment Cert",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A61,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F62",
+        "row_label": "Assessment Admin Sup",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A62,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G62",
+        "row_label": "Assessment Admin Sup",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A62,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F63",
+        "row_label": "Assessment Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A63,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": 1,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G63",
+        "row_label": "Assessment Sales",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A63,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": "ext. sales",
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F64",
+        "row_label": "Total Costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A64,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G64",
+        "row_label": "Total Costs",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A64,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "F65",
+        "row_label": "OR%",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A65,Mapping!C:C,Mapping!E:E,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "G65",
+        "row_label": "OR%",
+        "column_context": null,
+        "formula": "(_xlfn.XLOOKUP(A65,Mapping!C:C,Mapping!F:F,\"\"))",
+        "formula_category": "lookup",
+        "current_cached_value": null,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D67",
+        "row_label": "Alternative allocation cost",
+        "column_context": "0001PS-ESG-GC",
+        "formula": "SUMPRODUCT(D$14:D$65,$F$14:$F$65)",
+        "formula_category": "allocation_sumproduct",
+        "current_cached_value": 1251214.3150000002,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E67",
+        "row_label": "Alternative allocation cost",
+        "column_context": "0001PS-CSR-GC",
+        "formula": "SUMPRODUCT(E$14:E$65,$F$14:$F$65)",
+        "formula_category": "allocation_sumproduct",
+        "current_cached_value": 3160719.3400000003,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D68",
+        "row_label": "Alternative allocation cost  / Ext. sales",
+        "column_context": "0001PS-ESG-GC",
+        "formula": "D67/D17",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0.09053186682359064,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E68",
+        "row_label": "Alternative allocation cost  / Ext. sales",
+        "column_context": "0001PS-CSR-GC",
+        "formula": "E67/E17",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0.09596833090084642,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D69",
+        "row_label": "Alternative allocation cost  / Total Costs",
+        "column_context": "0001PS-ESG-GC",
+        "formula": "D67/D64",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0.1255947752239753,
+        "shared_formula_note": {
+          "shared_formula_si": "0",
+          "master_cell": "D69",
+          "shared_ref": "D69:E69",
+          "translated": false
+        }
+      },
+      {
+        "cell": "E69",
+        "row_label": "Alternative allocation cost  / Total Costs",
+        "column_context": "0001PS-CSR-GC",
+        "formula": "E67/E64",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0.13773451694205027,
+        "shared_formula_note": {
+          "shared_formula_si": "0",
+          "master_cell": "D69",
+          "master_formula": "D67/D64",
+          "translated": true,
+          "shared_ref": "D69:E69"
+        }
+      },
+      {
+        "cell": "D70",
+        "row_label": "Alternative allocation cost - related to IC sales",
+        "column_context": "0001PS-ESG-GC",
+        "formula": "(D59+D58+D55)*0.5+D38",
+        "formula_category": "arithmetic",
+        "current_cached_value": 250005.135,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E70",
+        "row_label": "Alternative allocation cost - related to IC sales",
+        "column_context": "0001PS-CSR-GC",
+        "formula": "(E59+E58+E55)*0.5+E38",
+        "formula_category": "arithmetic",
+        "current_cached_value": 435342.41500000004,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "D71",
+        "row_label": "Alternative allocation cost  /IC. sales",
+        "column_context": "0001PS-ESG-GC",
+        "formula": "D70/D18",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0.03695998846020505,
+        "shared_formula_note": null
+      },
+      {
+        "cell": "E71",
+        "row_label": "Alternative allocation cost  /IC. sales",
+        "column_context": "0001PS-CSR-GC",
+        "formula": "E70/E18",
+        "formula_category": "arithmetic",
+        "current_cached_value": 0.14867204776308413,
+        "shared_formula_note": null
+      }
+    ]
+  },
+  "potential_issues_and_review_points_cn": [
+    {
+      "severity": "confirmed_error_corrected_in_json",
+      "location": "AUD Pre-cal!V5",
+      "issue": "原 Excel 中 CSR 行的 Alternative allocation cost / Ext. sales 公式为 'P&L'!D69，经用户确认属于引用错误。",
+      "confirmed_correction": "应改为 'P&L'!E68。",
+      "why_it_matters": "若选择 CSR，row 39 会通过 VLOOKUP 取到 V5；原引用会把 CSR 的 Ext. sales allocation ratio 误取为 ESG 的 Total Costs ratio，影响 overhead 与 Operating Result / Margin。",
+      "json_status": "本版 JSON 已按目标公式 'P&L'!E68 和对应值 0.09596833090084642 更新；源 Excel 未自动修改。",
+      "recommended_excel_fix": "将 AUD Pre-cal!V5 公式从 ='P&L'!D69 改为 ='P&L'!E68。"
+    },
+    {
+      "severity": "resolved_logic_note",
+      "location": "AUD Pre-cal!D13:H13",
+      "issue": "行标签写的是 MD for Travel (20% of Quotation MD)，但公式是 onsite MD * 10%。",
+      "user_confirmed_logic": "以公式为准：travelMD = onsiteMD * 10%。",
+      "json_status": "本版 JSON 的后端逻辑已按 10% onsite MD 处理；该项不再作为计算错误。",
+      "optional_ui_or_excel_label_fix": "如果后续做小程序界面或清理模板，可把显示名称改成 Travel MD = 10% of onsite MD，避免使用者误读。"
+    },
+    {
+      "severity": "medium",
+      "location": "AUD Pre-cal!D5:H5 + D37:H39",
+      "issue": "D5:H5 生成 order center + service code 的组合键，但当前主要费率公式没有使用这个组合键；D37:H39 是按 service code 从 Q4:W5 查找。",
+      "why_it_matters": "如果小程序希望不同 order center 使用不同 hourly rate，目前 Excel 逻辑并未实现；需额外设计 profit center rate lookup。",
+      "suggested_review": "确认费率是否仅按 ESG/CSR 区分，还是应按 2160/4820/4830 等中心区分。"
+    },
+    {
+      "severity": "medium",
+      "location": "AUD Pre-cal!D40:H42",
+      "issue": "Allocation cost / IC sales 行为空，但 D42:H42 仍引用 D40:H40；因此 IC sales allocation 组件当前为 0。",
+      "why_it_matters": "若 IC Subcon Rate 不为 0，IC allocation 部分仍可能没有被正确纳入。",
+      "suggested_review": "确认 D40:H40 是否应通过 W 列或 P&L D71/E71 填入。"
+    },
+    {
+      "severity": "low",
+      "location": "AUD Pre-cal!D48:H48 and D58:H58",
+      "issue": "70%/80% Productivity 情景费率看起来是硬编码，没有公式解释如何由 base hourly rate 推导。",
+      "why_it_matters": "后台复刻时无法从 Excel 公式得出情景费率，只能把它作为参数/配置项。",
+      "suggested_review": "补充 productivity scenario rate 的计算规则或在后台将其设为可配置参数。"
+    },
+    {
+      "severity": "low",
+      "location": "Workbook external links",
+      "issue": "工作簿包含指向旧网络路径/本地路径的 externalLinks。",
+      "why_it_matters": "打开文件时可能出现外部链接提示；迁移或自动解析时可能造成噪音。",
+      "suggested_review": "若不再需要，建议清理外部链接。"
+    }
+  ],
+  "analysis_revision": {
+    "version": "v2_user_corrected",
+    "basis": "Updated according to user confirmation in the current conversation.",
+    "does_not_modify_source_excel": true,
+    "changes": [
+      {
+        "location": "AUD Pre-cal!D13:H13",
+        "confirmed_logic_cn": "以公式为准：travelMD = onsiteMD * 10%，不是按行名中的 20% of Quotation MD 计算。",
+        "original_workbook_label": "MD for Travel (20% of Quotation MD)",
+        "formula_pattern": "D13:H13 = D10:H10 * 0.1",
+        "json_update": "后端逻辑与问题清单已按 10% onsite MD 修正，不再作为计算错误处理。"
+      },
+      {
+        "location": "AUD Pre-cal!V5",
+        "confirmed_error_cn": "原公式引用错误。CSR 行的 Alternative allocation cost / Ext. sales 应引用 P&L!E68。",
+        "original_formula_in_workbook": "'P&L'!D69",
+        "corrected_formula_for_logic": "'P&L'!E68",
+        "corrected_value_from_P&L_E68": 0.09596833090084642,
+        "json_update": "JSON 中与 AUD Pre-cal!V5 对应的公式和值已按 P&L!E68 更新，并保留原公式作为修订记录。"
+      }
+    ]
+  },
+  "corrected_formula_overrides_for_backend_cn": [
+    {
+      "location": "AUD Pre-cal!V5",
+      "field": "CSR.allocationCostExternalSalesRatio",
+      "original_formula_in_workbook": "='P&L'!D69",
+      "corrected_formula": "='P&L'!E68",
+      "corrected_value": 0.09596833090084642,
+      "source_meaning": "P&L!E68 = CSR Alternative allocation cost / Ext. sales",
+      "apply_in_backend": true,
+      "apply_to_excel_if_cleaning_template": true
+    },
+    {
+      "location": "AUD Pre-cal!D13:H13",
+      "field": "lineItem.travelMD",
+      "formula": "onsiteMD * 0.1",
+      "source_meaning": "Travel MD 默认按 onsite MD 的 10% 计算",
+      "original_label_in_workbook": "MD for Travel (20% of Quotation MD)",
+      "apply_in_backend": true,
+      "apply_to_excel_if_cleaning_template": "optional_label_only"
+    }
+  ]
+}

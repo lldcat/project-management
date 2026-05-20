@@ -1,78 +1,64 @@
 # PM 项目成本、进度及绩效管理小程序
 
-这是一个可导入微信开发者工具的微信云开发版小程序代码包，用于替代项目复盘 Excel。
+这是一个可导入微信开发者工具的微信云开发版小程序代码包，用于替代项目复盘 Excel，并支持 **Pre-cal → SAP绑定 → 项目创建** 的全流程。
 
-## 已实现功能
+## 已实现功能（当前版本）
 
 - 微信云开发初始化，默认环境 ID：`cloud1-6gwp2land6cda07f`
-- 通过 openid 自动识别用户
-- 云函数统一处理项目增删改查，避免前端直接操作数据库
-- 默认每个用户都是 PM，可创建、查看和编辑自己负责的项目
-- 支持 `leader` 角色查看和导出部门全部项目，非本人项目默认只读
-- 保留 `admin` 系统维护角色，可管理全部项目
-- 支持动态新增子项目，不固定 3 个子项目
-- 支持人员预算工时分配，并与每位员工 AR 工时逐人比较
-- 支持 PM 手动录入 AR 工时
-- 首页看板：项目总数、风险项目、成本异常、进度滞后、BAC（项目总预算）/AC（实际成本）/CV（成本偏差）/SV（进度偏差）汇总
-- 项目列表：搜索、风险筛选、新增、编辑、删除、CSV 导出
+- 通过 openid 自动识别用户，云函数统一处理用户去重与角色合并
+- 云函数统一处理项目增删改查，前端不直接操作数据库
+- 支持 Sales 创建/提交 Pre-cal，CS 绑定 SAP，PM 通过 SAP 号创建项目
+- PM 在“新增项目”页输入任一已绑定 SAP 号，可自动从 Pre-cal 创建完整项目
+- 项目创建防重：同一个 Pre-cal 只能创建一个项目（通过 `createdProjectId` 防重）
+- 子项目动态数组化（不写死 3 个），按 Pre-cal 绑定的 SAP 数量自动生成
+- 首页看板：项目总数、风险项目、成本异常、进度滞后、BAC/AC/CV/SV 汇总
+- 项目列表：搜索、风险筛选、编辑、删除、CSV 导出
 - 项目填报页：基础信息、子项目预算、人员预算工时分配、差旅费、人天成本、AR 工时、自动计算预览
-- 异常提醒：人员预算未分配、人员预算合计与子项目预算不一致、个人 AR 超个人预算、AR 超总预算、CV（成本偏差）<0、SV（进度偏差）<0、CPI（成本绩效）<1、SPI（进度绩效）<1、实际完成率>100%
 
 ## 目录结构
 
 ```text
-pm_tracker_miniprogram/
-├─ project.config.json
+/workspace/project-management/
 ├─ miniprogram/
-│  ├─ app.js
-│  ├─ app.json
-│  ├─ app.wxss
-│  ├─ sitemap.json
+│  ├─ pages/
+│  │  ├─ home/
+│  │  ├─ projects/
+│  │  ├─ edit/
+│  │  ├─ precal/
+│  │  ├─ precal-cs/
+│  │  └─ admin/
+│  ├─ services/
 │  ├─ utils/
-│  │  ├─ cloud.js
-│  │  └─ metrics.js
-│  └─ pages/
-│     ├─ home/
-│     ├─ projects/
-│     ├─ edit/
-│     └─ settings/
+│  └─ config/
 └─ cloudfunctions/
    ├─ login/
-   └─ projectService/
-```
-
-## 导入步骤
-
-1. 解压 zip。
-2. 打开微信开发者工具。
-3. 选择“导入项目”。
-4. 项目目录选择解压后的 `pm_tracker_miniprogram` 文件夹。
-5. 如果开发者工具提示 AppID 不匹配，请把 `project.config.json` 中的 `appid` 改成你自己的小程序 AppID。
-6. 确认 `miniprogram/app.js` 中的云环境 ID 是否为你的真实环境：
-
-```js
-const ENV_ID = 'cloud1-6gwp2land6cda07f';
+   ├─ projectService/
+   └─ precalService/
 ```
 
 ## 云开发配置
 
-### 1. 创建集合
+### 1) 创建集合
 
-在云开发控制台创建两个集合：
+当前版本至少需要以下集合：
 
 - `users`
 - `projects`
+- `precal_records`
+- `precal_parameters`
+- `precal_logs`
 
-### 2. 上传云函数
+### 2) 上传云函数
 
-在微信开发者工具中右键以下云函数文件夹，选择“上传并部署：云端安装依赖”。
+在微信开发者工具中右键以下云函数文件夹，选择“上传并部署：云端安装依赖”：
 
 - `cloudfunctions/login`
 - `cloudfunctions/projectService`
+- `cloudfunctions/precalService`
 
-### 3. 数据库安全规则建议
+### 3) 数据库安全规则建议
 
-因为本项目通过云函数统一读写数据库，前端不需要直接访问数据库。生产环境建议将集合权限收紧，例如：
+前端不直接读写数据库，建议生产环境集合权限收紧：
 
 ```json
 {
@@ -81,147 +67,75 @@ const ENV_ID = 'cloud1-6gwp2land6cda07f';
 }
 ```
 
-云函数会绕过前端数据库权限，并在函数内部根据 openid 和 users.role 判断访问范围。
+## 角色与权限（已更新）
 
-## 角色设置
+### 默认用户角色
 
-首次打开小程序时，`login` 云函数会自动在 `users` 集合创建当前用户：
-
-```json
-{
-  "openid": "用户openid",
-  "role": "pm",
-  "defaultPersonDayCost": 5000
-}
-```
-
-如需部门 Leader 视角，请先让该同事打开一次小程序，使系统在 `users` 集合生成用户记录，然后在云数据库中手动修改：
+首次登录时，系统会自动创建用户并赋予测试用全能角色：
 
 ```json
 {
-  "role": "leader"
+  "role": "admin",
+  "roles": ["pm", "sales", "cs", "admin", "ar"]
 }
 ```
 
-系统维护人员如需管理全部项目，可设置：
+> 说明：当前代码中 **已移除 leader 角色** 的运行时权限判断。
 
-```json
-{
-  "role": "admin"
-}
-```
-
-角色权限：
+### 权限口径
 
 | 角色 | 权限 |
 |---|---|
-| pm | 默认角色；每个人都可以作为 PM 创建、查看和编辑自己创建的项目 |
-| leader | 部门 Leader；查看和导出所有 PM 的项目，非本人项目默认只读 |
-| admin | 系统管理员；查看、编辑、删除、导出全部项目 |
-| ar | 兼容旧版本角色；查看和导出全部项目，非本人项目默认只读 |
-| member | 预留角色，当前按普通 PM 逻辑处理 |
+| pm | 创建并维护自己项目 |
+| sales | 创建/编辑/提交 Pre-cal |
+| cs | 维护 Pre-cal 的 SAP 绑定 |
+| admin | 管理视角（查看全部项目；可编辑/删除）与参数维护 |
+| ar | 查看全部项目（兼容旧角色） |
+| member | 预留角色 |
 
-管理员看全部项目的启用方式：先用管理员微信打开一次小程序，让系统在 `users` 集合生成该用户记录；然后在 `users` 集合中找到该用户，把 `role` 从 `pm` 改成 `admin`，保存后重新进入小程序即可。首页和项目页会显示当前角色及可见范围。
+## Pre-cal → 项目创建流程（当前实现）
 
-## 人员预算工时分配
-
-本版新增 `employeeBudgets` 字段，用于记录每个员工被分配的项目预算工时：
-
-```json
-{
-  "employeeBudgets": [
-    { "memberName": "张三", "budgetHours": 24 },
-    { "memberName": "李四", "budgetHours": 16 }
-  ]
-}
-```
-
-系统会自动比较：
-
-```text
-人员预算工时合计 = Σ每位员工分配预算工时
-人员预算分配差异 = 人员预算工时合计 - 子项目预算工时合计
-个人预算使用率 = 个人 AR 工时 ÷ 个人分配预算工时
-个人剩余/超出工时 = 个人分配预算工时 - 个人 AR 工时
-```
-
-如果某位员工的 AR 工时超过个人预算工时，或有 AR 工时但没有分配预算，系统会在异常提醒中标出。
-
-
-## 人员预算与 AR 成员同步规则
-
-- 项目经理 PM 必须填写，并会自动进入“人员预算工时分配”和“AR 工时”。
-- “项目组员”支持用逗号、顿号、空格或换行分隔；点击“同步 PM/组员”后，会把 PM 和项目组员同步到人员预算。
-- “AR 工时”的成员名单不能单独新增或删除，系统自动与“人员预算工时分配”保持一致；如需增减成员，请先调整人员预算。
-- 修改人员预算里的员工姓名时，AR 工时成员会同步更新，并尽量保留同名员工原有 AR 工时。
-- 保存时云函数会再次校验并同步，避免前端异常导致人员预算和 AR 工时成员不一致。
+1. CS 在 Pre-cal 中绑定多个 SAP（`sapBindings[].sapNo`）。
+2. PM 在“新增项目”页输入任一 SAP 号。
+3. `projectService.createFromSap` 在 `precal_records` 中按 SAP 反查对应 Pre-cal。
+4. 若未找到，提示：`未找到该 SAP 项目号对应的 Pre-cal`。
+5. 若已存在 `createdProjectId`，提示：`该项目已存在，请勿重复创建`。
+6. 若可创建：
+   - `mainSapNo = 输入SAP号`
+   - `sapNumbers = 该 Pre-cal 绑定的全部 SAP`
+   - `subProjects` 按 `sapNumbers` 动态生成
+   - `budgetTotalHours = totalMD * 8`
+   - `projectTotalBudget = orderValue - travelFee`
+   - `bac = projectTotalBudget`
+7. 创建成功后回写 Pre-cal：`createdProjectId`，并更新状态为 `Project Created`。
 
 ## 当前计算口径
 
-### 人工预算（不含差旅）
+### 项目总预算（BAC）
 
 ```text
-人工预算 = Σ(子项目预算工时 ÷ 8 × 报价人天单价)
+BAC = projectTotalBudget = Order Value - 差旅费
 ```
 
-说明：填报页中的“预算工时”按小时填写；“报价人天单价”按元/人天填写。
-
-### BAC（项目总预算，含差旅）
+### 预算总工时
 
 ```text
-BAC = 人工预算 + 差旅费
+budgetTotalHours = Total MD × 8
 ```
 
-### 计划完成率
-
-```text
-计划完成率 = Σ计划完成工时 ÷ Σ预算工时
-```
-
-### PV（计划价值）
+### 挣值指标（项目复盘页）
 
 ```text
 PV = BAC × 计划完成率
-```
-
-### 实际完成率
-
-```text
-实际完成率 = ΣAR工时 ÷ Σ预算工时
-```
-
-### EV（挣值）
-
-```text
 EV = BAC × 实际完成率
-```
-
-### AC（实际成本）
-
-```text
 AC = ΣAR工时 ÷ 8 × 内部人天成本
-```
-
-### CV（成本偏差）/ SV（进度偏差）/ CPI（成本绩效）/ SPI（进度绩效）
-
-```text
 CV = EV - AC
 SV = EV - PV
 CPI = EV ÷ AC
 SPI = EV ÷ PV
 ```
 
-## CSV 导出说明
+## 备注
 
-在“项目”页点击“导出CSV”。小程序会生成 CSV 内容，并提供复制到剪贴板的方式。
-
-导出字段包括：项目名称、项目号、客户名称、PM、状态、子项目预算工时合计、人员预算工时合计、人员预算分配差异、计划完成工时、AR 工时、人工预算、差旅费、BAC-项目总预算、PV-计划价值、EV-挣值、AC-实际成本、CV-成本偏差、SV-进度偏差、CPI-成本绩效、SPI-进度绩效、实际完成率、计划完成率、人员预算/AR明细、异常提醒。
-
-## 后续可扩展事项
-
-- 对接 Microsoft 365 / SharePoint Excel，实现 AR 工时自动同步
-- 增加月度复盘版本记录
-- 增加项目修改日志
-- 将 AR 核对人改为只读角色
-- 增加 Excel 导出云函数
-- 增加按 PM、客户、月份维度的统计图表
+- 旧文档中的 leader 说明已废弃，以本 README 为准。
+- 如果你要从历史数据迁移，请确保旧用户记录中的 `leader` 不再作为权限依赖角色。

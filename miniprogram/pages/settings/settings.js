@@ -30,7 +30,6 @@ Page({
   formatRole(role) {
     const map = {
       pm: 'PM',
-      leader: '部门Leader',
       admin: '系统管理员',
       ar: 'AR核对人',
       member: '普通组员',

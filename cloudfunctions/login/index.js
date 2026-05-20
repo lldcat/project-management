@@ -14,7 +14,7 @@ function normalizeRoles(user) {
   if (!user) return [];
   if (Array.isArray(user.roles) && user.roles.length) return user.roles.map(String).filter(Boolean);
   if (user.role) return [String(user.role)];
-  return ['pm'];
+  return ['pm','sales','cs','admin','ar'];
 }
 
 function uniqueRoles(records) {
@@ -25,7 +25,7 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm'];
+  return roles.length ? roles : ['pm','sales','cs','admin','ar'];
 }
 
 function userScore(user, openid) {
@@ -36,8 +36,7 @@ function userScore(user, openid) {
   if (normalizeText(user && user.name)) score += 10;
   const roles = normalizeRoles(user);
   if (roles.indexOf('admin') >= 0) score += 5;
-  if (roles.indexOf('leader') >= 0) score += 4;
-  if (roles.indexOf('sales') >= 0) score += 3;
+    if (roles.indexOf('sales') >= 0) score += 3;
   if (roles.indexOf('cs') >= 0) score += 2;
   return score;
 }
@@ -101,7 +100,7 @@ async function getOrCreateCurrentUser(openid) {
     return { user: Object.assign({ _id: primary._id }, primary, mergedUser), duplicateCount };
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm','sales','cs','admin','ar'] }, [], openid, now);
 
   try {
     await users.doc(openid).set({ data: newUser });

@@ -6,7 +6,70 @@ const db = cloud.database();
 const _ = db.command;
 const users = db.collection('users');
 const projects = db.collection('projects');
+const precalRecords = db.collection('precal_records');
 
+
+
+function normalizeSapNo(value) {
+  return String(value || '').trim();
+}
+
+function pickTravelFee(precal) {
+  return toNumber(precal.travelFee || precal.subcontractingTravelFee || precal.subcontractingExtTravelFee);
+}
+
+function buildProjectFromPrecal(precal, inputSapNo) {
+  const sapNumbers = Array.from(new Set((precal.sapBindings || []).map(item => normalizeSapNo(item.sapNo)).filter(Boolean)));
+  const mainSapNo = normalizeSapNo(inputSapNo) || sapNumbers[0] || '';
+  const orderValue = toNumber((precal.calculationResult || {}).totalOrderValue || precal.totalOrderValue || precal.orderValue);
+  const totalMD = toNumber((precal.calculationResult || {}).totalMD || precal.totalMD);
+  const travelFee = pickTravelFee(precal);
+  const budgetTotalHours = totalMD * 8;
+  const projectTotalBudget = orderValue - travelFee;
+  const subProjects = sapNumbers.map((sapNo, index) => ({
+    id: `sub_${Date.now()}_${index}`,
+    sapNo,
+    subProjectNo: sapNo,
+    name: sapNo,
+    budgetHours: 0,
+    budgetAmount: 0,
+    budgetLaborUnitPrice: 0,
+    plannedCompletedHours: 0,
+    actualHours: 0
+  }));
+  return {
+    projectName: `${precal.customerName || '项目'}-${mainSapNo}`,
+    customerName: String(precal.customerName || '').trim(),
+    projectNo: mainSapNo,
+    mainSapNo,
+    sapNumbers,
+    precalId: precal._id,
+    precalNo: precal.precalNo || '',
+    orderValue,
+    totalMD,
+    budgetTotalHours,
+    projectTotalBudget,
+    bac: projectTotalBudget,
+    travelFee,
+    startDate: '',
+    endDate: '',
+    projectManager: '',
+    projectMembers: [],
+    status: 'active',
+    constants: { hoursPerDay: 8, personDayCost: 5000 },
+    subProjects,
+    employeeBudgets: [],
+    arHours: []
+  };
+}
+
+async function getPrecalBySapNo(sapNo) {
+  const no = normalizeSapNo(sapNo);
+  if (!no) return null;
+  const res = await precalRecords.where({ 'sapBindings.sapNo': no, deleted: _.neq(true) }).limit(20).get();
+  const rows = (res.data || []).filter(item => Array.isArray(item.sapBindings) && item.sapBindings.some(s => normalizeSapNo(s.sapNo) === no));
+  return rows[0] || null;
+}
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -279,7 +342,7 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm'];
+  return roles.length ? roles : ['pm','sales','cs','admin','ar'];
 }
 
 function userScore(user, openid) {
@@ -290,8 +353,7 @@ function userScore(user, openid) {
   if (normalizeText(user && user.name)) score += 10;
   const roles = normalizeRoles(user);
   if (roles.indexOf('admin') >= 0) score += 5;
-  if (roles.indexOf('leader') >= 0) score += 4;
-  if (roles.indexOf('sales') >= 0) score += 3;
+    if (roles.indexOf('sales') >= 0) score += 3;
   if (roles.indexOf('cs') >= 0) score += 2;
   return score;
 }
@@ -354,7 +416,7 @@ async function getCurrentUser(openid) {
     return Object.assign({ _id: primary._id }, primary, mergedUser);
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm','sales','cs','admin','ar'] }, [], openid, now);
   try {
     await users.doc(openid).set({ data: newUser });
     return Object.assign({ _id: openid }, newUser);
@@ -378,7 +440,7 @@ function ownsProject(project, openid) {
 function normalizeRoles(user) {
   if (user && Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
   if (user && user.role) return [String(user.role)];
-  return ['pm'];
+  return ['pm','sales','cs','admin','ar'];
 }
 
 function hasRole(user, role) {
@@ -391,7 +453,7 @@ function hasAnyRole(user, roles) {
 }
 
 function canViewAll(user) {
-  return hasAnyRole(user, ['leader', 'admin', 'ar']);
+  return hasAnyRole(user, ['admin', 'ar']);
 }
 
 function canEditAll(user) {
@@ -528,7 +590,29 @@ exports.main = async (event) => {
       return { ok: true, project: decorateProjectAccess(project, openid, user), user };
     }
 
-    if (action === 'save') {
+    
+    if (action === 'createFromSap') {
+      const sapNo = normalizeSapNo(event.sapNo);
+      if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
+      const precal = await getPrecalBySapNo(sapNo);
+      if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal', user };
+      if (precal.createdProjectId) return { ok: false, message: '该项目已存在，请勿重复创建', projectId: precal.createdProjectId, user };
+      const projectData = cleanProjectInput(buildProjectFromPrecal(precal, sapNo));
+      projectData.metrics = computeMetrics(projectData);
+      projectData._openid = openid;
+      projectData.ownerOpenid = openid;
+      projectData.createdAt = now;
+      projectData.createdBy = openid;
+      projectData.updatedAt = now;
+      projectData.updatedBy = openid;
+      projectData.deleted = false;
+      projectData.version = 1;
+      const addRes = await projects.add({ data: projectData });
+      await precalRecords.doc(precal._id).update({ data: { createdProjectId: addRes._id, status: 'Project Created', updatedAt: now, updatedBy: openid, version: _.inc(1) } });
+      return { ok: true, id: addRes._id, user };
+    }
+
+if (action === 'save') {
       const cleaned = cleanProjectInput(event.project);
       cleaned.metrics = computeMetrics(cleaned);
       cleaned.updatedAt = now;

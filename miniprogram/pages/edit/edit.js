@@ -1,4 +1,5 @@
 const projectService = require('../../services/projectService');
+const { formatMoney } = require('../../utils/metrics');
 const { enrichProject } = require('../../utils/metrics');
 
 function createId(prefix) {
@@ -119,7 +120,9 @@ Page({
     ],
     preview: enrichProject(defaultForm()),
     readOnly: false,
-    pageTitle: '新增项目'
+    pageTitle: '新增项目',
+    sapSearchNo: '',
+    precalPreview: null
   },
 
   onLoad(options) {
@@ -161,6 +164,11 @@ Page({
 
   setFormAndPreview(form) {
     this.setData({ form }, () => this.refreshPreview());
+  },
+
+
+  onSapInput(e) {
+    this.setData({ sapSearchNo: e.detail.value || '' });
   },
 
   onBasicInput(e) {
@@ -338,26 +346,35 @@ Page({
       return;
     }
   
+    const sapNo = String(this.data.sapSearchNo || '').trim();
+    if (!this.data.id && sapNo) {
+      wx.showLoading({ title: '保存中' });
+      projectService.callProjectService('createFromSap', { sapNo })
+        .then(res => {
+          if (res.id) this.setData({ id: res.id, isEdit: true });
+          wx.showToast({ title: '已保存', icon: 'success' });
+        })
+        .catch(err => {
+          wx.showToast({ title: err.message || '保存失败', icon: 'none' });
+        })
+        .finally(() => wx.hideLoading());
+      return;
+    }
+
     if (!this.validateForm()) return;
-  
     const project = this.normalizeForm();
-  
     wx.showLoading({ title: '保存中' });
-  
     projectService.saveProject(this.data.id, project)
       .then(res => {
-        wx.hideLoading();
-  
         if (!this.data.id && res.id) {
           this.setData({ id: res.id, isEdit: true });
         }
-  
         wx.showToast({ title: '已保存', icon: 'success' });
       })
       .catch(err => {
-        wx.hideLoading();
         wx.showToast({ title: err.message || '保存失败', icon: 'none' });
-      });
+      })
+      .finally(() => wx.hideLoading());
   },
 
   goBack() {

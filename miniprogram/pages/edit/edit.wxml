@@ -1,12 +1,15 @@
 <view class="container">
   <view class="card">
     <view class="card-title">{{pageTitle}}</view>
-    <view class="muted">所有绩效指标由系统自动计算。PM 录入自己负责的项目；部门 Leader 查看全部项目时，非本人项目默认为只读。</view>
-  <view wx:if="{{readOnly}}" class="tag tag-warning">只读模式：这是其他 PM 创建的项目，部门 Leader 可查看但不能修改。</view>
+    <view class="muted">所有绩效指标由系统自动计算。PM 录入自己负责的项目；管理角色 查看全部项目时，非本人项目默认为只读。</view>
+  <view wx:if="{{readOnly}}" class="tag tag-warning">只读模式：这是其他 PM 创建的项目，管理角色 可查看但不能修改。</view>
   </view>
 
   <view class="card">
     <view class="section-title">基础信息</view>
+    <label wx:if="{{!isEdit}}" class="form-label">通过 SAP 项目号创建（推荐）</label>
+    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入任一已绑定 SAP 项目号，保存时将自动按 Pre-cal 创建完整项目" bindinput="onSapInput" />
+
     <label class="form-label">项目名称</label>
     <input class="input" disabled="{{readOnly}}" value="{{form.projectName}}" placeholder="例如：某客户 ESG/追溯咨询项目" data-field="projectName" bindinput="onBasicInput" />
 

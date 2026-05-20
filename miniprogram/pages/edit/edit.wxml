@@ -7,6 +7,9 @@
 
   <view class="card">
     <view class="section-title">基础信息</view>
+    <label wx:if="{{!isEdit}}" class="form-label">通过 SAP 项目号创建（推荐）</label>
+    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入任一已绑定 SAP 项目号，保存时将自动按 Pre-cal 创建完整项目" bindinput="onSapInput" />
+
     <label class="form-label">项目名称</label>
     <input class="input" disabled="{{readOnly}}" value="{{form.projectName}}" placeholder="例如：某客户 ESG/追溯咨询项目" data-field="projectName" bindinput="onBasicInput" />
 

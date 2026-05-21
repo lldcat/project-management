@@ -7,6 +7,7 @@ const _ = db.command;
 const users = db.collection('users');
 const projects = db.collection('projects');
 const precalRecords = db.collection('precal_records');
+const CREATE_FROM_SAP_LOCK_TIMEOUT_MS = 20 * 60 * 1000;
 
 
 
@@ -343,7 +344,7 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm','sales','cs','admin','ar'];
+  return roles.length ? roles : ['pm'];
 }
 
 function userScore(user, openid) {
@@ -417,7 +418,7 @@ async function getCurrentUser(openid) {
     return Object.assign({ _id: primary._id }, primary, mergedUser);
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm','sales','cs','admin','ar'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
   try {
     await users.doc(openid).set({ data: newUser });
     return Object.assign({ _id: openid }, newUser);
@@ -441,7 +442,7 @@ function ownsProject(project, openid) {
 function normalizeRoles(user) {
   if (user && Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
   if (user && user.role) return [String(user.role)];
-  return ['pm','sales','cs','admin','ar'];
+  return ['pm'];
 }
 
 function hasRole(user, role) {
@@ -451,6 +452,40 @@ function hasRole(user, role) {
 function hasAnyRole(user, roles) {
   const userRoles = normalizeRoles(user);
   return (roles || []).some(role => userRoles.indexOf(role) >= 0);
+}
+
+function assertActive(user, message) {
+  if (!user || user.active === false) throw new Error(message || '账号未激活，无法执行该操作。');
+}
+
+function assertRole(user, role, message) {
+  if (!hasRole(user, role)) throw new Error(message || '无权限执行该操作。');
+}
+
+function assertAnyRole(user, roles, message) {
+  if (!hasAnyRole(user, roles)) throw new Error(message || '无权限执行该操作。');
+}
+
+function resolveServerDateMs(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') {
+    const t = Date.parse(value);
+    return Number.isFinite(t) ? t : null;
+  }
+  if (typeof value === 'object') {
+    if (typeof value.getTime === 'function') return value.getTime();
+    if (value.$date && typeof value.$date === 'number') return value.$date;
+  }
+  return null;
+}
+
+function isCreatingLockFresh(record, nowMs) {
+  if (!record || !record.creatingProject) return false;
+  const lockAt = resolveServerDateMs(record.creatingProjectAt);
+  if (!lockAt) return true;
+  return nowMs - lockAt <= CREATE_FROM_SAP_LOCK_TIMEOUT_MS;
 }
 
 function canViewAll(user) {
@@ -593,8 +628,11 @@ exports.main = async (event) => {
 
     
        if (action === 'createFromSap') {
+      assertActive(user);
+      assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以从 SAP 创建项目。');
       const sapNo = normalizeSapNo(event.sapNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
+      const nowMs = Date.now();
 
       const txRes = await db.runTransaction(async transaction => {
         const precal = await getPrecalBySapNo(sapNo);
@@ -607,7 +645,7 @@ exports.main = async (event) => {
           return { ok: false, message: '该项目已存在，请勿重复创建', projectId: latestPrecal.createdProjectId };
         }
 
-        if (latestPrecal.creatingProject) {
+        if (isCreatingLockFresh(latestPrecal, nowMs)) {
           return { ok: false, message: '该 Pre-cal 正在创建项目，请稍后重试' };
         }
 
@@ -668,6 +706,8 @@ exports.main = async (event) => {
         return { ok: true, id: event.id, user };
       }
 
+      assertActive(user);
+      assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以创建项目。');
       cleaned._openid = openid;
       cleaned.ownerOpenid = openid;
       cleaned.createdAt = now;

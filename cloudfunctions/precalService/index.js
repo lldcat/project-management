@@ -729,25 +729,11 @@ function normalizeSapBindings(rawBindings) {
     if (sapSeen[sapNo]) throw new Error(`SAP号 ${sapNo} 重复。`);
     sapSeen[sapNo] = true;
 
-    const itemSeen = {};
-    const items = (Array.isArray(sap.items) ? sap.items : []).map((item, idx) => {
-      const itemNo = normalizeText(item.itemNo) || String((idx + 1) * 1000);
-      if (itemSeen[itemNo]) throw new Error(`SAP号 ${sapNo} 下 item号 ${itemNo} 重复。`);
-      itemSeen[itemNo] = true;
-      return {
-        itemId: item.itemId || `I${Date.now()}_${Math.floor(Math.random() * 100000)}`,
-        itemNo,
-        itemDescription: normalizeText(item.itemDescription),
-        remark: normalizeText(item.remark)
-      };
-    });
-    if (!items.length) {
-      items.push({ itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo: '1000', itemDescription: '', remark: '' });
-    }
     return {
       sapId: sap.sapId || `S${Date.now()}_${Math.floor(Math.random() * 100000)}`,
       sapNo,
-      items,
+      memberName: normalizeText(sap.memberName),
+      remark: normalizeText(sap.remark),
       createdBy: sap.createdBy || '',
       createdByName: sap.createdByName || '',
       createdAt: sap.createdAt || '',
@@ -756,6 +742,26 @@ function normalizeSapBindings(rawBindings) {
       updatedAt: sap.updatedAt || ''
     };
   });
+}
+function normalizeItemList(rawItems, fallbackBindings) {
+  const oldItems = (Array.isArray(rawItems) && rawItems.length)
+    ? rawItems
+    : (Array.isArray(fallbackBindings) ? fallbackBindings.reduce((acc, sap) => acc.concat(Array.isArray(sap && sap.items) ? sap.items : []), []) : []);
+  const itemSeen = {};
+  const rows = [];
+  oldItems.forEach((item, idx) => {
+    const itemNo = normalizeText(item && item.itemNo) || String((idx + 1) * 1000);
+    if (!itemNo || itemSeen[itemNo]) return;
+    itemSeen[itemNo] = true;
+    rows.push({
+      itemId: item && item.itemId ? item.itemId : `I${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+      itemNo,
+      itemDescription: normalizeText(item && item.itemDescription),
+      remark: normalizeText(item && item.remark)
+    });
+  });
+  if (!rows.length) rows.push({ itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo: '1000', itemDescription: '', remark: '' });
+  return rows;
 }
 
 async function bindSap(payload, openid, user) {
@@ -766,6 +772,7 @@ async function bindSap(payload, openid, user) {
   if (!record) throw new Error('Pre-cal 记录不存在。');
   if ([STATUS.SUBMITTED, STATUS.SAP_BOUND].indexOf(record.status) < 0) throw new Error('只有 Submitted 或 SAP Bound 状态可以维护 SAP号。');
   const sapBindings = normalizeSapBindings(payload && payload.sapBindings);
+  const itemList = normalizeItemList(payload && payload.itemList, payload && payload.sapBindings);
   if (!sapBindings.length) throw new Error('至少需要录入一个 SAP号。');
 
   const now = db.serverDate();
@@ -782,6 +789,7 @@ async function bindSap(payload, openid, user) {
   await precalRecords.doc(id).update({
     data: {
       sapBindings: enriched,
+      itemList,
       status: STATUS.SAP_BOUND,
       isLocked: true,
       sapBoundAt: record.sapBoundAt || now,
@@ -793,7 +801,7 @@ async function bindSap(payload, openid, user) {
   });
 
   await addLog(record, {
-    logType: 'sap_change', action: 'bind_sap', oldValue: { sapBindings: record.sapBindings || [] }, newValue: { sapBindings: enriched },
+    logType: 'sap_change', action: 'bind_sap', oldValue: { sapBindings: record.sapBindings || [], itemList: record.itemList || [] }, newValue: { sapBindings: enriched, itemList },
     reason, operatorOpenid: openid, operatorName, operatorRoles: normalizeRoles(user)
   });
   if (record.status !== STATUS.SAP_BOUND) {

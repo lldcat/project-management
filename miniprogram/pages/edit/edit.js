@@ -29,6 +29,13 @@ function uniqueNames(names) {
   return result;
 }
 
+function toNullableNumber(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function mapByName(rows, valueField) {
   const map = {};
   (rows || []).forEach(item => {
@@ -311,7 +318,7 @@ Page({
   normalizeForm() {
     let form = JSON.parse(JSON.stringify(this.data.form));
     form = normalizePeopleStructures(form);
-    form.travelFee = Number(form.travelFee || 0);
+    form.travelFee = toNullableNumber(form.travelFee);
     form.constants = {
       hoursPerDay: 8,
       personDayCost: Number((form.constants && form.constants.personDayCost) || 5000)
@@ -320,22 +327,22 @@ Page({
     form.subProjects = (form.subProjects || []).map(item => ({
       id: item.id || createId('sub'),
       name: item.name || '',
-      budgetHours: Number(item.budgetHours || 0),
-      budgetLaborUnitPrice: Number(item.budgetLaborUnitPrice || 0),
-      plannedCompletedHours: Number(item.plannedCompletedHours || 0)
+      budgetHours: toNullableNumber(item.budgetHours),
+      budgetLaborUnitPrice: toNullableNumber(item.budgetLaborUnitPrice),
+      plannedCompletedHours: toNullableNumber(item.plannedCompletedHours)
     }));
     form.employeeBudgets = (form.employeeBudgets || [])
       .filter(item => normalizeName(item.memberName))
       .map(item => ({
         id: item.id || createId('emp'),
         memberName: normalizeName(item.memberName),
-        budgetHours: Number(item.budgetHours || 0)
+        budgetHours: toNullableNumber(item.budgetHours)
       }));
     form.arHours = alignArHoursToEmployeeBudgets(form.employeeBudgets, form.arHours || [])
       .map(item => ({
         id: item.id || createId('ar'),
         memberName: normalizeName(item.memberName),
-        hours: Number(item.hours || 0)
+        hours: toNullableNumber(item.hours)
       }));
     return form;
   },

@@ -11,11 +11,30 @@
       </view>
       <view class="metric-line"><text>Sales</text><text>{{record.salesOwnerName || '-'}}</text></view>
       <view class="metric-line"><text>Remark</text><text>{{record.remark || '-'}}</text></view>
-      <view class="metric-line"><text>SAP号</text><text>{{sapText || '-'}}</text></view>
       <view class="actions">
         <button wx:if="{{canEdit}}" class="btn-secondary" size="mini" bindtap="goEdit">编辑</button>
         <button wx:if="{{record.status == 'Submitted'}}" class="btn-ghost" size="mini" bindtap="withdraw">撤销</button>
         <button wx:if="{{record.status == 'Draft' || record.status == 'Withdrawn' || record.status == 'Unlocked'}}" class="btn-primary" size="mini" bindtap="submit">提交</button>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">SAP 绑定信息</view>
+      <view wx:if="{{!(record.sapBindings || []).length}}" class="muted">暂无 SAP号</view>
+      <view wx:for="{{record.sapBindings}}" wx:key="sapId" class="line">
+        <view class="line-title">SAP {{index + 1}}：{{item.sapNo}}</view>
+        <view class="muted">关联人员：{{item.memberName || '-'}}</view>
+        <view class="muted">备注：{{item.remark || '-'}}</view>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">Item 信息</view>
+      <view wx:if="{{!itemList.length}}" class="muted">暂无 Item</view>
+      <view wx:for="{{itemList}}" wx:key="itemId" class="line">
+        <view class="line-title">Item {{index + 1}}：{{item.itemNo || '-'}}</view>
+        <view class="muted">说明：{{item.itemDescription || '-'}}</view>
+        <view class="muted">备注：{{item.remark || '-'}}</view>
       </view>
     </view>
 

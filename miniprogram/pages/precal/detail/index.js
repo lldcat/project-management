@@ -7,6 +7,7 @@ Page({
     record: {},
     statusLabel: '',
     sapText: '',
+    itemList: [],
     resultItems: [],
     scenario70: {},
     scenario80: {},
@@ -39,6 +40,7 @@ Page({
           record: Object.assign({}, record, { lineItems }),
           statusLabel: this.label(record.status),
           sapText: (record.sapBindings || []).map(item => item.sapNo).join('、'),
+          itemList: (record.itemList && record.itemList.length ? record.itemList : (record.sapBindings || []).reduce((acc, sap) => acc.concat(sap.items || []), [])),
           canEdit,
           resultItems: [
             { key: 'totalOrderValue', label: 'Total Order Value', value: formatMoney(r.totalOrderValue) },

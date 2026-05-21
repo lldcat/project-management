@@ -23,6 +23,17 @@ function createLine() {
   };
 }
 
+function displayNumber(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return value;
+}
+
+const EDITABLE_NUMBER_FIELDS = [
+  'orderValue', 'onsiteMD', 'offsiteMD', 'quotationMD', 'travelMD',
+  'subcontractingTranslation', 'subcontractingDesign', 'subcontractingTravel',
+  'subcontractingOther', 'subcontractingIC', 'internalSubcon', 'otherProjectCosts'
+];
+
 function defaultForm() {
   return {
     customerName: '',
@@ -112,7 +123,16 @@ Page({
   onLineSwitch(e) {
     const index = e.currentTarget.dataset.index;
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`form.lineItems[${index}].${field}`]: e.detail.value }, () => this.refreshPreview());
+    const checked = !!e.detail.value;
+    const value = (field === 'quotationMDOverridden' || field === 'travelMDOverridden') ? !checked : checked;
+    const nextData = { [`form.lineItems[${index}].${field}`]: value };
+    if (field === 'quotationMDOverridden' && !value) {
+      nextData[`form.lineItems[${index}].quotationMD`] = '';
+    }
+    if (field === 'travelMDOverridden' && !value) {
+      nextData[`form.lineItems[${index}].travelMD`] = '';
+    }
+    this.setData(nextData, () => this.refreshPreview());
   },
 
   addLine() {
@@ -132,7 +152,16 @@ Page({
   refreshPreview() {
     if (!this.data.parameters) return;
     const result = calculatePrecal(this.data.form, this.data.parameters);
-    const form = Object.assign({}, this.data.form, { lineItems: result.lineItems });
+    const originalLines = (this.data.form && this.data.form.lineItems) || [];
+    const nextLines = (result.lineItems || []).map((line, idx) => {
+      const raw = originalLines[idx] || {};
+      const merged = Object.assign({}, line);
+      EDITABLE_NUMBER_FIELDS.forEach((field) => {
+        merged[field] = raw[field] === undefined ? '' : raw[field];
+      });
+      return merged;
+    });
+    const form = Object.assign({}, this.data.form, { lineItems: nextLines });
     const r = result.calculationResult || {};
     const s70 = result.productivityScenarios.productivity70 || {};
     const s80 = result.productivityScenarios.productivity80 || {};
@@ -142,8 +171,8 @@ Page({
       form,
       resultItems: [
         { key: 'totalOrderValue', label: 'Total Order Value', value: formatMoney(r.totalOrderValue) },
-        { key: 'totalMD', label: 'Total MD', value: r.totalMD || 0 },
-        { key: 'totalHours', label: 'Hours', value: r.totalHours || 0 },
+        { key: 'totalMD', label: 'Total MD', value: displayNumber(r.totalMD) },
+        { key: 'totalHours', label: 'Hours', value: displayNumber(r.totalHours) },
         { key: 'totalNetSales', label: 'Net Sales', value: formatMoney(r.totalNetSales) },
         { key: 'totalMDCosts', label: 'MD Costs', value: formatMoney(r.totalMDCosts) },
         { key: 'resultOfOrder', label: 'RO', value: formatMoney(r.resultOfOrder) },

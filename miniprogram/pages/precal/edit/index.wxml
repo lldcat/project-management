@@ -43,29 +43,33 @@
         <label class="form-label">Offsite MD</label>
         <input class="input" type="digit" value="{{item.offsiteMD}}" data-index="{{index}}" data-field="offsiteMD" bindinput="onLineInput" />
       </view>
-      <view class="full switch-row">
-        <text class="form-label">Quotation MD 覆盖默认值</text>
-        <switch checked="{{item.quotationMDOverridden}}" data-index="{{index}}" data-field="quotationMDOverridden" bindchange="onLineSwitch" />
+      <view class="full md-card">
+        <view class="switch-row">
+          <text class="form-label">Quotation MD</text>
+          <view class="switch-with-label">
+            <text class="mini-note">使用默认值</text>
+            <switch checked="{{!item.quotationMDOverridden}}" data-index="{{index}}" data-field="quotationMDOverridden" bindchange="onLineSwitch" />
+          </view>
+        </view>
+        <view wx:if="{{!item.quotationMDOverridden}}" class="muted">默认值：{{item.quotationMDDefault}} MD（按默认值计算）</view>
+        <view wx:else>
+          <input class="input" type="digit" value="{{item.quotationMD}}" data-index="{{index}}" data-field="quotationMD" bindinput="onLineInput" placeholder="请输入 Quotation MD" />
+          <view class="muted">默认值：{{item.quotationMDDefault}} MD</view>
+        </view>
       </view>
-      <view>
-        <label class="form-label">Quotation MD</label>
-        <input class="input" type="digit" value="{{item.quotationMD}}" data-index="{{index}}" data-field="quotationMD" bindinput="onLineInput" disabled="{{!item.quotationMDOverridden}}" placeholder="默认自动分摊" />
-      </view>
-      <view>
-        <label class="form-label">默认 Quotation MD</label>
-        <view class="picker-value">{{item.quotationMDDefault || 0}}</view>
-      </view>
-      <view class="full switch-row">
-        <text class="form-label">Travel MD 覆盖默认值</text>
-        <switch checked="{{item.travelMDOverridden}}" data-index="{{index}}" data-field="travelMDOverridden" bindchange="onLineSwitch" />
-      </view>
-      <view>
-        <label class="form-label">Travel MD</label>
-        <input class="input" type="digit" value="{{item.travelMD}}" data-index="{{index}}" data-field="travelMD" bindinput="onLineInput" disabled="{{!item.travelMDOverridden}}" placeholder="默认 Onsite × 10%" />
-      </view>
-      <view>
-        <label class="form-label">默认 Travel MD</label>
-        <view class="picker-value">{{item.travelMDDefault || 0}}</view>
+      <view class="full md-card">
+        <view class="switch-row">
+          <text class="form-label">Travel MD</text>
+          <view class="switch-with-label">
+            <text class="mini-note">使用默认值</text>
+            <switch checked="{{!item.travelMDOverridden}}" data-index="{{index}}" data-field="travelMDOverridden" bindchange="onLineSwitch" />
+          </view>
+        </view>
+        <view wx:if="{{!item.travelMDOverridden}}" class="muted">默认值：{{item.travelMDDefault}} MD（按默认值计算）</view>
+        <view wx:else>
+          <input class="input" type="digit" value="{{item.travelMD}}" data-index="{{index}}" data-field="travelMD" bindinput="onLineInput" placeholder="请输入 Travel MD" />
+          <view class="muted">默认值：{{item.travelMDDefault}} MD</view>
+        </view>
       </view>
       <view>
         <label class="form-label">翻译费</label>

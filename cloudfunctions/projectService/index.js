@@ -15,13 +15,58 @@ function normalizeSapNo(value) {
   return String(value || '').trim();
 }
 
+function splitSapText(value) {
+  return String(value || '')
+    .split(/[\s,，;；、\n\t]+/)
+    .map(normalizeSapNo)
+    .filter(Boolean);
+}
+
+function collectSapNos(precal) {
+  const sapSet = {};
+  const pushSap = (value) => {
+    const normalized = normalizeSapNo(value);
+    if (normalized) sapSet[normalized] = true;
+  };
+
+  (precal && precal.sapBindings || []).forEach(item => {
+    if (!item) return;
+    if (typeof item === 'string') {
+      splitSapText(item).forEach(pushSap);
+      return;
+    }
+    splitSapText(item.sapNo).forEach(pushSap);
+  });
+
+  const appendFromField = (field) => {
+    const value = precal && precal[field];
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(item => {
+        if (typeof item === 'string') splitSapText(item).forEach(pushSap);
+        else if (item && typeof item === 'object') splitSapText(item.sapNo || item.value).forEach(pushSap);
+        else pushSap(item);
+      });
+      return;
+    }
+    splitSapText(value).forEach(pushSap);
+  };
+
+  appendFromField('sapNos');
+  appendFromField('sapNumbers');
+  appendFromField('sapNoList');
+  appendFromField('sapProjects');
+
+  return Object.keys(sapSet);
+}
+
 function pickTravelFee(precal) {
   const source = precal.travelFee ?? precal.subcontractingTravelFee ?? precal.subcontractingExtTravelFee;
   return toNumber(source);
 }
 
 function buildProjectFromPrecal(precal, inputSapNo) {
-  const sapNumbers = Array.from(new Set((precal.sapBindings || []).map(item => normalizeSapNo(item.sapNo)).filter(Boolean)));
+  const sapNumbers = collectSapNos(precal);
   const mainSapNo = normalizeSapNo(inputSapNo) || sapNumbers[0] || '';
   const orderValue = toNumber((precal.calculationResult || {}).totalOrderValue || precal.totalOrderValue || precal.orderValue);
   const totalMD = toNumber((precal.calculationResult || {}).totalMD || precal.totalMD);
@@ -68,9 +113,41 @@ function buildProjectFromPrecal(precal, inputSapNo) {
 async function getPrecalBySapNo(sapNo) {
   const no = normalizeSapNo(sapNo);
   if (!no) return null;
-  const res = await precalRecords.where({ 'sapBindings.sapNo': no, deleted: _.neq(true) }).limit(20).get();
-  const rows = (res.data || []).filter(item => Array.isArray(item.sapBindings) && item.sapBindings.some(s => normalizeSapNo(s.sapNo) === no));
+  const fetches = await Promise.all([
+    precalRecords.where({ 'sapBindings.sapNo': no, deleted: _.neq(true) }).limit(100).get(),
+    precalRecords.where({ sapNos: no, deleted: _.neq(true) }).limit(100).get(),
+    precalRecords.where({ sapNumbers: no, deleted: _.neq(true) }).limit(100).get()
+  ]);
+  const merged = [];
+  const seen = {};
+  fetches.forEach(res => {
+    (res.data || []).forEach(item => {
+      if (!item || !item._id || seen[item._id]) return;
+      seen[item._id] = true;
+      merged.push(item);
+    });
+  });
+
+  const rows = merged.filter(item => collectSapNos(item).indexOf(no) >= 0);
+  if (!rows.length) return null;
+  rows.sort((a, b) => {
+    const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
+    const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
+    return tb - ta;
+  });
   return rows[0] || null;
+}
+
+function validatePrecalForProject(precal) {
+  const sapNumbers = collectSapNos(precal);
+  if (!sapNumbers.length) return { ok: false, message: '该 Pre-cal 尚未绑定 SAP 项目号' };
+  const customerName = String(precal.customerName || '').trim();
+  const orderValue = toNumber((precal.calculationResult || {}).totalOrderValue || precal.totalOrderValue || precal.orderValue);
+  const totalMD = toNumber((precal.calculationResult || {}).totalMD || precal.totalMD);
+  if (!customerName || !orderValue || !totalMD) {
+    return { ok: false, message: 'Pre-cal 数据不完整，请联系 CS 补充' };
+  }
+  return { ok: true, sapNumbers };
 }
 function toNumber(value) {
   const n = Number(value);
@@ -638,11 +715,14 @@ exports.main = async (event) => {
         const precal = await getPrecalBySapNo(sapNo);
         if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal' };
 
+        const validation = validatePrecalForProject(precal);
+        if (!validation.ok) return { ok: false, message: validation.message };
+
         const precalDoc = await transaction.collection('precal_records').doc(precal._id).get();
         const latestPrecal = precalDoc.data || {};
 
         if (latestPrecal.createdProjectId) {
-          return { ok: false, message: '该项目已存在，请勿重复创建', projectId: latestPrecal.createdProjectId };
+          return { ok: false, message: '该 Pre-cal 对应项目已存在', projectId: latestPrecal.createdProjectId };
         }
 
         if (isCreatingLockFresh(latestPrecal, nowMs)) {

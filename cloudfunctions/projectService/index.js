@@ -592,7 +592,7 @@ exports.main = async (event) => {
     }
 
     
-    if (action === 'createFromSap') {
+       if (action === 'createFromSap') {
       const sapNo = normalizeSapNo(event.sapNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
 
@@ -602,9 +602,11 @@ exports.main = async (event) => {
 
         const precalDoc = await transaction.collection('precal_records').doc(precal._id).get();
         const latestPrecal = precalDoc.data || {};
+
         if (latestPrecal.createdProjectId) {
           return { ok: false, message: '该项目已存在，请勿重复创建', projectId: latestPrecal.createdProjectId };
         }
+
         if (latestPrecal.creatingProject) {
           return { ok: false, message: '该 Pre-cal 正在创建项目，请稍后重试' };
         }
@@ -632,6 +634,7 @@ exports.main = async (event) => {
         projectData.version = 1;
 
         const addRes = await transaction.collection('projects').add({ data: projectData });
+
         await transaction.collection('precal_records').doc(precal._id).update({
           data: {
             createdProjectId: addRes._id,
@@ -651,7 +654,7 @@ exports.main = async (event) => {
       return Object.assign({ user }, txRes);
     }
 
-if (action === 'save') {
+    if (action === 'save') { 
       const cleaned = cleanProjectInput(event.project);
       cleaned.metrics = computeMetrics(cleaned);
       cleaned.updatedAt = now;

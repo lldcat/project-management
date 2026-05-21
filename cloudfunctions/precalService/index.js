@@ -743,6 +743,26 @@ function normalizeSapBindings(rawBindings) {
     };
   });
 }
+function normalizeItemList(rawItems, fallbackBindings) {
+  const oldItems = (Array.isArray(rawItems) && rawItems.length)
+    ? rawItems
+    : (Array.isArray(fallbackBindings) ? fallbackBindings.reduce((acc, sap) => acc.concat(Array.isArray(sap && sap.items) ? sap.items : []), []) : []);
+  const itemSeen = {};
+  const rows = [];
+  oldItems.forEach((item, idx) => {
+    const itemNo = normalizeText(item && item.itemNo) || String((idx + 1) * 1000);
+    if (!itemNo || itemSeen[itemNo]) return;
+    itemSeen[itemNo] = true;
+    rows.push({
+      itemId: item && item.itemId ? item.itemId : `I${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+      itemNo,
+      itemDescription: normalizeText(item && item.itemDescription),
+      remark: normalizeText(item && item.remark)
+    });
+  });
+  if (!rows.length) rows.push({ itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo: '1000', itemDescription: '', remark: '' });
+  return rows;
+}
 
 function normalizeItemList(rawItems, rawBindings) {
   const list = Array.isArray(rawItems) ? rawItems : [];

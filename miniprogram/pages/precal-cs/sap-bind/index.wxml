@@ -1,5 +1,6 @@
 <view class="container">
   <view wx:if="{{!record._id}}" class="empty">加载中...</view>
+
   <block wx:else>
     <view class="card">
       <view class="card-title">{{record.customerName}}</view>
@@ -10,40 +11,48 @@
     </view>
 
     <view class="card">
-      <view class="row header-row">
+      <view class="section-header">
         <view class="card-title">SAP 绑定信息</view>
         <button class="btn-secondary" size="mini" bindtap="addSap">+ 新增 SAP号</button>
       </view>
-      <view wx:for="{{sapBindings}}" wx:key="sapId" class="sap-card">
+
+      <view wx:for="{{sapBindings}}" wx:for-item="sap" wx:for-index="sapIndex" wx:key="sapId" class="sap-card">
         <view class="row">
-          <view class="metric-value">SAP {{index + 1}}</view>
-          <button wx:if="{{sapBindings.length > 1}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeSap">删除 SAP</button>
+          <view class="metric-value">SAP {{sapIndex + 1}}</view>
+          <button wx:if="{{sapBindings.length > 1}}" class="btn-danger" size="mini" data-index="{{sapIndex}}" bindtap="removeSap">删除 SAP</button>
         </view>
+
         <label class="form-label">SAP号</label>
-        <input class="input" value="{{item.sapNo}}" data-index="{{index}}" data-field="sapNo" bindinput="onSapInput" placeholder="请输入SAP号" />
+        <input class="input" value="{{sap.sapNo}}" data-index="{{sapIndex}}" data-field="sapNo" bindinput="onSapInput" placeholder="请输入SAP号" />
+
         <label class="form-label">关联人员</label>
-        <input class="input" value="{{item.memberName}}" data-index="{{index}}" data-field="memberName" bindinput="onSapInput" placeholder="请输入关联人员（可选）" />
+        <input class="input" value="{{sap.memberName}}" data-index="{{sapIndex}}" data-field="memberName" bindinput="onSapInput" placeholder="请选择或输入关联人员（选填）" />
+
         <label class="form-label">备注</label>
-        <input class="input" value="{{item.remark}}" data-index="{{index}}" data-field="remark" bindinput="onSapInput" placeholder="请输入备注（可选）" />
+        <input class="input" value="{{sap.remark}}" data-index="{{sapIndex}}" data-field="remark" bindinput="onSapInput" placeholder="请输入备注（选填）" />
       </view>
     </view>
 
     <view class="card">
-      <view class="row header-row">
+      <view class="section-header">
         <view class="card-title">Item 信息</view>
         <button class="btn-secondary" size="mini" bindtap="addItem">+ 新增 Item</button>
       </view>
-      <view wx:for="{{itemList}}" wx:key="itemId" class="item-card">
+
+      <view wx:for="{{itemList}}" wx:for-item="it" wx:for-index="itemIndex" wx:key="itemId" class="item-card">
         <view class="row">
-          <view class="metric-value">Item {{index + 1}}</view>
-          <button wx:if="{{itemList.length > 1}}" class="btn-danger" size="mini" data-item-index="{{index}}" bindtap="removeItem">删除 Item</button>
+          <view class="metric-value">Item {{itemIndex + 1}}</view>
+          <button wx:if="{{itemList.length > 1}}" class="btn-danger" size="mini" data-item-index="{{itemIndex}}" bindtap="removeItem">删除 Item</button>
         </view>
+
         <label class="form-label">Item号</label>
-        <input class="input" value="{{item.itemNo}}" data-item-index="{{index}}" data-field="itemNo" bindinput="onItemInput" />
+        <input class="input" value="{{it.itemNo}}" data-item-index="{{itemIndex}}" data-field="itemNo" bindinput="onItemInput" />
+
         <label class="form-label">Item说明</label>
-        <input class="input" value="{{item.itemDescription}}" data-item-index="{{index}}" data-field="itemDescription" bindinput="onItemInput" />
+        <input class="input" value="{{it.itemDescription}}" data-item-index="{{itemIndex}}" data-field="itemDescription" bindinput="onItemInput" />
+
         <label class="form-label">备注</label>
-        <input class="input" value="{{item.remark}}" data-item-index="{{index}}" data-field="remark" bindinput="onItemInput" />
+        <input class="input" value="{{it.remark}}" data-item-index="{{itemIndex}}" data-field="remark" bindinput="onItemInput" />
       </view>
     </view>
 

@@ -13,14 +13,36 @@ function nextItemNo(items) {
   while (nums.indexOf(next) >= 0) next += 1000;
   return String(next);
 }
-function dedupeItems(items) {
+function mergeLegacyItems(record) {
+  const merged = [];
   const seen = {};
-  return (items || []).filter(item => {
-    const key = String(item.itemNo || '').trim();
-    if (!key || seen[key]) return false;
-    seen[key] = true;
-    return true;
+
+  const add = (raw) => {
+    const itemNoRaw = String((raw && raw.itemNo) || '').trim();
+    const itemNo = itemNoRaw || nextItemNo(merged);
+    const itemDescription = String((raw && raw.itemDescription) || '').trim();
+    const remark = String((raw && raw.remark) || '').trim();
+
+    // Item号 应该唯一，所以按 itemNo 去重，而不是按 itemNo + 描述 + 备注去重
+    if (seen[itemNo]) return;
+    seen[itemNo] = true;
+
+    merged.push({
+      itemId: raw.itemId || `I${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+      itemNo,
+      itemDescription,
+      remark
+    });
+  };
+
+  (record.itemList || []).forEach(add);
+
+  // 兼容旧版本：之前 item 可能挂在 sapBindings.items 下面
+  (record.sapBindings || []).forEach(sap => {
+    (sap.items || []).forEach(add);
   });
+
+  return merged.length ? merged : [createItem('1000')];
 }
 
 Page({
@@ -34,15 +56,7 @@ Page({
         this.setData({
           record,
           sapBindings: record.sapBindings && record.sapBindings.length ? record.sapBindings : [createSap()],
-          itemList: dedupeItems(
-            record.itemList && record.itemList.length
-              ? record.itemList
-              : (record.sapBindings || []).reduce((acc, sap) => acc.concat(sap.items || []), [])
-          ).length ? dedupeItems(
-            record.itemList && record.itemList.length
-              ? record.itemList
-              : (record.sapBindings || []).reduce((acc, sap) => acc.concat(sap.items || []), [])
-          ) : [createItem('1000')],
+          itemList: mergeLegacyItems(record),
           summary: { totalOrderValueText: formatMoney(r.totalOrderValue), operatingMarginText: formatPercent(r.operatingMargin) }
         });
       })
@@ -63,8 +77,10 @@ Page({
   removeSap(e) {
     const index = Number(e.currentTarget.dataset.index);
     wx.showModal({
-      title: '确认删除',
-      content: '确定删除该 SAP 绑定吗？',
+
+      title: '删除 SAP',
+      content: '确认删除该 SAP号吗？',
+
       success: (res) => {
         if (!res.confirm) return;
         const list = this.data.sapBindings.slice();
@@ -74,20 +90,25 @@ Page({
     });
   },
   addItem() {
-    const items = this.data.itemList.slice();
-    items.push(createItem(nextItemNo(items)));
-    this.setData({ itemList: items });
+
+    const list = this.data.itemList.slice();
+    list.push(createItem(nextItemNo(list)));
+    this.setData({ itemList: list });
+
   },
   removeItem(e) {
     const ii = Number(e.currentTarget.dataset.itemIndex);
     wx.showModal({
-      title: '确认删除',
-      content: '确定删除该 Item 吗？',
+
+      title: '删除 Item',
+      content: '确认删除该 Item 吗？',
       success: (res) => {
         if (!res.confirm) return;
-        const items = this.data.itemList.slice();
-        items.splice(ii, 1);
-        this.setData({ itemList: items.length ? items : [createItem('1000')] });
+        const list = this.data.itemList.slice();
+        list.splice(ii, 1);
+        this.setData({ itemList: list.length ? list : [createItem('1000')] });
+
+
       }
     });
   },
@@ -95,11 +116,14 @@ Page({
     const sapSeen = {};
     for (let i = 0; i < this.data.sapBindings.length; i++) {
       const sap = this.data.sapBindings[i];
-      if (!String(sap.sapNo || '').trim()) return `第 ${i + 1} 个 SAP号为空`;
       const normalizedSap = String(sap.sapNo || '').trim();
+
+      if (!normalizedSap) return `第 ${i + 1} 个 SAP号为空`;
       if (sapSeen[normalizedSap]) return `SAP号 ${normalizedSap} 重复`;
+
       sapSeen[normalizedSap] = true;
     }
+
     const itemSeen = {};
     for (let j = 0; j < this.data.itemList.length; j++) {
       const no = String(this.data.itemList[j].itemNo || '').trim();
@@ -107,6 +131,7 @@ Page({
       if (itemSeen[no]) return `Item号 ${no} 重复`;
       itemSeen[no] = true;
     }
+
     return '';
   },
   saveSap() {

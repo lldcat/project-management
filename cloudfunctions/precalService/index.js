@@ -764,6 +764,28 @@ function normalizeItemList(rawItems, fallbackBindings) {
   return rows;
 }
 
+function normalizeItemList(rawItems, rawBindings) {
+  const list = Array.isArray(rawItems) ? rawItems : [];
+  const flattenedLegacy = [];
+  (Array.isArray(rawBindings) ? rawBindings : []).forEach(sap => {
+    (Array.isArray(sap.items) ? sap.items : []).forEach(item => flattenedLegacy.push(item));
+  });
+  const source = list.length ? list : flattenedLegacy;
+  const itemSeen = {};
+  const normalized = source.map((item, idx) => {
+    const itemNo = normalizeText(item.itemNo) || String((idx + 1) * 1000);
+    if (itemSeen[itemNo]) return null;
+    itemSeen[itemNo] = true;
+    return {
+      itemId: item.itemId || `I${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+      itemNo,
+      itemDescription: normalizeText(item.itemDescription),
+      remark: normalizeText(item.remark)
+    };
+  }).filter(Boolean);
+  return normalized.length ? normalized : [{ itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo: '1000', itemDescription: '', remark: '' }];
+}
+
 async function bindSap(payload, openid, user) {
   assertAnyRole(user, ['cs', 'admin'], '只有 CS 或 admin 可以绑定 SAP号。');
   const id = payload && payload.precalRecordId;

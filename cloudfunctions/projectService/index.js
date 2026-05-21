@@ -15,7 +15,8 @@ function normalizeSapNo(value) {
 }
 
 function pickTravelFee(precal) {
-  return toNumber(precal.travelFee || precal.subcontractingTravelFee || precal.subcontractingExtTravelFee);
+  const source = precal.travelFee ?? precal.subcontractingTravelFee ?? precal.subcontractingExtTravelFee;
+  return toNumber(source);
 }
 
 function buildProjectFromPrecal(precal, inputSapNo) {
@@ -594,22 +595,60 @@ exports.main = async (event) => {
     if (action === 'createFromSap') {
       const sapNo = normalizeSapNo(event.sapNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
-      const precal = await getPrecalBySapNo(sapNo);
-      if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal', user };
-      if (precal.createdProjectId) return { ok: false, message: '该项目已存在，请勿重复创建', projectId: precal.createdProjectId, user };
-      const projectData = cleanProjectInput(buildProjectFromPrecal(precal, sapNo));
-      projectData.metrics = computeMetrics(projectData);
-      projectData._openid = openid;
-      projectData.ownerOpenid = openid;
-      projectData.createdAt = now;
-      projectData.createdBy = openid;
-      projectData.updatedAt = now;
-      projectData.updatedBy = openid;
-      projectData.deleted = false;
-      projectData.version = 1;
-      const addRes = await projects.add({ data: projectData });
-      await precalRecords.doc(precal._id).update({ data: { createdProjectId: addRes._id, status: 'Project Created', updatedAt: now, updatedBy: openid, version: _.inc(1) } });
-      return { ok: true, id: addRes._id, user };
+
+      const txRes = await db.runTransaction(async transaction => {
+        const precal = await getPrecalBySapNo(sapNo);
+        if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal' };
+
+        const precalDoc = await transaction.collection('precal_records').doc(precal._id).get();
+        const latestPrecal = precalDoc.data || {};
+        if (latestPrecal.createdProjectId) {
+          return { ok: false, message: '该项目已存在，请勿重复创建', projectId: latestPrecal.createdProjectId };
+        }
+        if (latestPrecal.creatingProject) {
+          return { ok: false, message: '该 Pre-cal 正在创建项目，请稍后重试' };
+        }
+
+        await transaction.collection('precal_records').doc(precal._id).update({
+          data: {
+            creatingProject: true,
+            creatingProjectBy: openid,
+            creatingProjectAt: now,
+            updatedAt: now,
+            updatedBy: openid,
+            version: _.inc(1)
+          }
+        });
+
+        const projectData = cleanProjectInput(buildProjectFromPrecal(precal, sapNo));
+        projectData.metrics = computeMetrics(projectData);
+        projectData._openid = openid;
+        projectData.ownerOpenid = openid;
+        projectData.createdAt = now;
+        projectData.createdBy = openid;
+        projectData.updatedAt = now;
+        projectData.updatedBy = openid;
+        projectData.deleted = false;
+        projectData.version = 1;
+
+        const addRes = await transaction.collection('projects').add({ data: projectData });
+        await transaction.collection('precal_records').doc(precal._id).update({
+          data: {
+            createdProjectId: addRes._id,
+            status: 'Project Created',
+            creatingProject: _.remove(),
+            creatingProjectBy: _.remove(),
+            creatingProjectAt: _.remove(),
+            updatedAt: now,
+            updatedBy: openid,
+            version: _.inc(1)
+          }
+        });
+
+        return { ok: true, id: addRes._id };
+      });
+
+      return Object.assign({ user }, txRes);
     }
 
 if (action === 'save') {
@@ -621,7 +660,7 @@ if (action === 'save') {
       if (event.id) {
         const existing = await getProjectById(event.id);
         if (!existing) return { ok: false, message: '项目不存在，无法更新。', user };
-        if (!canEdit(existing, openid, user)) return { ok: false, message: '无权编辑该项目。部门 Leader 默认只查看全部项目，如需修改请联系项目创建人。', user };
+        if (!canEdit(existing, openid, user)) return { ok: false, message: '无权编辑该项目。如需修改请联系项目创建人。', user };
         await projects.doc(event.id).update({ data: Object.assign({}, cleaned, { version: _.inc(1) }) });
         return { ok: true, id: event.id, user };
       }
@@ -639,7 +678,7 @@ if (action === 'save') {
     if (action === 'remove') {
       const project = await getProjectById(event.id);
       if (!project) return { ok: false, message: '项目不存在。', user };
-      if (!canEdit(project, openid, user)) return { ok: false, message: '无权删除该项目。部门 Leader 默认只查看全部项目，如需删除请联系项目创建人。', user };
+      if (!canEdit(project, openid, user)) return { ok: false, message: '无权删除该项目。如需删除请联系项目创建人。', user };
       await projects.doc(event.id).update({
         data: {
           deleted: true,

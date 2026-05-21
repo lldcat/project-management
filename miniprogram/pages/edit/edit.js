@@ -351,7 +351,10 @@ Page({
       wx.showLoading({ title: '保存中' });
       projectService.callProjectService('createFromSap', { sapNo })
         .then(res => {
-          if (res.id) this.setData({ id: res.id, isEdit: true });
+          if (res.id) {
+            this.setData({ id: res.id, isEdit: true, sapSearchNo: '' });
+            this.loadDetail(res.id);
+          }
           wx.showToast({ title: '已保存', icon: 'success' });
         })
         .catch(err => {

@@ -192,7 +192,9 @@ Page({
   onDateChange(e) {
     if (this.data.readOnly) return;
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`form.${field}`]: e.detail.value }, () => this.refreshPreview());
+    const data = {};
+    data['form.' + field] = e.detail.value;
+    this.setData(data, () => this.refreshPreview());
   },
 
   onMembersInput(e) {
@@ -233,7 +235,9 @@ Page({
     if (this.data.readOnly) return;
     const index = e.currentTarget.dataset.index;
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`form.subProjects[${index}].${field}`]: e.detail.value }, () => this.refreshPreview());
+    const data = {};
+    data['form.subProjects[' + index + '].' + field] = e.detail.value;
+    this.setData(data, () => this.refreshPreview());
   },
 
   addSubProject() {
@@ -290,7 +294,9 @@ Page({
   onArHourInput(e) {
     if (this.data.readOnly) return;
     const index = e.currentTarget.dataset.index;
-    this.setData({ [`form.arHours[${index}].hours`]: e.detail.value }, () => this.refreshPreview());
+    const data = {};
+    data['form.arHours[' + index + '].hours'] = e.detail.value;
+    this.setData(data, () => this.refreshPreview());
   },
 
   refreshPreview() {

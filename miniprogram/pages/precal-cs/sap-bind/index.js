@@ -66,12 +66,16 @@ Page({
   onSapInput(e) {
     const index = e.currentTarget.dataset.index;
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`sapBindings[${index}].${field}`]: e.detail.value });
+    const data = {};
+    data['sapBindings[' + index + '].' + field] = e.detail.value;
+    this.setData(data);
   },
   onItemInput(e) {
     const ii = e.currentTarget.dataset.itemIndex;
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`itemList[${ii}].${field}`]: e.detail.value });
+    const data = {};
+    data['itemList[' + ii + '].' + field] = e.detail.value;
+    this.setData(data);
   },
   addSap() { this.setData({ sapBindings: this.data.sapBindings.concat([createSap()]) }); },
   removeSap(e) {

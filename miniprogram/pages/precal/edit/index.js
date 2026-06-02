@@ -100,7 +100,9 @@ Page({
 
   onBasicInput(e) {
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`form.${field}`]: e.detail.value }, () => this.refreshPreview());
+    const data = {};
+    data['form.' + field] = e.detail.value;
+    this.setData(data, () => this.refreshPreview());
   },
 
   onServiceChange(e) {
@@ -111,13 +113,17 @@ Page({
   onCenterChange(e) {
     const index = Number(e.detail.value || 0);
     const lineIndex = e.currentTarget.dataset.index;
-    this.setData({ [`form.lineItems[${lineIndex}].orderCreateCenter`]: this.data.orderCreateCenters[index] }, () => this.refreshPreview());
+    const data = {};
+    data['form.lineItems[' + lineIndex + '].orderCreateCenter'] = this.data.orderCreateCenters[index];
+    this.setData(data, () => this.refreshPreview());
   },
 
   onLineInput(e) {
     const index = e.currentTarget.dataset.index;
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`form.lineItems[${index}].${field}`]: e.detail.value }, () => this.refreshPreview());
+    const data = {};
+    data['form.lineItems[' + index + '].' + field] = e.detail.value;
+    this.setData(data, () => this.refreshPreview());
   },
 
   onLineSwitch(e) {
@@ -125,12 +131,13 @@ Page({
     const field = e.currentTarget.dataset.field;
     const checked = !!e.detail.value;
     const value = (field === 'quotationMDOverridden' || field === 'travelMDOverridden') ? !checked : checked;
-    const nextData = { [`form.lineItems[${index}].${field}`]: value };
+    const nextData = {};
+    nextData['form.lineItems[' + index + '].' + field] = value;
     if (field === 'quotationMDOverridden' && !value) {
-      nextData[`form.lineItems[${index}].quotationMD`] = '';
+      nextData['form.lineItems[' + index + '].quotationMD'] = '';
     }
     if (field === 'travelMDOverridden' && !value) {
-      nextData[`form.lineItems[${index}].travelMD`] = '';
+      nextData['form.lineItems[' + index + '].travelMD'] = '';
     }
     this.setData(nextData, () => this.refreshPreview());
   },

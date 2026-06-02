@@ -910,10 +910,42 @@ exports.main = async (event) => {
       assertActive(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以创建项目。');
       if (cleaned.precalId) {
-        const precal = await getRecord(cleaned.precalId);
-        if (precal && precal.createdProjectId) {
-          return { ok: false, message: '该 Pre-cal 对应项目已存在', id: precal.createdProjectId, user };
-        }
+        const txRes = await db.runTransaction(async transaction => {
+          const precalDoc = await transaction.collection('precal_records').doc(cleaned.precalId).get();
+          const precal = precalDoc.data || null;
+          if (!precal || precal.deleted === true) {
+            return { ok: false, message: 'Pre-cal 不存在，无法创建项目。' };
+          }
+
+          if (precal.createdProjectId) {
+            return { ok: false, message: '该 Pre-cal 对应项目已存在', id: precal.createdProjectId };
+          }
+
+          const projectData = Object.assign({}, cleaned, {
+            _openid: openid,
+            ownerOpenid: openid,
+            createdAt: now,
+            createdBy: openid,
+            deleted: false,
+            version: 1
+          });
+
+          const addRes = await transaction.collection('projects').add({ data: projectData });
+
+          await transaction.collection('precal_records').doc(cleaned.precalId).update({
+            data: {
+              createdProjectId: addRes._id,
+              status: 'Project Created',
+              updatedAt: now,
+              updatedBy: openid,
+              version: _.inc(1)
+            }
+          });
+
+          return { ok: true, id: addRes._id };
+        });
+
+        return Object.assign({ user }, txRes);
       }
 
       cleaned._openid = openid;
@@ -923,18 +955,6 @@ exports.main = async (event) => {
       cleaned.deleted = false;
       cleaned.version = 1;
       const addRes = await projects.add({ data: cleaned });
-
-      if (cleaned.precalId) {
-        await precalRecords.doc(cleaned.precalId).update({
-          data: {
-            createdProjectId: addRes._id,
-            status: 'Project Created',
-            updatedAt: now,
-            updatedBy: openid,
-            version: _.inc(1)
-          }
-        }).catch(err => console.warn('更新 Pre-cal 项目创建状态失败：', cleaned.precalId, err));
-      }
 
       return { ok: true, id: addRes._id, user };
     }

@@ -35,7 +35,8 @@ function collectSapNos(precal) {
       splitSapText(item).forEach(pushSap);
       return;
     }
-    splitSapText(item.sapNo).forEach(pushSap);
+    splitSapText(item.sapNo || item.sapCode || item.sapProjectNo || item.projectNo || item.value).forEach(pushSap);
+    splitSapText(item.sapProjectNo).forEach(pushSap);
   });
 
   const appendFromField = (field) => {
@@ -44,7 +45,7 @@ function collectSapNos(precal) {
     if (Array.isArray(value)) {
       value.forEach(item => {
         if (typeof item === 'string') splitSapText(item).forEach(pushSap);
-        else if (item && typeof item === 'object') splitSapText(item.sapNo || item.value).forEach(pushSap);
+        else if (item && typeof item === 'object') splitSapText(item.sapNo || item.sapProjectNo || item.sapCode || item.projectNo || item.value).forEach(pushSap);
         else pushSap(item);
       });
       return;
@@ -91,7 +92,8 @@ function normalizeSapBindingList(precal) {
     if (typeof item === 'string') return { sapNo: normalizeSapNo(item), memberName: '', remark: '' };
     return {
       sapId: item && item.sapId || '',
-      sapNo: normalizeSapNo(item && (item.sapNo || item.sapCode || item.sapProjectNo || item.value)),
+      sapNo: normalizeSapNo(item && (item.sapNo || item.sapCode || item.sapProjectNo || item.projectNo || item.value)),
+      sapProjectNo: normalizeSapNo(item && (item.sapProjectNo || item.sapNo || item.sapCode || item.projectNo || item.value)),
       memberName: String(item && item.memberName || '').trim(),
       remark: String(item && item.remark || '').trim()
     };
@@ -151,10 +153,11 @@ function buildProjectFromPrecal(precal, inputSapNo) {
   const mainSapNo = normalizeSapNo(inputSapNo) || normalizeSapNo(precal && precal.mainSapNo) || sapNumbers[0] || '';
   const result = precal.calculationResult || {};
   const orderValue = toOptionalNumber(firstMeaningfulValue([result.totalOrderValue, precal.totalOrderValue, precal.orderValue]));
-  const totalMD = toOptionalNumber(firstMeaningfulValue([result.totalMD, precal.totalMD]));
-  const travelFee = toOptionalNumber(firstMeaningfulValue([precal.travelFee, precal.subcontractingTravelFee, precal.subcontractingExtTravelFee, result.subcontractingTravel, result.travelFee]));
+  const totalMD = toOptionalNumber(firstMeaningfulValue([result.totalMD, precal.totalMD, precal.mdTotal]));
+  const travelFee = toOptionalNumber(firstMeaningfulValue([precal.travelFee, precal.travelCost, precal.subcontractingTravelFee, precal.subcontractingExtTravelFee, result.subcontractingTravel, result.travelFee]));
   const budgetTotalHours = totalMD === '' ? '' : totalMD * 8;
-  const projectTotalBudget = orderValue === '' ? '' : (travelFee === '' ? orderValue : orderValue - travelFee);
+  const explicitBudget = toOptionalNumber(firstMeaningfulValue([precal.orderValueWithoutTravel, precal.projectTotalBudget, precal.totalBudget]));
+  const projectTotalBudget = explicitBudget !== '' ? explicitBudget : (orderValue === '' ? '' : (travelFee === '' ? orderValue : orderValue - travelFee));
   const operatingMargin = toOptionalNumber(firstMeaningfulValue([result.operatingMargin, precal.operatingMargin]));
   const itemList = collectLegacyItems(precal);
   const customerName = String(precal.customerName || precal.clientName || '').trim();
@@ -172,6 +175,7 @@ function buildProjectFromPrecal(precal, inputSapNo) {
     service: precal.service || '',
     salesOwnerName: precal.salesOwnerName || '',
     orderValue,
+    orderValueWithoutTravel: projectTotalBudget,
     totalMD,
     budgetTotalHours,
     budgetHours: budgetTotalHours,
@@ -194,17 +198,28 @@ function buildProjectFromPrecal(precal, inputSapNo) {
   };
 }
 
+async function safeGetPrecalCandidates(query, label) {
+  try {
+    return await precalRecords.where(query).limit(100).get();
+  } catch (err) {
+    console.warn(`按 ${label} 查询 Pre-cal 失败，改用候选记录过滤：`, err && err.message || err);
+    return { data: [] };
+  }
+}
+
 async function getPrecalBySapNo(sapNo) {
   const no = normalizeSapNo(sapNo);
   if (!no) return null;
   const fetches = await Promise.all([
-    precalRecords.where({ 'sapBindings.sapNo': no, deleted: _.neq(true) }).limit(100).get(),
-    precalRecords.where({ sapNos: no, deleted: _.neq(true) }).limit(100).get(),
-    precalRecords.where({ sapNumbers: no, deleted: _.neq(true) }).limit(100).get(),
-    precalRecords.where({ sapNo: no, deleted: _.neq(true) }).limit(100).get(),
-    precalRecords.where({ sapCode: no, deleted: _.neq(true) }).limit(100).get(),
-    precalRecords.where({ sapProjectNo: no, deleted: _.neq(true) }).limit(100).get(),
-    precalRecords.where({ mainSapNo: no, deleted: _.neq(true) }).limit(100).get()
+    safeGetPrecalCandidates({ 'sapBindings.sapNo': no, deleted: _.neq(true) }, 'sapBindings.sapNo'),
+    safeGetPrecalCandidates({ 'sapBindings.sapProjectNo': no, deleted: _.neq(true) }, 'sapBindings.sapProjectNo'),
+    safeGetPrecalCandidates({ sapNos: no, deleted: _.neq(true) }, 'sapNos'),
+    safeGetPrecalCandidates({ sapNumbers: no, deleted: _.neq(true) }, 'sapNumbers'),
+    safeGetPrecalCandidates({ sapNo: no, deleted: _.neq(true) }, 'sapNo'),
+    safeGetPrecalCandidates({ sapCode: no, deleted: _.neq(true) }, 'sapCode'),
+    safeGetPrecalCandidates({ sapProjectNo: no, deleted: _.neq(true) }, 'sapProjectNo'),
+    safeGetPrecalCandidates({ mainSapNo: no, deleted: _.neq(true) }, 'mainSapNo'),
+    precalRecords.where({ deleted: _.neq(true) }).limit(200).get()
   ]);
   const merged = [];
   const seen = {};
@@ -818,17 +833,18 @@ exports.main = async (event) => {
     if (action === 'loadPrecalBySap') {
       assertActive(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以按 SAP 查询 Pre-cal。');
-      const sapNo = normalizeSapNo(event.sapNo);
+      const sapNo = normalizeSapNo(event.sapNo || event.sapProjectNo || event.projectNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
       const precal = await getPrecalBySapNo(sapNo);
       if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal', user };
-      return { ok: true, project: buildProjectFromPrecal(precal, sapNo), precal, user };
+      const mappedPrecalData = buildProjectFromPrecal(precal, sapNo);
+      return { ok: true, project: mappedPrecalData, precal: mappedPrecalData, user };
     }
 
        if (action === 'createFromSap') {
       assertActive(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以从 SAP 创建项目。');
-      const sapNo = normalizeSapNo(event.sapNo);
+      const sapNo = normalizeSapNo(event.sapNo || event.sapProjectNo || event.projectNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
       const nowMs = Date.now();
 

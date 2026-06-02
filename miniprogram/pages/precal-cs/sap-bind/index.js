@@ -138,13 +138,26 @@ Page({
 
     return '';
   },
-  saveSap() {
+  async saveSap() {
     const msg = this.validate();
     if (msg) { wx.showToast({ title: msg, icon: 'none' }); return; }
-    wx.showLoading({ title: '保存中' });
-    precalService.callPrecalService('bindSap', { precalRecordId: this.data.id, sapBindings: this.data.sapBindings, itemList: this.data.itemList, reason: this.data.reason || '保存 SAP 绑定信息' })
-      .then(() => { wx.showToast({ title: '已保存', icon: 'success' }); setTimeout(() => wx.navigateBack(), 500); })
-      .catch(err => wx.showToast({ title: err.message || '保存失败', icon: 'none' }))
-      .finally(() => wx.hideLoading());
+
+    let loadingShown = false;
+    try {
+      wx.showLoading({ title: '保存中' });
+      loadingShown = true;
+      await precalService.callPrecalService('bindSap', {
+        precalRecordId: this.data.id,
+        sapBindings: this.data.sapBindings,
+        itemList: this.data.itemList,
+        reason: this.data.reason || '保存 SAP 绑定信息'
+      });
+      wx.showToast({ title: '已保存', icon: 'success' });
+      setTimeout(() => wx.navigateBack(), 500);
+    } catch (err) {
+      wx.showToast({ title: err.message || '保存失败', icon: 'none' });
+    } finally {
+      if (loadingShown) wx.hideLoading();
+    }
   }
 });

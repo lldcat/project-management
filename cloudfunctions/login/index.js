@@ -119,7 +119,24 @@ async function getOrCreateCurrentUser(openid) {
   }
 }
 
-exports.main = async () => {
+async function updateCurrentUserName(openid, name) {
+  const cleanName = normalizeText(name);
+  if (!cleanName) return { ok: false, message: '姓名不能为空。' };
+  const result = await getOrCreateCurrentUser(openid);
+  const user = result.user || {};
+  const now = db.serverDate();
+  await users.doc(user._id || openid).update({
+    data: {
+      name: cleanName,
+      updatedAt: now,
+      version: _.inc(1)
+    }
+  });
+  const refreshed = await getOrCreateCurrentUser(openid);
+  return { ok: true, user: refreshed.user, duplicateCount: refreshed.duplicateCount };
+}
+
+exports.main = async (event) => {
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID;
 
@@ -127,7 +144,13 @@ exports.main = async () => {
     return { ok: false, message: '无法获取 openid，请确认云开发环境已正确初始化。' };
   }
 
-  const result = await getOrCreateCurrentUser(openid);
+  const action = event && event.action;
+  const payload = event && event.payload || {};
+  const result = action === 'updateName'
+    ? await updateCurrentUserName(openid, payload.name)
+    : await getOrCreateCurrentUser(openid);
+
+  if (result.ok === false) return result;
 
   return {
     ok: true,

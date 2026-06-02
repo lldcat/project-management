@@ -35,11 +35,11 @@
     <view class="grid-2">
       <view class="stat-card precal-stat">
         <view class="stat-value">{{precalStats.total}}</view>
-        <view class="stat-label">Pre-cal 可见总数</view>
+        <view class="stat-label">Pre-cal 总数</view>
       </view>
       <view class="stat-card precal-stat">
-        <view class="stat-value">{{precalStats.submittedBySales}}</view>
-        <view class="stat-label">Sales 已提交</view>
+        <view class="stat-value">{{precalStats.draft}}</view>
+        <view class="stat-label">草稿 / 待提交</view>
       </view>
       <view class="stat-card precal-stat">
         <view class="stat-value">{{precalStats.pendingSap}}</view>
@@ -49,17 +49,21 @@
         <view class="stat-value">{{precalStats.sapBound}}</view>
         <view class="stat-label">已绑定 SAP</view>
       </view>
+      <view class="stat-card precal-stat">
+        <view class="stat-value">{{precalStats.other}}</view>
+        <view class="stat-label">其他状态</view>
+      </view>
     </view>
   </view>
 
   <view class="card">
     <view class="card-title">关键指标汇总</view>
     <view class="metric-line">
-      <text>BAC（项目总预算，含差旅）</text>
+      <text>BAC（系统计算，含杂费/差旅）</text>
       <text class="metric-value">{{stats.bacText}}</text>
     </view>
     <view class="metric-line">
-      <text>人工预算（不含差旅）</text>
+      <text>人工预算（不含杂费/差旅）</text>
       <text class="metric-value">{{stats.laborBudgetText}}</text>
     </view>
     <view class="metric-line">
@@ -86,7 +90,7 @@
     <view class="row">
       <view>
         <view class="project-title">{{item.projectName || '未命名项目'}}</view>
-        <view class="muted">{{item.projectNo || '无项目号'}} ｜ PM：{{item.projectManager || '-'}}</view>
+        <view class="muted">{{item.projectNo || '无项目号'}} ｜ PM：{{item.displayPmName}}</view>
       </view>
       <view class="tag tag-risk">风险</view>
     </view>

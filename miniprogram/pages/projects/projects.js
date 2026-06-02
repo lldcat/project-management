@@ -23,7 +23,11 @@ Page({
   loadData() {
     return projectService.listProjects({})
       .then(res => {
-        const projects = (res.projects || []).map(enrichProject);
+        const projects = (res.projects || []).map(item => {
+          const project = enrichProject(item);
+          project.displayPmName = project.pmName || project.projectManager || '-';
+          return project;
+        });
         const user = res.user || {};
         const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role || 'pm'];
         const role = user.role || roles[0] || 'pm';
@@ -53,7 +57,7 @@ Page({
     const keyword = (this.data.keyword || '').trim().toLowerCase();
     const filter = this.data.filter;
     const filteredProjects = this.data.projects.filter(item => {
-      const text = [item.projectName, item.projectNo, item.customerName, item.projectManager]
+      const text = [item.projectName, item.projectNo, item.customerName, item.displayPmName]
         .join(' ')
         .toLowerCase();
       const keywordOk = !keyword || text.indexOf(keyword) >= 0;

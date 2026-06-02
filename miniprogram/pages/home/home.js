@@ -27,9 +27,13 @@ Page({
     },
     precalStats: {
       total: 0,
-      submittedBySales: 0,
+      draft: 0,
       pendingSap: 0,
-      sapBound: 0
+      sapBound: 0,
+      other: 0,
+      withdrawn: 0,
+      unlocked: 0,
+      cancelled: 0
     }
   },
 
@@ -49,7 +53,11 @@ Page({
     this.setData({ loading: true });
     return projectService.listProjects({})
       .then(res => {
-        const projects = (res.projects || []).map(enrichProject);
+        const projects = (res.projects || []).map(item => {
+          const project = enrichProject(item);
+          project.displayPmName = project.pmName || project.projectManager || '-';
+          return project;
+        });
         const stats = this.buildStats(projects);
         const riskProjects = projects.filter(item => item.metrics.hasRisk).slice(0, 8);
         const user = res.user || {};
@@ -78,7 +86,7 @@ Page({
     const hasAdmin = roles.indexOf('admin') >= 0;
     const canSeePrecal = hasSales || hasCS || hasAdmin;
     if (!canSeePrecal) {
-      this.setData({ showPrecalStats: false, precalStats: { total: 0, submittedBySales: 0, pendingSap: 0, sapBound: 0 } });
+      this.setData({ showPrecalStats: false, precalStats: this.buildPrecalStatusStats([]) });
       return Promise.resolve();
     }
 
@@ -93,33 +101,49 @@ Page({
     return Promise.all(calls)
       .then(results => {
         const merged = {};
-        let salesRecords = [];
         results.forEach(group => {
           (group.records || []).forEach(record => {
             merged[record._id || record.precalNo] = record;
           });
-          if (group.source === 'sales') salesRecords = group.records || [];
-          if (group.source === 'admin' && hasSales) salesRecords = group.records || [];
         });
         const records = Object.keys(merged).map(key => merged[key]);
-        const pendingSap = records.filter(item => item.status === 'Submitted').length;
-        const submittedBySales = (hasAdmin || hasCS) ? pendingSap : salesRecords.filter(item => item.status === 'Submitted').length;
-        const sapBound = records.filter(item => item.status === 'SAP Bound').length;
         this.setData({
           showPrecalStats: true,
-          precalScopeText: hasAdmin ? 'Admin 视角：统计全部 Pre-cal。' : (hasCS ? 'CS 视角：统计已提交和已绑定 SAP 的 Pre-cal。' : 'Sales 视角：统计自己创建的 Pre-cal。'),
-          precalStats: {
-            total: records.length,
-            submittedBySales,
-            pendingSap,
-            sapBound
-          }
+          precalScopeText: hasAdmin ? 'Admin 视角：统计全部 Pre-cal 状态。' : (hasCS ? 'CS 视角：统计可见的已提交和已绑定 SAP Pre-cal。' : 'Sales 视角：统计自己创建的全部 Pre-cal 状态。'),
+          precalStats: this.buildPrecalStatusStats(records)
         });
       })
       .catch(err => {
         console.error('load precal stats failed', err);
         this.setData({ showPrecalStats: false });
       });
+  },
+
+  buildPrecalStatusStats(records) {
+    const list = records || [];
+    const stats = {
+      total: list.length,
+      draft: 0,
+      pendingSap: 0,
+      sapBound: 0,
+      withdrawn: 0,
+      unlocked: 0,
+      cancelled: 0,
+      other: 0
+    };
+    list.forEach(item => {
+      const status = item && item.status;
+      if (status === 'Draft') stats.draft += 1;
+      else if (status === 'Submitted') stats.pendingSap += 1;
+      else if (status === 'SAP Bound') stats.sapBound += 1;
+      else {
+        stats.other += 1;
+        if (status === 'Withdrawn') stats.withdrawn += 1;
+        if (status === 'Unlocked') stats.unlocked += 1;
+        if (status === 'Cancelled') stats.cancelled += 1;
+      }
+    });
+    return stats;
   },
 
   normalizeRoles(user) {

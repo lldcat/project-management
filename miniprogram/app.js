@@ -39,6 +39,14 @@ App({
       .then(result => {
         this.globalData.openid = result.openid || (result.user && result.user.openid) || '';
         this.globalData.user = result.user || null;
+        if (result.user && !String(result.user.name || '').trim()) {
+          wx.showModal({
+            title: '请填写姓名',
+            content: '首次使用需要填写姓名，项目 PM 和分配工时会使用该姓名。',
+            showCancel: false,
+            success: () => wx.switchTab({ url: '/pages/settings/settings' })
+          });
+        }
       })
       .catch(err => {
         console.error('login failed', err);

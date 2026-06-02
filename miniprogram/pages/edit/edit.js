@@ -1,4 +1,6 @@
+const app = getApp();
 const projectService = require('../../services/projectService');
+const userService = require('../../services/userService');
 const { formatMoney } = require('../../utils/metrics');
 const { enrichProject } = require('../../utils/metrics');
 
@@ -8,13 +10,6 @@ function createId(prefix) {
 
 function normalizeName(name) {
   return String(name || '').trim();
-}
-
-function parseMembersText(text) {
-  return String(text || '')
-    .split(/[、,，\s\n]+/)
-    .map(item => item.trim())
-    .filter(Boolean);
 }
 
 function uniqueNames(names) {
@@ -29,11 +24,42 @@ function uniqueNames(names) {
   return result;
 }
 
+function normalizeMembers(input) {
+  const memberValue = item => {
+    if (item && typeof item === 'object') return item.memberName || item.name || item.employeeName || item.userName || '';
+    return item;
+  };
+  if (Array.isArray(input)) {
+    return uniqueNames(input.map(memberValue).map(normalizeName));
+  }
+  if (typeof input === 'string') {
+    return uniqueNames(input.split(/[、,，;；\n\r]+/).map(normalizeName));
+  }
+  if (input && typeof input === 'object') {
+    return uniqueNames(Object.keys(input).map(normalizeName));
+  }
+  return [];
+}
+
 function toNullableNumber(value) {
   if (value === null || value === undefined) return null;
   if (typeof value === 'string' && value.trim() === '') return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function toOptionalNumberValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' && value.trim() === '') return '';
+  const n = Number(value);
+  return Number.isFinite(n) ? n : value;
+}
+
+function isInvalidNumber(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  const n = Number(value);
+  return !Number.isFinite(n) || n < 0;
 }
 
 function hasValue(value) {
@@ -47,12 +73,24 @@ function assignIfValue(target, field, value) {
   if (hasValue(value)) target[field] = value;
 }
 
+function firstValue(values) {
+  for (const value of values || []) {
+    if (hasValue(value)) return value;
+  }
+  return '';
+}
+
 function normalizeSapNo(value) {
   return String(value || '').trim();
 }
 
 function displayValue(value) {
   return hasValue(value) ? value : '-';
+}
+
+function buildPmDisplayName(form, fallbackName) {
+  const data = form || {};
+  return normalizeName(data.pmName || data.projectManager || fallbackName) || '请先在“我的”页填写姓名';
 }
 
 function buildAlertDisplay(alerts) {
@@ -68,8 +106,8 @@ function buildPrecalDisplay(form) {
     service: displayValue(data.service),
     salesOwnerName: displayValue(data.salesOwnerName),
     mainSapNo: displayValue(data.mainSapNo || data.projectNo),
-    totalBudget: displayValue(data.totalBudget),
-    budgetHours: displayValue(data.budgetHours || data.budgetTotalHours),
+    totalBudget: displayValue(data.precalProjectBudget || data.totalBudget || data.projectTotalBudget),
+    budgetHours: displayValue(data.allocatableHours || data.budgetHours || data.budgetTotalHours),
     travelCost: displayValue(data.travelCost || data.travelFee),
     operatingMargin: displayValue(data.operatingMargin)
   };
@@ -85,13 +123,145 @@ function mapByName(rows, valueField) {
   return map;
 }
 
+function mapOpenidByName(rows) {
+  const map = {};
+  (rows || []).forEach(item => {
+    const name = normalizeName(item.memberName);
+    if (!name) return;
+    map[name] = item.memberOpenid || item.openid || '';
+  });
+  return map;
+}
+
+function normalizeWorkloadAllocations(project) {
+  const data = project || {};
+  const source = hasValue(data.employeeBudgets) ? data.employeeBudgets
+    : (hasValue(data.memberBudgets) ? data.memberBudgets
+      : (hasValue(data.workloadAllocations) ? data.workloadAllocations
+        : (hasValue(data.budgetHoursAllocation) ? data.budgetHoursAllocation : [])));
+  const rows = [];
+
+  const addRow = (name, budgetHours, id, memberOpenid) => {
+    const memberName = normalizeName(name);
+    if (!memberName) return;
+    rows.push({
+      id: id || createId('emp'),
+      memberOpenid: memberOpenid || '',
+      memberName,
+      budgetHours: budgetHours === undefined || budgetHours === null ? '' : budgetHours
+    });
+  };
+
+  if (Array.isArray(source)) {
+    source.forEach(item => {
+      if (typeof item === 'string') {
+        addRow(item, '');
+        return;
+      }
+      if (!item || typeof item !== 'object') return;
+      addRow(
+        item.memberName || item.name || item.employeeName || item.userName,
+        item.budgetHours !== undefined ? item.budgetHours
+          : (item.hours !== undefined ? item.hours
+            : (item.allocationHours !== undefined ? item.allocationHours : item.workload)),
+        item.id,
+        item.memberOpenid || item.openid
+      );
+    });
+  } else if (typeof source === 'string') {
+    normalizeMembers(source).forEach(name => addRow(name, ''));
+  } else if (source && typeof source === 'object') {
+    Object.keys(source).forEach(name => addRow(name, source[name]));
+  }
+
+  const budgetMap = mapByName(rows, 'budgetHours');
+  const openidMap = mapOpenidByName(rows);
+  return uniqueNames(rows.map(item => item.memberName)).map(name => {
+    const existing = rows.find(item => normalizeName(item.memberName) === name) || {};
+    return {
+      id: existing.id || createId('emp'),
+      memberOpenid: openidMap[name] || '',
+      memberName: name,
+      budgetHours: budgetMap[name] === undefined ? '' : budgetMap[name]
+    };
+  });
+}
+
+function normalizeArHourRows(input) {
+  const rows = [];
+  const addRow = (name, hours, id) => {
+    const memberName = normalizeName(name);
+    if (!memberName) return;
+    rows.push({
+      id: id || createId('ar'),
+      memberName,
+      hours: hours === undefined || hours === null ? '' : hours
+    });
+  };
+
+  if (Array.isArray(input)) {
+    input.forEach(item => {
+      if (typeof item === 'string') {
+        addRow(item, '');
+        return;
+      }
+      if (!item || typeof item !== 'object') return;
+      addRow(
+        item.memberName || item.name || item.employeeName || item.userName,
+        item.hours !== undefined ? item.hours : item.actualHours,
+        item.id
+      );
+    });
+  } else if (typeof input === 'string') {
+    normalizeMembers(input).forEach(name => addRow(name, ''));
+  } else if (input && typeof input === 'object') {
+    Object.keys(input).forEach(name => addRow(name, input[name]));
+  }
+  return rows;
+}
+
 function buildEmployeeBudgets(names, existingBudgets) {
   const budgetMap = mapByName(existingBudgets, 'budgetHours');
+  const openidMap = mapOpenidByName(existingBudgets);
   return uniqueNames(names).map(name => ({
     id: ((existingBudgets || []).find(item => normalizeName(item.memberName) === name) || {}).id || createId('emp'),
+    memberOpenid: openidMap[name] || '',
     memberName: name,
     budgetHours: budgetMap[name] === undefined ? '' : budgetMap[name]
   }));
+}
+
+function ensurePmInAllocation(form) {
+  const data = form || {};
+  const pmName = normalizeName(data.pmName || data.projectManager);
+  const pmOpenid = data.pmOpenid || data.ownerOpenid || data.createdBy || '';
+  const existing = normalizeWorkloadAllocations(data);
+  if (!pmName) return applyEmployeeMeta(existing, data.projectManager);
+  const hasPm = existing.some(item => normalizeName(item.memberName) === pmName);
+  const next = hasPm ? existing.map(item => {
+    if (normalizeName(item.memberName) !== pmName) return item;
+    return Object.assign({}, item, { memberOpenid: item.memberOpenid || pmOpenid });
+  }) : existing.concat({
+    id: createId('emp'),
+    memberOpenid: pmOpenid,
+    memberName: pmName,
+    budgetHours: ''
+  });
+  return applyEmployeeMeta(next, pmName);
+}
+
+function addMembersToAllocations(form, names) {
+  const data = form || {};
+  const cleanNames = normalizeMembers(names);
+  if (!cleanNames.length) return data;
+  const existing = normalizeWorkloadAllocations(data);
+  const allocationNames = uniqueNames(existing.map(item => item.memberName).concat(cleanNames));
+  const next = Object.assign({}, data, {
+    projectMembers: uniqueNames(normalizeMembers(data.projectMembers).concat(cleanNames))
+  });
+  next.employeeBudgets = applyEmployeeMeta(buildEmployeeBudgets(allocationNames, existing), next.projectManager);
+  next.arHours = alignArHoursToEmployeeBudgets(next.employeeBudgets, data.arHours || []);
+  return next;
 }
 
 function alignArHoursToEmployeeBudgets(employeeBudgets, existingArHours) {
@@ -121,14 +291,58 @@ function normalizePeopleStructures(rawForm, options) {
   const form = JSON.parse(JSON.stringify(rawForm || {}));
   const includeArNames = !!(options && options.includeArNames);
   const pmName = normalizeName(form.projectManager);
-  const memberNames = Array.isArray(form.projectMembers) ? form.projectMembers : [];
-  const employeeNames = (form.employeeBudgets || []).map(item => item.memberName);
-  const arNames = includeArNames ? (form.arHours || []).map(item => item.memberName) : [];
+  const memberNames = normalizeMembers(form.projectMembers);
+  form.employeeBudgets = normalizeWorkloadAllocations(form);
+  const employeeNames = form.employeeBudgets.map(item => item.memberName);
+  const arRows = normalizeArHourRows(form.arHours);
+  const arNames = includeArNames ? arRows.map(item => item.memberName) : [];
   const names = uniqueNames([pmName].concat(memberNames, employeeNames, arNames));
 
   form.employeeBudgets = applyEmployeeMeta(buildEmployeeBudgets(names, form.employeeBudgets || []), pmName);
-  form.arHours = alignArHoursToEmployeeBudgets(form.employeeBudgets, form.arHours || []);
+  form.arHours = alignArHoursToEmployeeBudgets(form.employeeBudgets, arRows);
   return form;
+}
+
+function formatSummaryNumber(value) {
+  if (value === null || value === undefined || value === '') return '-';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '-';
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function calculateAllocationSummary(project) {
+  const form = project || {};
+  const explicitBudgetHours = toOptionalNumberValue(form.allocatableHours !== undefined && form.allocatableHours !== ''
+    ? form.allocatableHours
+    : (form.budgetTotalHours !== undefined && form.budgetTotalHours !== '' ? form.budgetTotalHours : form.budgetHours));
+  const workingMd = toOptionalNumberValue(form.workingMD !== undefined && form.workingMD !== '' ? form.workingMD : form.workingMd);
+  const projectBudgetHours = explicitBudgetHours !== ''
+    ? Number(explicitBudgetHours)
+    : (workingMd !== '' && Number.isFinite(Number(workingMd)) ? Number(workingMd) * 8 : '');
+  const allocatedHours = (form.employeeBudgets || []).reduce((sum, item) => {
+    const value = toOptionalNumberValue(item.budgetHours);
+    const n = value === '' ? 0 : Number(value);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+  const hasProjectBudgetHours = projectBudgetHours !== '' && Number.isFinite(Number(projectBudgetHours));
+  const remainingHours = hasProjectBudgetHours ? Number(projectBudgetHours) - allocatedHours : '';
+  const allocationRatio = hasProjectBudgetHours && Number(projectBudgetHours) > 0 ? allocatedHours / Number(projectBudgetHours) : null;
+  const overHours = hasProjectBudgetHours && remainingHours < 0 ? Math.abs(remainingHours) : 0;
+
+  return {
+    hasProjectBudgetHours,
+    projectBudgetHours,
+    allocatedHours,
+    remainingHours,
+    allocationRatio,
+    overHours,
+    isOverBudget: overHours > 0,
+    projectBudgetHoursText: hasProjectBudgetHours ? formatSummaryNumber(projectBudgetHours) : '暂无可分配工时',
+    allocatedHoursText: formatSummaryNumber(allocatedHours),
+    remainingHoursText: hasProjectBudgetHours ? formatSummaryNumber(remainingHours) : '-',
+    allocationRatioText: allocationRatio === null ? '-' : `${(allocationRatio * 100).toFixed(2)}%`,
+    overHoursText: formatSummaryNumber(overHours)
+  };
 }
 
 function defaultForm() {
@@ -139,6 +353,8 @@ function defaultForm() {
     startDate: '',
     endDate: '',
     projectManager: '',
+    pmOpenid: '',
+    pmName: '',
     projectMembers: [],
     status: 'active',
     travelFee: '',
@@ -152,8 +368,14 @@ function defaultForm() {
     salesOwnerName: '',
     orderValue: '',
     totalMD: '',
+    workingMD: '',
+    workingMd: '',
+    travelMD: '',
+    quotationMD: '',
+    allocatableHours: '',
     budgetTotalHours: '',
     budgetHours: '',
+    precalProjectBudget: '',
     projectTotalBudget: '',
     totalBudget: '',
     travelCost: '',
@@ -164,7 +386,7 @@ function defaultForm() {
       personDayCost: 5000
     },
     subProjects: [
-      { id: createId('sub'), name: '', budgetHours: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }
+      { id: createId('sub'), name: '', itemNo: '1000', subProjectNo: '1000', budgetHours: '', travelFee: '', travelCost: '', travelExpense: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }
     ],
     employeeBudgets: [],
     arHours: []
@@ -177,6 +399,11 @@ Page({
     isEdit: false,
     form: defaultForm(),
     membersText: '',
+    memberInputText: '',
+    currentUserName: '',
+    currentUserOpenid: '',
+    pmDisplayName: '请先在“我的”页填写姓名',
+    missingUserName: false,
     statusIndex: 0,
     currentStatusLabel: '进行中',
     statusOptions: [
@@ -194,17 +421,72 @@ Page({
     lastSyncedSapNo: '',
     precalSyncMessage: '',
     hasPrecalPreview: false,
-    precalDisplay: buildPrecalDisplay(defaultForm())
+    precalDisplay: buildPrecalDisplay(defaultForm()),
+    allocationSummary: calculateAllocationSummary(defaultForm())
   },
 
   onLoad(options) {
     const id = options && options.id ? options.id : '';
     this.setData({ id, isEdit: !!id, pageTitle: id ? '编辑项目' : '新增项目', readOnly: false });
+    this.initCurrentUser();
     if (id) {
       this.loadDetail(id);
     } else {
-      this.refreshPreview();
+      this.applyCurrentUserToNewForm();
     }
+  },
+
+  initCurrentUser() {
+    const cached = app.globalData.user || {};
+    if (cached.openid || app.globalData.openid) {
+      this.applyCurrentUser(cached);
+    }
+    userService.login()
+      .then(res => {
+        const user = (res && res.user) || {};
+        app.globalData.openid = (res && res.openid) || user.openid || app.globalData.openid || '';
+        app.globalData.user = user;
+        this.applyCurrentUser(user);
+        if (!this.data.isEdit) this.applyCurrentUserToNewForm(user);
+        if (!normalizeName(user.name)) this.promptUserName();
+      })
+      .catch(err => {
+        console.error(err);
+        wx.showToast({ title: '身份加载失败', icon: 'none' });
+      });
+  },
+
+  applyCurrentUser(user) {
+    const data = user || {};
+    this.setData({
+      currentUserName: normalizeName(data.name),
+      currentUserOpenid: data.openid || app.globalData.openid || '',
+      pmDisplayName: buildPmDisplayName(this.data.form, data.name),
+      missingUserName: !normalizeName(data.name)
+    });
+  },
+
+  promptUserName() {
+    wx.showModal({
+      title: '请先填写姓名',
+      content: '项目 PM 名称将使用“我的”页面中的姓名，请填写后再创建项目。',
+      showCancel: false,
+      success: () => wx.switchTab({ url: '/pages/settings/settings' })
+    });
+  },
+
+  applyCurrentUserToNewForm(user) {
+    if (this.data.isEdit) return;
+    const currentUser = user || app.globalData.user || {};
+    const pmName = normalizeName(currentUser.name || this.data.currentUserName);
+    const pmOpenid = currentUser.openid || this.data.currentUserOpenid || app.globalData.openid || '';
+    let form = JSON.parse(JSON.stringify(this.data.form || defaultForm()));
+    form.pmOpenid = pmOpenid;
+    form.pmName = pmName;
+    form.projectManager = pmName;
+    form.employeeBudgets = ensurePmInAllocation(form);
+    form.arHours = alignArHoursToEmployeeBudgets(form.employeeBudgets, form.arHours || []);
+    this.setFormAndPreview(form);
   },
 
   loadDetail(id) {
@@ -214,11 +496,13 @@ Page({
         const loaded = res.project || defaultForm();
         const readOnly = loaded._canEdit === false;
         let form = Object.assign(defaultForm(), loaded);
+        form.pmName = form.pmName || form.projectManager || '';
+        form.projectManager = form.pmName || form.projectManager || '';
         form.constants = Object.assign({ hoursPerDay: 8, personDayCost: 5000 }, loaded.constants || {});
         form.subProjects = (loaded.subProjects && loaded.subProjects.length ? loaded.subProjects : defaultForm().subProjects)
           .map(item => Object.assign({ id: createId('sub') }, item));
-        form.employeeBudgets = (loaded.employeeBudgets || []).map(item => Object.assign({ id: createId('emp') }, item));
-        form.arHours = (loaded.arHours || []).map(item => Object.assign({ id: createId('ar') }, item));
+        form.employeeBudgets = normalizeWorkloadAllocations(loaded).map(item => Object.assign({ id: createId('emp') }, item));
+        form.arHours = normalizeArHourRows(loaded.arHours).map(item => Object.assign({ id: createId('ar') }, item));
         form = normalizePeopleStructures(form, { includeArNames: true });
         if (readOnly) {
           form.employeeBudgets = (form.employeeBudgets || []).map(item => Object.assign({}, item, { canRemove: false }));
@@ -226,7 +510,9 @@ Page({
         const statusIndex = this.data.statusOptions.findIndex(item => item.value === form.status);
         this.setData({
           form,
-          membersText: (form.projectMembers || []).join('、'),
+          pmDisplayName: buildPmDisplayName(form, this.data.currentUserName),
+          membersText: normalizeMembers(form.projectMembers).join('、'),
+          memberInputText: '',
           statusIndex: statusIndex >= 0 ? statusIndex : 0,
           currentStatusLabel: this.data.statusOptions[statusIndex >= 0 ? statusIndex : 0].label,
           readOnly,
@@ -238,7 +524,7 @@ Page({
   },
 
   setFormAndPreview(form) {
-    this.setData({ form }, () => this.refreshPreview());
+    this.setData({ form, pmDisplayName: buildPmDisplayName(form, this.data.currentUserName) }, () => this.refreshPreview());
   },
 
 
@@ -265,23 +551,31 @@ Page({
     const form = Object.assign({}, current);
     [
       'projectName', 'customerName', 'clientName', 'projectNo', 'mainSapNo', 'precalId', 'precalNo',
-      'service', 'salesOwnerName', 'orderValue', 'totalMD', 'budgetTotalHours', 'budgetHours',
-      'projectTotalBudget', 'totalBudget', 'bac', 'travelFee', 'travelCost', 'operatingMargin'
+      'service', 'salesOwnerName', 'orderValue', 'totalMD', 'workingMD', 'workingMd', 'travelMD', 'quotationMD', 'allocatableHours', 'budgetTotalHours', 'budgetHours',
+      'precalProjectBudget', 'projectTotalBudget', 'totalBudget', 'travelFee', 'travelCost', 'operatingMargin'
     ].forEach(field => assignIfValue(form, field, incoming[field]));
 
     if (hasValue(incoming.sapNumbers)) form.sapNumbers = incoming.sapNumbers;
     if (hasValue(incoming.sapBindings)) form.sapBindings = incoming.sapBindings;
     if (hasValue(incoming.itemList)) form.itemList = incoming.itemList;
     if (hasValue(incoming.subProjects)) form.subProjects = incoming.subProjects.map(item => Object.assign({ id: createId('sub') }, item));
-    if (hasValue(incoming.projectMembers)) form.projectMembers = incoming.projectMembers;
-    if (hasValue(incoming.employeeBudgets)) form.employeeBudgets = incoming.employeeBudgets;
+    if (hasValue(incoming.projectMembers)) form.projectMembers = normalizeMembers(incoming.projectMembers);
+    if (hasValue(incoming.employeeBudgets)) form.employeeBudgets = normalizeWorkloadAllocations(incoming);
     if (hasValue(incoming.arHours)) form.arHours = incoming.arHours;
     form.constants = Object.assign({ hoursPerDay: 8, personDayCost: 5000 }, current.constants || {}, incoming.constants || {});
+    if (!this.data.isEdit) {
+      const currentUser = app.globalData.user || {};
+      form.pmOpenid = currentUser.openid || this.data.currentUserOpenid || '';
+      form.pmName = normalizeName(currentUser.name || this.data.currentUserName);
+      form.projectManager = form.pmName;
+    }
 
     const normalized = normalizePeopleStructures(form, { includeArNames: true });
     this.setData({
       form: normalized,
-      membersText: (normalized.projectMembers || []).join('、'),
+      pmDisplayName: buildPmDisplayName(normalized, this.data.currentUserName),
+      membersText: normalizeMembers(normalized.projectMembers).join('、'),
+      memberInputText: '',
       sapSearchNo: normalizeSapNo(sapNo || incoming.mainSapNo || incoming.projectNo),
       precalPreview: incoming,
       hasPrecalPreview: true,
@@ -331,9 +625,6 @@ Page({
     const field = e.currentTarget.dataset.field;
     let form = JSON.parse(JSON.stringify(this.data.form));
     form[field] = e.detail.value;
-    if (field === 'projectManager') {
-      form = normalizePeopleStructures(form);
-    }
     this.setFormAndPreview(form);
   },
 
@@ -347,11 +638,21 @@ Page({
 
   onMembersInput(e) {
     if (this.data.readOnly) return;
-    const membersText = e.detail.value || '';
+    const memberInputText = e.detail.value || '';
+    this.setData({ memberInputText });
+  },
+
+  addMemberFromInput() {
+    if (this.data.readOnly) return;
+    const names = normalizeMembers(this.data.memberInputText);
+    if (!names.length) return;
     let form = JSON.parse(JSON.stringify(this.data.form));
-    form.projectMembers = parseMembersText(membersText);
-    form = normalizePeopleStructures(form);
-    this.setData({ membersText, form }, () => this.refreshPreview());
+    form = addMembersToAllocations(form, names);
+    this.setData({
+      form,
+      membersText: normalizeMembers(form.projectMembers).join('、'),
+      memberInputText: ''
+    }, () => this.refreshPreview());
   },
 
   syncPeopleFromPmAndMembers() {
@@ -362,7 +663,7 @@ Page({
       wx.showToast({ title: '请先填写项目经理 PM 或项目组员', icon: 'none' });
       return;
     }
-    form.employeeBudgets = applyEmployeeMeta(buildEmployeeBudgets(names, form.employeeBudgets || []), form.projectManager);
+    form.employeeBudgets = applyEmployeeMeta(buildEmployeeBudgets(names, normalizeWorkloadAllocations(form)), form.projectManager);
     form.arHours = alignArHoursToEmployeeBudgets(form.employeeBudgets, form.arHours || []);
     this.setFormAndPreview(form);
   },
@@ -385,6 +686,9 @@ Page({
     const field = e.currentTarget.dataset.field;
     const data = {};
     data['form.subProjects[' + index + '].' + field] = e.detail.value;
+    if (field === 'budgetLaborUnitPrice') {
+      data['form.subProjects[' + index + '].budgetLaborUnitPriceRaw'] = e.detail.value;
+    }
     this.setData(data, () => this.refreshPreview());
   },
 
@@ -393,7 +697,12 @@ Page({
     const subProjects = this.data.form.subProjects.concat({
       id: createId('sub'),
       name: '',
+      itemNo: String((this.data.form.subProjects.length + 1) * 1000),
+      subProjectNo: String((this.data.form.subProjects.length + 1) * 1000),
       budgetHours: '',
+      travelFee: '',
+      travelCost: '',
+      travelExpense: '',
       budgetLaborUnitPrice: 5000,
       plannedCompletedHours: ''
     });
@@ -413,7 +722,7 @@ Page({
     const field = e.currentTarget.dataset.field;
     let form = JSON.parse(JSON.stringify(this.data.form));
     form.employeeBudgets[index][field] = e.detail.value;
-    form.employeeBudgets = applyEmployeeMeta(form.employeeBudgets, form.projectManager);
+    form.employeeBudgets = ensurePmInAllocation(form);
     form.arHours = alignArHoursToEmployeeBudgets(form.employeeBudgets, form.arHours || []);
     this.setFormAndPreview(form);
   },
@@ -448,11 +757,14 @@ Page({
   },
 
   refreshPreview() {
-    const preview = enrichProject(this.data.form);
+    const normalizedForm = Object.assign({}, this.data.form, {
+      employeeBudgets: ensurePmInAllocation(this.data.form)
+    });
+    const preview = enrichProject(normalizedForm);
     preview.metrics = Object.assign({}, preview.metrics || {}, {
       alerts: buildAlertDisplay((preview.metrics || {}).alerts)
     });
-    this.setData({ preview });
+    this.setData({ preview, allocationSummary: calculateAllocationSummary(normalizedForm) });
   },
 
   validateForm() {
@@ -461,28 +773,48 @@ Page({
       wx.showToast({ title: '请填写项目名称或项目号', icon: 'none' });
       return false;
     }
-    if (!normalizeName(form.projectManager)) {
-      wx.showToast({ title: '请填写项目经理 PM；PM 会自动进入人员预算和 AR 工时', icon: 'none' });
+    const userName = normalizeName((app.globalData.user && app.globalData.user.name) || this.data.currentUserName || form.pmName || form.projectManager);
+    if (!userName) {
+      wx.showToast({ title: '请先在“我的”页填写姓名', icon: 'none' });
       return false;
     }
     if (!form.subProjects || !form.subProjects.length) {
       wx.showToast({ title: '请至少填写一个子项目', icon: 'none' });
       return false;
     }
+    for (let i = 0; i < (form.employeeBudgets || []).length; i++) {
+      if (isInvalidNumber(form.employeeBudgets[i].budgetHours)) {
+        wx.showToast({ title: `第 ${i + 1} 个人员预算工时需为非负数字`, icon: 'none' });
+        return false;
+      }
+    }
     return true;
   },
 
   normalizeForm() {
     let form = JSON.parse(JSON.stringify(this.data.form));
+    const currentUser = app.globalData.user || {};
+    const pmName = normalizeName(currentUser.name || this.data.currentUserName || form.pmName || form.projectManager);
+    const pmOpenid = currentUser.openid || this.data.currentUserOpenid || form.pmOpenid || '';
+    form.pmOpenid = pmOpenid;
+    form.pmName = pmName;
+    form.projectManager = pmName;
     form = normalizePeopleStructures(form);
     form.travelFee = toNullableNumber(form.travelFee);
     form.travelCost = toNullableNumber(form.travelCost || form.travelFee);
     form.orderValue = toNullableNumber(form.orderValue);
     form.totalMD = toNullableNumber(form.totalMD);
-    form.budgetTotalHours = toNullableNumber(form.budgetTotalHours || form.budgetHours);
-    form.budgetHours = toNullableNumber(form.budgetHours || form.budgetTotalHours);
-    form.projectTotalBudget = toNullableNumber(form.projectTotalBudget || form.totalBudget);
-    form.totalBudget = toNullableNumber(form.totalBudget || form.projectTotalBudget);
+    form.workingMD = toNullableNumber(form.workingMD || form.workingMd);
+    form.workingMd = toNullableNumber(form.workingMd || form.workingMD);
+    form.travelMD = toNullableNumber(form.travelMD);
+    form.quotationMD = toNullableNumber(form.quotationMD);
+    form.allocatableHours = toNullableNumber(form.allocatableHours);
+    form.budgetTotalHours = toNullableNumber(form.budgetTotalHours || form.budgetHours || form.allocatableHours);
+    form.budgetHours = toNullableNumber(form.budgetHours || form.budgetTotalHours || form.allocatableHours);
+    form.precalProjectBudget = toNullableNumber(firstValue([form.precalProjectBudget, form.projectTotalBudget, form.totalBudget]));
+    form.projectTotalBudget = toNullableNumber(firstValue([form.projectTotalBudget, form.totalBudget, form.precalProjectBudget]));
+    form.totalBudget = toNullableNumber(firstValue([form.totalBudget, form.projectTotalBudget, form.precalProjectBudget]));
+    form.bac = null;
     form.operatingMargin = toNullableNumber(form.operatingMargin);
     form.clientName = form.clientName || form.customerName;
     form.mainSapNo = form.mainSapNo || form.projectNo;
@@ -493,7 +825,7 @@ Page({
       hoursPerDay: 8,
       personDayCost: Number((form.constants && form.constants.personDayCost) || 5000)
     };
-    form.projectMembers = Array.isArray(form.projectMembers) ? form.projectMembers.map(normalizeName).filter(Boolean) : [];
+    form.projectMembers = normalizeMembers(form.projectMembers);
     form.subProjects = (form.subProjects || []).map(item => ({
       id: item.id || createId('sub'),
       name: item.name || '',
@@ -502,7 +834,14 @@ Page({
       subProjectNo: String(item.subProjectNo || item.itemNo || '').trim(),
       itemNo: String(item.itemNo || '').trim(),
       itemDescription: String(item.itemDescription || '').trim(),
+      workingMD: toNullableNumber(item.workingMD || item.workingMd),
+      workingMd: toNullableNumber(item.workingMd || item.workingMD),
+      allocatableHours: toNullableNumber(item.allocatableHours),
       budgetHours: toNullableNumber(item.budgetHours),
+      travelFee: toNullableNumber(item.travelFee || item.travelCost || item.travelExpense),
+      travelCost: toNullableNumber(item.travelCost || item.travelFee || item.travelExpense),
+      travelExpense: toNullableNumber(item.travelExpense || item.travelFee || item.travelCost),
+      budgetLaborUnitPriceRaw: toNullableNumber(item.budgetLaborUnitPriceRaw),
       budgetLaborUnitPrice: toNullableNumber(item.budgetLaborUnitPrice),
       plannedCompletedHours: toNullableNumber(item.plannedCompletedHours)
     }));
@@ -510,8 +849,9 @@ Page({
       .filter(item => normalizeName(item.memberName))
       .map(item => ({
         id: item.id || createId('emp'),
+        memberOpenid: item.memberOpenid || '',
         memberName: normalizeName(item.memberName),
-        budgetHours: toNullableNumber(item.budgetHours)
+        budgetHours: toOptionalNumberValue(item.budgetHours)
       }));
     form.arHours = alignArHoursToEmployeeBudgets(form.employeeBudgets, form.arHours || [])
       .map(item => ({

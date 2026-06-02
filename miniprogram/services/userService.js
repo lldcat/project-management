@@ -9,7 +9,12 @@ function getCurrentUser() {
   return (app && app.globalData && app.globalData.user) || null;
 }
 
+function updateName(name) {
+  return apiClient.call('login', 'updateName', { name });
+}
+
 module.exports = {
   login,
-  getCurrentUser
+  getCurrentUser,
+  updateName
 };

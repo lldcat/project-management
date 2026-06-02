@@ -22,6 +22,31 @@ function splitSapText(value) {
     .filter(Boolean);
 }
 
+function normalizeMembers(input) {
+  const result = [];
+  const seen = {};
+  const add = (value) => {
+    const raw = value && typeof value === 'object' ? (value.memberName || value.name || value.employeeName || value.userName) : value;
+    const name = String(raw || '').trim();
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    result.push(name);
+  };
+
+  if (Array.isArray(input)) {
+    input.forEach(add);
+    return result;
+  }
+  if (typeof input === 'string') {
+    input.split(/[、,，;；\n\r]+/).forEach(add);
+    return result;
+  }
+  if (input && typeof input === 'object') {
+    Object.keys(input).forEach(add);
+  }
+  return result;
+}
+
 function collectSapNos(precal) {
   const sapSet = {};
   const pushSap = (value) => {
@@ -87,6 +112,13 @@ function toOptionalNumber(value) {
   return Number.isFinite(n) ? n : '';
 }
 
+function toAllocationNumber(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' && value.trim() === '') return '';
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : '';
+}
+
 function normalizeSapBindingList(precal) {
   return (precal && precal.sapBindings || []).map(item => {
     if (typeof item === 'string') return { sapNo: normalizeSapNo(item), memberName: '', remark: '' };
@@ -112,6 +144,12 @@ function collectLegacyItems(precal) {
       itemId: item.itemId || item.id || `item_${Date.now()}_${merged.length}`,
       itemNo,
       itemDescription: String(item.itemDescription || item.description || item.name || '').trim(),
+      name: String(item.name || item.itemDescription || item.description || '').trim(),
+      travelFee: toOptionalNumber(item.travelFee || item.travelCost || item.travelExpense),
+      travelCost: toOptionalNumber(item.travelCost || item.travelFee || item.travelExpense),
+      travelExpense: toOptionalNumber(item.travelExpense || item.travelFee || item.travelCost),
+      budgetHours: toOptionalNumber(item.budgetHours),
+      budgetAmount: toOptionalNumber(item.budgetAmount),
       remark: String(item.remark || '').trim()
     });
   };
@@ -122,22 +160,374 @@ function collectLegacyItems(precal) {
   return merged;
 }
 
-function buildSubProjectsFromPrecal(precal, sapNumbers) {
-  const itemList = collectLegacyItems(precal);
-  const source = sapNumbers.length ? sapNumbers : itemList.map(item => item.itemNo);
-  if (!source.length) {
-    return [{ id: `sub_${Date.now()}_0`, name: '', budgetHours: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }];
+function readDetailName(detail, index) {
+  const item = detail || {};
+  return String(
+    item.projectDetailName ||
+    item.projectName ||
+    item.subProjectName ||
+    item.productDescription ||
+    item.serviceDetail ||
+    item.serviceContent ||
+    item.itemDescription ||
+    item.description ||
+    item.itemName ||
+    item.name ||
+    item.detail ||
+    item.remark ||
+    ''
+  ).trim();
+}
+
+function readDetailTravelFee(detail) {
+  const item = detail || {};
+  const value = toOptionalNumber(firstMeaningfulValue([
+    item.travelFee,
+    item.travelCost,
+    item.travelExpense,
+    item.travellingCost,
+    item.travellingFee,
+    item.travelAmount,
+    item.budgetTravelFee,
+    item.subcontractingTravel,
+    item.subcontractingExtTravelFee,
+    item['差旅费']
+  ]));
+  return value > 0 ? value : '';
+}
+
+function readDetailTravelMD(detail) {
+  const item = detail || {};
+  const value = toOptionalNumber(firstMeaningfulValue([
+    item.travelMD,
+    item.travelMd,
+    item.mdForTravel,
+    item.calculated && item.calculated.travelMD,
+    item['差旅MD']
+  ]));
+  return value > 0 ? value : '';
+}
+
+function readDetailQuotationMD(detail) {
+  const item = detail || {};
+  const value = toOptionalNumber(firstMeaningfulValue([
+    item.quotationMD,
+    item.quotationMd,
+    item.mdForQuotation,
+    item.calculated && item.calculated.quotationMD,
+    item['报价MD']
+  ]));
+  return value > 0 ? value : '';
+}
+
+function readDetailTotalMD(detail) {
+  const item = detail || {};
+  const value = toOptionalNumber(firstMeaningfulValue([
+    item.totalMD,
+    item.totalMd,
+    item.mdTotal,
+    item.calculated && item.calculated.totalMD,
+    item['Total MD']
+  ]));
+  return value > 0 ? value : '';
+}
+
+function readDetailWorkingMD(detail) {
+  const item = detail || {};
+  const onsiteMD = toOptionalNumber(firstMeaningfulValue([
+    item.onsiteMD,
+    item.onsiteMd,
+    item.onSiteMD,
+    item['Onsite MD']
+  ]));
+  const offsiteMD = toOptionalNumber(firstMeaningfulValue([
+    item.offsiteMD,
+    item.offsiteMd,
+    item.offSiteMD,
+    item['Offsite MD']
+  ]));
+
+  if (onsiteMD !== '' || offsiteMD !== '') {
+    const workingMD = toNumber(onsiteMD) + toNumber(offsiteMD);
+    return workingMD > 0 ? round2(workingMD) : '';
   }
-  return source.map((sapNo, index) => {
-    const item = itemList[index] || {};
+
+  const totalMD = readDetailTotalMD(item);
+  if (totalMD === '') return '';
+  const workingMD = toNumber(totalMD) - toNumber(readDetailTravelMD(item)) - toNumber(readDetailQuotationMD(item));
+  return workingMD > 0 ? round2(workingMD) : '';
+}
+
+function readDetailAllocatableHours(detail) {
+  const workingMD = readDetailWorkingMD(detail);
+  return workingMD === '' ? '' : round2(toNumber(workingMD) * 8);
+}
+
+function readDetailOtherMiscFee(detail) {
+  const item = detail || {};
+  const value = toOptionalNumber(firstMeaningfulValue([
+    item.otherMiscFee,
+    item.miscFee,
+    item.otherFee,
+    item.otherProjectCosts,
+    item.subcontractingOther,
+    item['其他杂费']
+  ]));
+  return value > 0 ? value : '';
+}
+
+function readDetailBudgetHours(detail) {
+  return readDetailAllocatableHours(detail);
+}
+
+function readDetailBudgetAmount(detail) {
+  const item = detail || {};
+  const value = toOptionalNumber(firstMeaningfulValue([
+    item.budgetAmount,
+    item.orderValue,
+    item.amount,
+    item.totalAmount
+  ]));
+  return value > 0 ? value : '';
+}
+
+function readDetailLaborUnitPriceRaw(detail) {
+  const item = detail || {};
+  const explicit = toOptionalNumber(firstMeaningfulValue([
+    item.budgetLaborUnitPriceRaw,
+    item.budgetLaborUnitPrice,
+    item.laborUnitPrice,
+    item.personDayUnitPrice,
+    item.quotePersonDayUnitPrice,
+    item['报价人天单价']
+  ]));
+  if (explicit > 0) return explicit;
+
+  const workingMD = readDetailWorkingMD(item);
+  const orderValue = toOptionalNumber(firstMeaningfulValue([
+    item.orderValue,
+    item.budgetAmount,
+    item.amount,
+    item.totalAmount
+  ]));
+  if (workingMD === '' || !toNumber(workingMD) || orderValue === '') return '';
+  const laborQuoteAmount = toNumber(orderValue) - toNumber(readDetailTravelFee(item)) - toNumber(readDetailOtherMiscFee(item));
+  if (!Number.isFinite(laborQuoteAmount)) return '';
+  return laborQuoteAmount / toNumber(workingMD);
+}
+
+function readDetailLaborUnitPrice(detail) {
+  const raw = readDetailLaborUnitPriceRaw(detail);
+  return raw === '' ? '' : round2(raw);
+}
+
+function hasPrecalDetailValue(detail) {
+  const item = detail || {};
+  if (readDetailName(item)) return true;
+  if (readDetailTravelFee(item) !== '') return true;
+  return [
+    'orderValue', 'onsiteMD', 'offsiteMD', 'quotationMD', 'travelMD',
+    'subcontractingTranslation', 'subcontractingDesign', 'subcontractingTravel',
+    'subcontractingOther', 'subcontractingIC', 'internalSubcon', 'otherProjectCosts',
+    'budgetHours', 'hours', 'totalHours', 'budgetAmount'
+  ].some(field => toOptionalNumber(item[field]) !== '');
+}
+
+function normalizePrecalDetails(precal) {
+  const record = precal || {};
+  const arrayFields = ['projectDetails', 'itemDetails', 'detailList', 'projectDetailList', 'lineItems'];
+  for (const field of arrayFields) {
+    if (Array.isArray(record[field]) && record[field].length) {
+      const normalized = record[field]
+        .filter(hasPrecalDetailValue)
+        .map((item, index) => ({
+          source: item || {},
+          name: readDetailName(item, index) || `项目 ${index + 1}`,
+          explicitName: readDetailName(item, index),
+          travelFee: readDetailTravelFee(item),
+          travelMD: readDetailTravelMD(item),
+          quotationMD: readDetailQuotationMD(item),
+          workingMD: readDetailWorkingMD(item),
+          allocatableHours: readDetailAllocatableHours(item),
+          budgetHours: readDetailBudgetHours(item),
+          budgetAmount: readDetailBudgetAmount(item),
+          budgetLaborUnitPriceRaw: readDetailLaborUnitPriceRaw(item),
+          budgetLaborUnitPrice: readDetailLaborUnitPrice(item)
+        }));
+      if (normalized.length) return normalized;
+    }
+  }
+
+  const details = [];
+  for (let i = 1; i <= 20; i++) {
+    const raw = {
+      projectDetailName: record[`projectDetail${i}Name`] || record[`projectDetail${i}`] || record[`projectName${i}`] || record[`subProjectName${i}`],
+      serviceDetail: record[`serviceDetail${i}`],
+      description: record[`description${i}`],
+      travelFee: record[`projectDetail${i}TravelFee`] || record[`travelFee${i}`] || record[`travelCost${i}`] || record[`travelExpense${i}`] || record[`travelAmount${i}`],
+      onsiteMD: record[`projectDetail${i}OnsiteMD`] || record[`onsiteMD${i}`],
+      offsiteMD: record[`projectDetail${i}OffsiteMD`] || record[`offsiteMD${i}`],
+      totalMD: record[`projectDetail${i}TotalMD`] || record[`totalMD${i}`],
+      travelMD: record[`projectDetail${i}TravelMD`] || record[`travelMD${i}`],
+      quotationMD: record[`projectDetail${i}QuotationMD`] || record[`quotationMD${i}`],
+      orderValue: record[`projectDetail${i}OrderValue`] || record[`orderValue${i}`],
+      budgetHours: record[`budgetHours${i}`],
+      budgetAmount: record[`budgetAmount${i}`],
+      budgetLaborUnitPriceRaw: record[`budgetLaborUnitPriceRaw${i}`],
+      budgetLaborUnitPrice: record[`budgetLaborUnitPrice${i}`] || record[`laborUnitPrice${i}`]
+    };
+    if (!hasPrecalDetailValue(raw)) continue;
+    details.push({
+      source: raw,
+      name: readDetailName(raw, details.length) || `项目 ${details.length + 1}`,
+      explicitName: readDetailName(raw, details.length),
+      travelFee: readDetailTravelFee(raw),
+      travelMD: readDetailTravelMD(raw),
+      quotationMD: readDetailQuotationMD(raw),
+      workingMD: readDetailWorkingMD(raw),
+      allocatableHours: readDetailAllocatableHours(raw),
+      budgetHours: readDetailBudgetHours(raw),
+      budgetAmount: readDetailBudgetAmount(raw),
+      budgetLaborUnitPriceRaw: readDetailLaborUnitPriceRaw(raw),
+      budgetLaborUnitPrice: readDetailLaborUnitPrice(raw)
+    });
+  }
+  return details;
+}
+
+function buildItemListFromPrecal(precal) {
+  const details = normalizePrecalDetails(precal);
+  if (!details.length) {
+    const legacyItems = collectLegacyItems(precal);
+    return legacyItems.length ? legacyItems : [{
+      itemId: `item_${Date.now()}_0`,
+      itemNo: '1000',
+      itemDescription: '',
+      name: '',
+      travelFee: '',
+      travelCost: '',
+      travelExpense: '',
+      budgetHours: '',
+      budgetAmount: '',
+      remark: ''
+    }];
+  }
+  return details.map((detail, index) => ({
+    itemId: `item_${Date.now()}_${index}`,
+    itemNo: String((index + 1) * 1000),
+    itemDescription: detail.name || `项目 ${index + 1}`,
+    name: detail.name || `项目 ${index + 1}`,
+    travelFee: detail.travelFee,
+    travelCost: detail.travelFee,
+    travelExpense: detail.travelFee,
+    workingMD: detail.workingMD,
+    allocatableHours: detail.allocatableHours,
+    budgetHours: detail.allocatableHours,
+    budgetAmount: detail.budgetAmount,
+    budgetLaborUnitPriceRaw: detail.budgetLaborUnitPriceRaw,
+    budgetLaborUnitPrice: detail.budgetLaborUnitPrice,
+    remark: ''
+  }));
+}
+
+function sumPrecalDetailTravelFee(precal) {
+  const details = normalizePrecalDetails(precal);
+  const sum = details.reduce((acc, detail) => acc + toNumber(detail.travelFee), 0);
+  return sum > 0 ? sum : '';
+}
+
+function sumPrecalDetailField(precal, field) {
+  const details = normalizePrecalDetails(precal);
+  const sum = details.reduce((acc, detail) => acc + toNumber(detail[field]), 0);
+  return sum > 0 ? round2(sum) : '';
+}
+
+function getProjectWorkingMD(precal) {
+  const detailWorkingMD = sumPrecalDetailField(precal, 'workingMD');
+  if (detailWorkingMD !== '') return detailWorkingMD;
+
+  const result = precal && precal.calculationResult || {};
+  const onsiteMD = toOptionalNumber(firstMeaningfulValue([result.totalOnsiteMD, precal && precal.totalOnsiteMD, precal && precal.onsiteMD]));
+  const offsiteMD = toOptionalNumber(firstMeaningfulValue([result.totalOffsiteMD, precal && precal.totalOffsiteMD, precal && precal.offsiteMD]));
+  if (onsiteMD !== '' || offsiteMD !== '') {
+    const workingMD = toNumber(onsiteMD) + toNumber(offsiteMD);
+    return workingMD > 0 ? round2(workingMD) : '';
+  }
+
+  const totalMD = toOptionalNumber(firstMeaningfulValue([result.totalMD, precal && precal.totalMD, precal && precal.mdTotal]));
+  if (totalMD === '') return '';
+  const travelMD = toOptionalNumber(firstMeaningfulValue([result.totalTravelMD, precal && precal.totalTravelMD, precal && precal.travelMD]));
+  const quotationMD = toOptionalNumber(firstMeaningfulValue([result.totalQuotationMD, precal && precal.totalQuotationMD, precal && precal.quotationMD]));
+  const workingMD = toNumber(totalMD) - toNumber(travelMD) - toNumber(quotationMD);
+  return workingMD > 0 ? round2(workingMD) : '';
+}
+
+function getProjectTravelMD(precal) {
+  const detailTravelMD = sumPrecalDetailField(precal, 'travelMD');
+  if (detailTravelMD !== '') return detailTravelMD;
+  const result = precal && precal.calculationResult || {};
+  const value = toOptionalNumber(firstMeaningfulValue([result.totalTravelMD, precal && precal.totalTravelMD, precal && precal.travelMD]));
+  return value > 0 ? value : '';
+}
+
+function getProjectQuotationMD(precal) {
+  const detailQuotationMD = sumPrecalDetailField(precal, 'quotationMD');
+  if (detailQuotationMD !== '') return detailQuotationMD;
+  const result = precal && precal.calculationResult || {};
+  const value = toOptionalNumber(firstMeaningfulValue([result.totalQuotationMD, precal && precal.totalQuotationMD, precal && precal.quotationMD]));
+  return value > 0 ? value : '';
+}
+
+function buildSubProjectsFromPrecal(precal, sapNumbers) {
+  const detailItems = buildItemListFromPrecal(precal);
+  const details = normalizePrecalDetails(precal);
+  if (details.length) {
+    return details.map((detail, index) => {
+      const item = detailItems[index] || {};
+      const itemNo = item.itemNo || String((index + 1) * 1000);
+      const sapNo = sapNumbers[index] || '';
+      const travelFee = detail.travelFee;
+      return {
+        id: `sub_${Date.now()}_${index}`,
+        sapNo,
+        sapProjectNo: sapNo,
+        subProjectNo: itemNo,
+        itemNo,
+        itemDescription: item.itemDescription || detail.name || `项目 ${index + 1}`,
+        name: detail.name || `项目 ${index + 1}`,
+        workingMD: detail.workingMD,
+        allocatableHours: detail.allocatableHours,
+        budgetHours: detail.allocatableHours,
+        budgetAmount: detail.budgetAmount,
+        travelFee,
+        travelCost: travelFee,
+        travelExpense: travelFee,
+        budgetLaborUnitPriceRaw: detail.budgetLaborUnitPriceRaw,
+        budgetLaborUnitPrice: detail.budgetLaborUnitPrice,
+        plannedCompletedHours: '',
+        actualHours: ''
+      };
+    });
+  }
+
+  const legacyItems = collectLegacyItems(precal);
+  const source = legacyItems.length ? legacyItems : sapNumbers;
+  if (!source.length) {
+    return [{ id: `sub_${Date.now()}_0`, name: '', itemNo: '1000', subProjectNo: '1000', budgetHours: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }];
+  }
+  return source.map((sourceItem, index) => {
+    const item = legacyItems[index] || {};
+    const sapNo = sapNumbers[index] || (typeof sourceItem === 'string' ? sourceItem : '');
+    const itemNo = item.itemNo || String((index + 1) * 1000);
+    const itemDescription = item.itemDescription || '';
     return {
       id: `sub_${Date.now()}_${index}`,
       sapNo,
       sapProjectNo: sapNo,
-      subProjectNo: item.itemNo || String((index + 1) * 1000),
-      itemNo: item.itemNo || '',
-      itemDescription: item.itemDescription || '',
-      name: item.itemDescription || item.itemNo || sapNo || `子项目 ${index + 1}`,
+      subProjectNo: itemNo,
+      itemNo,
+      itemDescription,
+      name: itemDescription,
       budgetHours: '',
       budgetAmount: '',
       budgetLaborUnitPrice: 5000,
@@ -154,12 +544,19 @@ function buildProjectFromPrecal(precal, inputSapNo) {
   const result = precal.calculationResult || {};
   const orderValue = toOptionalNumber(firstMeaningfulValue([result.totalOrderValue, precal.totalOrderValue, precal.orderValue]));
   const totalMD = toOptionalNumber(firstMeaningfulValue([result.totalMD, precal.totalMD, precal.mdTotal]));
-  const travelFee = toOptionalNumber(firstMeaningfulValue([precal.travelFee, precal.travelCost, precal.subcontractingTravelFee, precal.subcontractingExtTravelFee, result.subcontractingTravel, result.travelFee]));
-  const budgetTotalHours = totalMD === '' ? '' : totalMD * 8;
-  const explicitBudget = toOptionalNumber(firstMeaningfulValue([precal.orderValueWithoutTravel, precal.projectTotalBudget, precal.totalBudget]));
-  const projectTotalBudget = explicitBudget !== '' ? explicitBudget : (orderValue === '' ? '' : (travelFee === '' ? orderValue : orderValue - travelFee));
+  const workingMD = getProjectWorkingMD(precal);
+  const travelMD = getProjectTravelMD(precal);
+  const quotationMD = getProjectQuotationMD(precal);
+  const detailTravelFee = sumPrecalDetailTravelFee(precal);
+  const travelFee = detailTravelFee !== ''
+    ? detailTravelFee
+    : toOptionalNumber(firstMeaningfulValue([precal.travelFee, precal.travelCost, precal.subcontractingTravelFee, precal.subcontractingExtTravelFee, result.subcontractingTravel, result.travelFee]));
+  const allocatableHours = workingMD === '' ? '' : round2(toNumber(workingMD) * 8);
+  const budgetTotalHours = allocatableHours;
+  const projectTotalBudget = orderValue;
+  const laborQuoteBudget = orderValue === '' ? '' : orderValue - toNumber(travelFee);
   const operatingMargin = toOptionalNumber(firstMeaningfulValue([result.operatingMargin, precal.operatingMargin]));
-  const itemList = collectLegacyItems(precal);
+  const itemList = buildItemListFromPrecal(precal);
   const customerName = String(precal.customerName || precal.clientName || '').trim();
 
   return {
@@ -175,13 +572,19 @@ function buildProjectFromPrecal(precal, inputSapNo) {
     service: precal.service || '',
     salesOwnerName: precal.salesOwnerName || '',
     orderValue,
-    orderValueWithoutTravel: projectTotalBudget,
+    orderValueWithoutTravel: laborQuoteBudget,
     totalMD,
+    workingMD,
+    workingMd: workingMD,
+    travelMD,
+    quotationMD,
+    allocatableHours,
     budgetTotalHours,
     budgetHours: budgetTotalHours,
+    precalProjectBudget: projectTotalBudget,
     projectTotalBudget,
     totalBudget: projectTotalBudget,
-    bac: projectTotalBudget,
+    bac: '',
     travelFee,
     travelCost: travelFee,
     operatingMargin,
@@ -268,6 +671,12 @@ function round2(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+function hasNumericValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  return Number.isFinite(Number(value));
+}
+
 function normalizeName(name, fallback) {
   const text = String(name || '').trim();
   return text || fallback || '未填写姓名';
@@ -320,7 +729,8 @@ function computeMetrics(project) {
 
   const sumBudgetHours = subProjects.reduce((sum, item) => sum + toNumber(item.budgetHours), 0);
   const laborBudget = subProjects.reduce((sum, item) => {
-    return sum + toNumber(item.budgetHours) / hoursPerDay * toNumber(item.budgetLaborUnitPrice);
+    const unitPrice = hasNumericValue(item.budgetLaborUnitPriceRaw) ? item.budgetLaborUnitPriceRaw : item.budgetLaborUnitPrice;
+    return sum + toNumber(item.budgetHours) / hoursPerDay * toNumber(unitPrice);
   }, 0);
   const sumPlannedHours = subProjects.reduce((sum, item) => sum + toNumber(item.plannedCompletedHours), 0);
   const sumEmployeeBudgetHours = employeeBudgets.reduce((sum, item) => sum + toNumber(item.budgetHours), 0);
@@ -380,6 +790,13 @@ function computeMetrics(project) {
     alerts,
     hasRisk: alerts.some(item => item.level === 'risk')
   };
+}
+
+function attachComputedMetrics(project) {
+  const metrics = computeMetrics(project);
+  project.metrics = metrics;
+  project.bac = metrics.bac;
+  return project;
 }
 
 function buildAlerts(metrics) {
@@ -452,12 +869,109 @@ function valueMapByMemberName(rows, valueField) {
   return map;
 }
 
+function openidMapByMemberName(rows) {
+  const map = {};
+  (rows || []).forEach(item => {
+    const name = normalizeName(item.memberName, '');
+    if (!name) return;
+    map[name] = item.memberOpenid || item.openid || '';
+  });
+  return map;
+}
+
+function normalizeWorkloadAllocations(project) {
+  const data = project || {};
+  const source = hasMeaningfulValue(data.employeeBudgets) ? data.employeeBudgets
+    : (hasMeaningfulValue(data.memberBudgets) ? data.memberBudgets
+      : (hasMeaningfulValue(data.workloadAllocations) ? data.workloadAllocations
+        : (hasMeaningfulValue(data.budgetHoursAllocation) ? data.budgetHoursAllocation : [])));
+  const rows = [];
+
+  const addRow = (name, budgetHours, id, memberOpenid) => {
+    const memberName = normalizeName(name, '');
+    if (!memberName) return;
+    rows.push({
+      id: id || '',
+      memberOpenid: memberOpenid || '',
+      memberName,
+      budgetHours: toAllocationNumber(budgetHours)
+    });
+  };
+
+  if (Array.isArray(source)) {
+    source.forEach(item => {
+      if (typeof item === 'string') {
+        addRow(item, '');
+        return;
+      }
+      if (!item || typeof item !== 'object') return;
+      addRow(
+        item.memberName || item.name || item.employeeName || item.userName,
+        item.budgetHours !== undefined ? item.budgetHours
+          : (item.hours !== undefined ? item.hours
+            : (item.allocationHours !== undefined ? item.allocationHours : item.workload)),
+        item.id,
+        item.memberOpenid || item.openid
+      );
+    });
+  } else if (typeof source === 'string') {
+    normalizeMembers(source).forEach(name => addRow(name, ''));
+  } else if (source && typeof source === 'object') {
+    Object.keys(source).forEach(name => addRow(name, source[name]));
+  }
+
+  const budgetMap = valueMapByMemberName(rows, 'budgetHours');
+  const openidMap = openidMapByMemberName(rows);
+  return uniqueNames(rows.map(item => item.memberName)).map(name => ({
+    id: ((rows || []).find(item => normalizeName(item.memberName, '') === name) || {}).id || '',
+    memberOpenid: openidMap[name] || '',
+    memberName: name,
+    budgetHours: budgetMap[name] === undefined ? '' : budgetMap[name]
+  }));
+}
+
+function normalizeArHourRows(input) {
+  const source = input || [];
+  const rows = [];
+  const addRow = (name, hours, id) => {
+    const memberName = normalizeName(name, '');
+    if (!memberName) return;
+    rows.push({
+      id: id || '',
+      memberName,
+      hours: toAllocationNumber(hours)
+    });
+  };
+
+  if (Array.isArray(source)) {
+    source.forEach(item => {
+      if (typeof item === 'string') {
+        addRow(item, '');
+        return;
+      }
+      if (!item || typeof item !== 'object') return;
+      addRow(
+        item.memberName || item.name || item.employeeName || item.userName,
+        item.hours !== undefined ? item.hours : item.actualHours,
+        item.id
+      );
+    });
+  } else if (typeof source === 'string') {
+    normalizeMembers(source).forEach(name => addRow(name, ''));
+  } else if (source && typeof source === 'object') {
+    Object.keys(source).forEach(name => addRow(name, source[name]));
+  }
+  return rows;
+}
+
 function buildEmployeeBudgetsFromNames(names, existingBudgets) {
   const budgetMap = valueMapByMemberName(existingBudgets, 'budgetHours');
+  const openidMap = openidMapByMemberName(existingBudgets);
   return uniqueNames(names).map(name => ({
     id: ((existingBudgets || []).find(item => normalizeName(item.memberName, '') === name) || {}).id || '',
+    memberOpenid: openidMap[name] || '',
     memberName: name,
-    budgetHours: toNumber(budgetMap[name])
+    budgetHours: toAllocationNumber(budgetMap[name])
   }));
 }
 
@@ -468,24 +982,42 @@ function alignArHoursToEmployeeBudgets(employeeBudgets, existingArHours) {
     return {
       id: ((existingArHours || []).find(ar => normalizeName(ar.memberName, '') === name) || {}).id || '',
       memberName: name,
-      hours: toNumber(arMap[name])
+      hours: toAllocationNumber(arMap[name])
     };
   }).filter(item => item.memberName);
 }
 
-function cleanProjectInput(input) {
-  const project = input || {};
-  const projectManager = String(project.projectManager || '').trim();
-  const projectMembers = Array.isArray(project.projectMembers) ? project.projectMembers.map(String).map(item => item.trim()).filter(Boolean) : [];
-  const rawEmployeeBudgets = Array.isArray(project.employeeBudgets) ? project.employeeBudgets.map(item => ({
-    id: item.id || '',
-    memberName: String(item.memberName || '').trim(),
-    budgetHours: toNumber(item.budgetHours)
-  })).filter(item => item.memberName) : [];
+function getUserName(user) {
+  return normalizeText(user && (user.name || user.displayName || user.userName));
+}
 
-  const employeeNames = uniqueNames([projectManager].concat(projectMembers, rawEmployeeBudgets.map(item => item.memberName)));
-  const employeeBudgets = buildEmployeeBudgetsFromNames(employeeNames, rawEmployeeBudgets);
-  const arHours = alignArHoursToEmployeeBudgets(employeeBudgets, Array.isArray(project.arHours) ? project.arHours : []);
+function assertUserName(user) {
+  if (!getUserName(user)) throw new Error('请先在“我的”页填写姓名。');
+}
+
+function cleanProjectInput(input, user, openid, existingProject) {
+  const project = input || {};
+  const existing = existingProject || {};
+  const currentUserName = getUserName(user);
+  const hasExisting = !!(existingProject && (existingProject._id || existingProject.createdBy || existingProject.pmName || existingProject.projectManager));
+  const projectManager = String(hasExisting
+    ? (existing.pmName || existing.projectManager || project.pmName || project.projectManager || currentUserName || '')
+    : (currentUserName || project.pmName || project.projectManager || '')).trim();
+  const pmOpenid = String(hasExisting
+    ? (existing.pmOpenid || existing.createdBy || project.pmOpenid || openid || '')
+    : (openid || project.pmOpenid || '')).trim();
+  const projectMembers = normalizeMembers(project.projectMembers);
+  const rawEmployeeBudgets = normalizeWorkloadAllocations(project);
+  const pmBudgetRows = projectManager ? rawEmployeeBudgets.concat({
+    id: '',
+    memberOpenid: pmOpenid,
+    memberName: projectManager,
+    budgetHours: ''
+  }) : rawEmployeeBudgets;
+
+  const employeeNames = uniqueNames([projectManager].concat(projectMembers, pmBudgetRows.map(item => item.memberName)));
+  const employeeBudgets = buildEmployeeBudgetsFromNames(employeeNames, pmBudgetRows);
+  const arHours = alignArHoursToEmployeeBudgets(employeeBudgets, normalizeArHourRows(project.arHours));
 
   return {
     projectName: String(project.projectName || '').trim(),
@@ -494,6 +1026,8 @@ function cleanProjectInput(input) {
     startDate: String(project.startDate || '').trim(),
     endDate: String(project.endDate || '').trim(),
     projectManager,
+    pmOpenid,
+    pmName: projectManager,
     projectMembers,
     status: project.status || 'active',
     travelFee: toNumber(project.travelFee),
@@ -507,11 +1041,17 @@ function cleanProjectInput(input) {
     salesOwnerName: String(project.salesOwnerName || '').trim(),
     orderValue: toOptionalNumber(project.orderValue),
     totalMD: toOptionalNumber(project.totalMD),
-    budgetTotalHours: toOptionalNumber(project.budgetTotalHours || project.budgetHours),
-    budgetHours: toOptionalNumber(project.budgetHours || project.budgetTotalHours),
-    projectTotalBudget: toOptionalNumber(project.projectTotalBudget || project.totalBudget),
-    totalBudget: toOptionalNumber(project.totalBudget || project.projectTotalBudget),
-    bac: toOptionalNumber(project.bac || project.totalBudget || project.projectTotalBudget),
+    workingMD: toOptionalNumber(project.workingMD || project.workingMd),
+    workingMd: toOptionalNumber(project.workingMd || project.workingMD),
+    travelMD: toOptionalNumber(project.travelMD),
+    quotationMD: toOptionalNumber(project.quotationMD),
+    allocatableHours: toOptionalNumber(project.allocatableHours),
+    budgetTotalHours: toOptionalNumber(project.budgetTotalHours || project.budgetHours || project.allocatableHours),
+    budgetHours: toOptionalNumber(project.budgetHours || project.budgetTotalHours || project.allocatableHours),
+    precalProjectBudget: toOptionalNumber(firstMeaningfulValue([project.precalProjectBudget, existing.precalProjectBudget, project.projectTotalBudget, project.totalBudget, project.orderValue])),
+    projectTotalBudget: toOptionalNumber(firstMeaningfulValue([project.projectTotalBudget, project.totalBudget, project.precalProjectBudget, project.orderValue])),
+    totalBudget: toOptionalNumber(firstMeaningfulValue([project.totalBudget, project.projectTotalBudget, project.precalProjectBudget, project.orderValue])),
+    bac: '',
     travelCost: toOptionalNumber(project.travelCost || project.travelFee),
     operatingMargin: toOptionalNumber(project.operatingMargin),
     itemList: collectLegacyItems(project),
@@ -527,9 +1067,16 @@ function cleanProjectInput(input) {
       subProjectNo: String(item.subProjectNo || item.itemNo || '').trim(),
       itemNo: String(item.itemNo || '').trim(),
       itemDescription: String(item.itemDescription || '').trim(),
-      budgetHours: toNumber(item.budgetHours),
-      budgetLaborUnitPrice: toNumber(item.budgetLaborUnitPrice),
-      plannedCompletedHours: toNumber(item.plannedCompletedHours)
+      workingMD: toOptionalNumber(item.workingMD || item.workingMd),
+      workingMd: toOptionalNumber(item.workingMd || item.workingMD),
+      allocatableHours: toOptionalNumber(item.allocatableHours),
+      budgetHours: toOptionalNumber(item.budgetHours),
+      travelFee: toOptionalNumber(item.travelFee || item.travelCost || item.travelExpense),
+      travelCost: toOptionalNumber(item.travelCost || item.travelFee || item.travelExpense),
+      travelExpense: toOptionalNumber(item.travelExpense || item.travelFee || item.travelCost),
+      budgetLaborUnitPriceRaw: toOptionalNumber(item.budgetLaborUnitPriceRaw),
+      budgetLaborUnitPrice: toOptionalNumber(item.budgetLaborUnitPrice),
+      plannedCompletedHours: toOptionalNumber(item.plannedCompletedHours)
     })) : [],
     employeeBudgets,
     arHours
@@ -765,7 +1312,7 @@ function buildCsv(rows) {
   const header = [
     '项目名称', '项目号', '客户名称', 'PM', '状态', '开始日期', '结束日期',
     '子项目预算工时合计', '人员预算工时合计', '人员预算分配差异', '计划完成工时', 'AR工时',
-    '人工预算(不含差旅)', '差旅费', 'BAC-项目总预算(含差旅)',
+    '项目总预算(Order Value)', '人工预算(不含杂费/差旅)', '杂费/差旅费', 'BAC(系统计算，含杂费/差旅)',
     'PV-计划价值', 'EV-挣值', 'AC-实际成本', 'CV-成本偏差', 'SV-进度偏差', 'CPI-成本绩效', 'SPI-进度绩效',
     '实际完成率', '计划完成率', '人员预算/AR明细', '异常提醒'
   ];
@@ -786,6 +1333,7 @@ function buildCsv(rows) {
       m.budgetAllocationDiff,
       m.sumPlannedHours,
       m.sumArHours,
+      project.projectTotalBudget || project.totalBudget || project.precalProjectBudget || project.orderValue,
       m.laborBudget,
       m.travelFee,
       m.bac,
@@ -843,6 +1391,7 @@ exports.main = async (event) => {
 
        if (action === 'createFromSap') {
       assertActive(user);
+      assertUserName(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以从 SAP 创建项目。');
       const sapNo = normalizeSapNo(event.sapNo || event.sapProjectNo || event.projectNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
@@ -877,12 +1426,12 @@ exports.main = async (event) => {
           }
         });
 
-        const projectData = cleanProjectInput(buildProjectFromPrecal(precal, sapNo));
-        projectData.metrics = computeMetrics(projectData);
+        const projectData = attachComputedMetrics(cleanProjectInput(buildProjectFromPrecal(precal, sapNo), user, openid));
         projectData._openid = openid;
         projectData.ownerOpenid = openid;
         projectData.createdAt = now;
         projectData.createdBy = openid;
+        projectData.createdByName = getUserName(user);
         projectData.updatedAt = now;
         projectData.updatedBy = openid;
         projectData.deleted = false;
@@ -910,21 +1459,23 @@ exports.main = async (event) => {
     }
 
     if (action === 'save') { 
-      const cleaned = cleanProjectInput(event.project);
-      cleaned.metrics = computeMetrics(cleaned);
-      cleaned.updatedAt = now;
-      cleaned.updatedBy = openid;
-
       if (event.id) {
         const existing = await getProjectById(event.id);
         if (!existing) return { ok: false, message: '项目不存在，无法更新。', user };
         if (!canEdit(existing, openid, user)) return { ok: false, message: '无权编辑该项目。如需修改请联系项目创建人。', user };
+        const cleaned = attachComputedMetrics(cleanProjectInput(event.project, user, openid, existing));
+        cleaned.updatedAt = now;
+        cleaned.updatedBy = openid;
         await projects.doc(event.id).update({ data: Object.assign({}, cleaned, { version: _.inc(1) }) });
         return { ok: true, id: event.id, user };
       }
 
       assertActive(user);
+      assertUserName(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以创建项目。');
+      const cleaned = attachComputedMetrics(cleanProjectInput(event.project, user, openid));
+      cleaned.updatedAt = now;
+      cleaned.updatedBy = openid;
       if (cleaned.precalId) {
         const txRes = await db.runTransaction(async transaction => {
           const precalDoc = await transaction.collection('precal_records').doc(cleaned.precalId).get();
@@ -942,6 +1493,7 @@ exports.main = async (event) => {
             ownerOpenid: openid,
             createdAt: now,
             createdBy: openid,
+            createdByName: getUserName(user),
             deleted: false,
             version: 1
           });
@@ -968,6 +1520,7 @@ exports.main = async (event) => {
       cleaned.ownerOpenid = openid;
       cleaned.createdAt = now;
       cleaned.createdBy = openid;
+      cleaned.createdByName = getUserName(user);
       cleaned.deleted = false;
       cleaned.version = 1;
       const addRes = await projects.add({ data: cleaned });
@@ -994,7 +1547,10 @@ exports.main = async (event) => {
 
     if (action === 'exportCsv') {
       const data = await listProjects(openid, user);
-      const rows = data.map(item => Object.assign({}, item, { metrics: item.metrics || computeMetrics(item) }));
+      const rows = data.map(item => {
+        const metrics = computeMetrics(item);
+        return Object.assign({}, item, { bac: metrics.bac, metrics });
+      });
       return { ok: true, csv: buildCsv(rows), user };
     }
 

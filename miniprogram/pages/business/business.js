@@ -76,6 +76,12 @@ Page({
   },
 
   goCreateProject() {
+    const user = app.globalData.user || {};
+    if (!String(user.name || '').trim()) {
+      wx.showToast({ title: '请先在“我的”页填写姓名', icon: 'none' });
+      wx.switchTab({ url: '/pages/settings/settings' });
+      return;
+    }
     wx.navigateTo({ url: '/pages/edit/edit' });
   },
 

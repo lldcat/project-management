@@ -5,6 +5,10 @@ Page({
   data: {
     openid: '',
     envId: '',
+    name: '',
+    nameInput: '',
+    missingName: false,
+    savingName: false,
     role: 'pm',
     roles: ['pm'],
     roleText: 'PM'
@@ -21,6 +25,9 @@ Page({
     this.setData({
       openid: app.globalData.openid || user.openid || '',
       envId: app.globalData.envId || '',
+      name: user.name || '',
+      nameInput: user.name || '',
+      missingName: !String(user.name || '').trim(),
       role,
       roles,
       roleText: roles.map(item => this.formatRole(item)).join(' / ')
@@ -37,6 +44,32 @@ Page({
       cs: 'CS'
     };
     return map[role] || role || 'PM';
+  },
+
+  onNameInput(e) {
+    this.setData({ nameInput: e.detail.value || '' });
+  },
+
+  saveName() {
+    const name = String(this.data.nameInput || '').trim();
+    if (!name) {
+      wx.showToast({ title: '请填写姓名', icon: 'none' });
+      return;
+    }
+    this.setData({ savingName: true });
+    userService.updateName(name)
+      .then(res => {
+        const result = res || {};
+        app.globalData.openid = result.openid || (result.user && result.user.openid) || app.globalData.openid || '';
+        app.globalData.user = result.user || app.globalData.user;
+        this.loadUser();
+        wx.showToast({ title: '姓名已保存', icon: 'success' });
+      })
+      .catch(err => {
+        console.error(err);
+        wx.showToast({ title: err.message || '保存失败', icon: 'none' });
+      })
+      .finally(() => this.setData({ savingName: false }));
   },
 
   refreshLogin() {

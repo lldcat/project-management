@@ -25,6 +25,15 @@
   line-height: 80rpx;
   color: #101828;
 }
+.readonly-field {
+  min-height: 80rpx;
+  line-height: 80rpx;
+  padding: 0 24rpx;
+  background: #f9fafb;
+  border: 1rpx solid #e4e7ec;
+  border-radius: 12rpx;
+  color: #101828;
+}
 .filter-row {
   display: flex;
   gap: 12rpx;
@@ -38,6 +47,11 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+.member-input-actions {
+  margin: 12rpx 0;
+  align-items: center;
+  gap: 12rpx;
+}
 .mini-note {
   display: inline-block;
   margin-left: 8rpx;
@@ -50,4 +64,19 @@
 }
 .empty-hint {
   margin-top: 12rpx;
+}
+.allocation-summary {
+  background: #f8fbff;
+  border: 1rpx solid #d0e7ff;
+  border-radius: 12rpx;
+  padding: 18rpx;
+  margin: 18rpx 0;
+}
+.allocation-warning {
+  margin-top: 12rpx;
+  padding: 12rpx 16rpx;
+  border-radius: 10rpx;
+  background: #fff1f3;
+  color: #b42318;
+  font-weight: 700;
 }

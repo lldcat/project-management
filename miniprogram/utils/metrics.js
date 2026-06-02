@@ -14,6 +14,12 @@ function round2(value) {
   return Math.round(Number(value) * 100) / 100;
 }
 
+function hasNumericValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  return Number.isFinite(Number(value));
+}
+
 function formatMoney(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '-';
   return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -84,7 +90,8 @@ function computeMetrics(project) {
 
   const sumBudgetHours = subProjects.reduce((sum, item) => sum + toNumber(item.budgetHours), 0);
   const laborBudget = subProjects.reduce((sum, item) => {
-    return sum + toNumber(item.budgetHours) / hoursPerDay * toNumber(item.budgetLaborUnitPrice);
+    const unitPrice = hasNumericValue(item.budgetLaborUnitPriceRaw) ? item.budgetLaborUnitPriceRaw : item.budgetLaborUnitPrice;
+    return sum + toNumber(item.budgetHours) / hoursPerDay * toNumber(unitPrice);
   }, 0);
   const sumPlannedHours = subProjects.reduce((sum, item) => sum + toNumber(item.plannedCompletedHours), 0);
   const sumArHours = arHours.reduce((sum, item) => sum + toNumber(item.hours), 0);

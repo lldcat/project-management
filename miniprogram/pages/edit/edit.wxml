@@ -19,8 +19,8 @@
       <view class="metric-line"><text>Service</text><text>{{precalDisplay.service}}</text></view>
       <view class="metric-line"><text>Sales Owner</text><text>{{precalDisplay.salesOwnerName}}</text></view>
       <view class="metric-line"><text>主 SAP 项目号</text><text>{{precalDisplay.mainSapNo}}</text></view>
-      <view class="metric-line"><text>项目总预算</text><text>{{precalDisplay.totalBudget}}</text></view>
-      <view class="metric-line"><text>预算总工时</text><text>{{precalDisplay.budgetHours}}</text></view>
+      <view class="metric-line"><text>Pre-cal 项目总预算</text><text>{{precalDisplay.totalBudget}}</text></view>
+      <view class="metric-line"><text>可分配工作工时</text><text>{{precalDisplay.budgetHours}}</text></view>
       <view class="metric-line"><text>差旅费</text><text>{{precalDisplay.travelCost}}</text></view>
       <view class="metric-line"><text>Operating Margin</text><text>{{precalDisplay.operatingMargin}}</text></view>
     </view>
@@ -50,11 +50,16 @@
     </view>
 
     <label class="form-label">项目经理 PM</label>
-    <input class="input" disabled="{{readOnly}}" value="{{form.projectManager}}" placeholder="请输入 PM 姓名；PM 会自动进入人员预算和 AR 工时" data-field="projectManager" bindinput="onBasicInput" />
+    <view class="readonly-field">{{pmDisplayName}}</view>
+    <view wx:if="{{missingUserName}}" class="muted">PM 使用当前登录用户姓名。请先到“我的”页填写姓名。</view>
 
     <label class="form-label">项目组员</label>
-    <textarea class="textarea" disabled="{{readOnly}}" value="{{membersText}}" placeholder="多个组员用逗号、顿号、空格或换行分隔；不需要重复填写 PM" bindinput="onMembersInput"></textarea>
-    <view class="muted">系统会将“项目经理 PM + 项目组员”同步到人员预算；AR 工时成员自动与人员预算保持一致。</view>
+    <textarea class="textarea" disabled="{{readOnly}}" value="{{memberInputText}}" placeholder="多个组员用逗号、分号、顿号或换行分隔；不需要重复填写 PM" bindinput="onMembersInput" bindblur="addMemberFromInput" bindconfirm="addMemberFromInput" confirm-type="done"></textarea>
+    <view wx:if="{{!readOnly}}" class="row member-input-actions">
+      <button class="btn-secondary" size="mini" bindtap="addMemberFromInput">添加组员</button>
+      <text class="muted">已添加：{{membersText || '暂无'}}</text>
+    </view>
+    <view class="muted">系统会将确认后的“项目经理 PM + 项目组员”同步到人员预算；AR 工时成员自动与人员预算保持一致。</view>
 
     <label class="form-label">项目状态</label>
     <picker disabled="{{readOnly}}" value="{{statusIndex}}" range="{{statusOptions}}" range-key="label" bindchange="onStatusChange">
@@ -75,6 +80,8 @@
       </view>
       <label class="form-label">子项目名称</label>
       <input class="input" disabled="{{readOnly}}" value="{{item.name}}" placeholder="例如：ESG 咨询 / 追溯辅导" data-index="{{index}}" data-field="name" bindinput="onSubProjectInput" />
+      <label class="form-label">子项目号 / Item No.</label>
+      <input class="input" disabled="{{readOnly}}" value="{{item.itemNo}}" placeholder="例如：1000" data-index="{{index}}" data-field="itemNo" bindinput="onSubProjectInput" />
       <view wx:if="{{item.sapNo}}" class="muted">SAP 项目号：{{item.sapNo}}</view>
       <view wx:if="{{item.itemNo}}" class="muted">Item：{{item.itemNo}} {{item.itemDescription}}</view>
 
@@ -83,6 +90,13 @@
           <label class="form-label">预算工时</label>
           <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.budgetHours}}" placeholder="小时" data-index="{{index}}" data-field="budgetHours" bindinput="onSubProjectInput" />
         </view>
+        <view>
+          <label class="form-label">子项目差旅费</label>
+          <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.travelFee}}" placeholder="元" data-index="{{index}}" data-field="travelFee" bindinput="onSubProjectInput" />
+        </view>
+      </view>
+
+      <view class="grid-2">
         <view>
           <label class="form-label">报价人天单价</label>
           <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.budgetLaborUnitPrice}}" placeholder="元/人天" data-index="{{index}}" data-field="budgetLaborUnitPrice" bindinput="onSubProjectInput" />
@@ -99,12 +113,22 @@
     <view class="row">
       <view>
         <view class="section-title inline-title">人员预算工时分配</view>
-        <view class="muted">用于把项目预算工时分配到每个员工，并与 AR 工时逐人比较。</view>
+        <view class="muted">用于把可分配工作工时分配到每个员工，并与 AR 工时逐人比较。</view>
       </view>
       <view wx:if="{{!readOnly}}" class="row-actions">
         <button class="btn-secondary" size="mini" bindtap="syncPeopleFromPmAndMembers">同步 PM/组员</button>
         <button class="btn-secondary" size="mini" bindtap="addEmployeeBudget">新增人员</button>
       </view>
+    </view>
+
+    <view class="allocation-summary">
+      <view class="metric-line"><text>可分配工时</text><text class="metric-value">{{allocationSummary.projectBudgetHoursText}}</text></view>
+      <view class="muted">已排除差旅 MD 和报价 MD。</view>
+      <view class="metric-line"><text>已分配工时</text><text class="metric-value">{{allocationSummary.allocatedHoursText}}</text></view>
+      <view class="metric-line"><text>剩余可分配工时</text><text class="metric-value">{{allocationSummary.remainingHoursText}}</text></view>
+      <view class="metric-line"><text>分配比例</text><text class="metric-value">{{allocationSummary.allocationRatioText}}</text></view>
+      <view wx:if="{{!allocationSummary.hasProjectBudgetHours}}" class="muted">暂无可分配工时，保存前请确认 Pre-cal 工作人天或项目预算工时。</view>
+      <view wx:if="{{allocationSummary.isOverBudget}}" class="allocation-warning">已超出预算工时 {{allocationSummary.overHoursText}} 小时</view>
     </view>
 
     <view wx:for="{{form.employeeBudgets}}" wx:key="id" class="sub-card">
@@ -128,7 +152,7 @@
   <view class="card">
     <view class="section-title">成本参数</view>
     <label class="form-label">差旅费</label>
-    <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.travelFee}}" placeholder="元；纳入项目总预算 BAC" data-field="travelFee" bindinput="onBasicInput" />
+    <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.travelFee}}" placeholder="元；纳入 BAC 计算" data-field="travelFee" bindinput="onBasicInput" />
 
     <label class="form-label">内部人天成本</label>
     <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.constants.personDayCost}}" placeholder="默认 5000，可按后续规则调整" bindinput="onPersonDayCostInput" />
@@ -151,8 +175,9 @@
 
   <view class="card">
     <view class="card-title">自动计算预览</view>
-    <view class="metric-line"><text>人工预算（不含差旅）</text><text class="metric-value">{{preview.display.laborBudget}}</text></view>
-    <view class="metric-line"><text>BAC（项目总预算，含差旅）</text><text class="metric-value">{{preview.display.bac}}</text></view>
+    <view class="metric-line"><text>人工预算（不含杂费/差旅）</text><text class="metric-value">{{preview.display.laborBudget}}</text></view>
+    <view class="metric-line"><text>杂费 / 差旅费</text><text class="metric-value">{{preview.display.travelFee}}</text></view>
+    <view class="metric-line"><text>BAC（系统计算，含杂费/差旅）</text><text class="metric-value">{{preview.display.bac}}</text></view>
     <view class="metric-line"><text>子项目预算工时合计</text><text class="metric-value">{{preview.display.sumBudgetHours}}</text></view>
     <view class="metric-line"><text>人员预算工时合计</text><text class="metric-value">{{preview.display.sumEmployeeBudgetHours}}</text></view>
     <view class="metric-line"><text>人员预算分配差异</text><text class="metric-value">{{preview.display.budgetAllocationDiff}}</text></view>

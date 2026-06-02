@@ -13,3 +13,8 @@
   margin-top: 24rpx;
   width: 100%;
 }
+
+.name-save {
+  margin: 18rpx 0 24rpx;
+  width: 100%;
+}

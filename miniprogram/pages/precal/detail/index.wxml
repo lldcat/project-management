@@ -7,34 +7,34 @@
           <view class="title">{{record.customerName}}</view>
           <view class="muted">{{record.service}} ｜ {{statusLabel}}</view>
         </view>
-        <view class="tag {{record.status == 'SAP Bound' ? 'tag-normal' : 'tag-warning'}}">{{statusLabel}}</view>
+        <view class="tag {{statusTagClass}}">{{statusLabel}}</view>
       </view>
-      <view class="metric-line"><text>Sales</text><text>{{record.salesOwnerName || '-'}}</text></view>
-      <view class="metric-line"><text>Remark</text><text>{{record.remark || '-'}}</text></view>
+      <view class="metric-line"><text>Sales</text><text>{{record.salesOwnerNameText}}</text></view>
+      <view class="metric-line"><text>Remark</text><text>{{record.remarkText}}</text></view>
       <view class="actions">
         <button wx:if="{{canEdit}}" class="btn-secondary" size="mini" bindtap="goEdit">编辑</button>
         <button wx:if="{{record.status == 'Submitted'}}" class="btn-ghost" size="mini" bindtap="withdraw">撤销</button>
-        <button wx:if="{{record.status == 'Draft' || record.status == 'Withdrawn' || record.status == 'Unlocked'}}" class="btn-primary" size="mini" bindtap="submit">提交</button>
+        <button wx:if="{{canSubmit}}" class="btn-primary" size="mini" bindtap="submit">提交</button>
       </view>
     </view>
 
     <view class="card">
       <view class="card-title">SAP 绑定信息</view>
-      <view wx:if="{{!(record.sapBindings || []).length}}" class="muted">暂无 SAP号</view>
-      <view wx:for="{{record.sapBindings}}" wx:key="sapId" class="line">
+      <view wx:if="{{!hasSapBindings}}" class="muted">暂无 SAP号</view>
+      <view wx:for="{{sapBindings}}" wx:key="sapId" class="line">
         <view class="line-title">SAP {{index + 1}}：{{item.sapNo}}</view>
-        <view class="muted">关联人员：{{item.memberName || '-'}}</view>
-        <view class="muted">备注：{{item.remark || '-'}}</view>
+        <view class="muted">关联人员：{{item.memberNameText}}</view>
+        <view class="muted">备注：{{item.remarkText}}</view>
       </view>
     </view>
 
     <view class="card">
       <view class="card-title">Item 信息</view>
-      <view wx:if="{{!itemList.length}}" class="muted">暂无 Item</view>
+      <view wx:if="{{!hasItems}}" class="muted">暂无 Item</view>
       <view wx:for="{{itemList}}" wx:key="itemId" class="line">
-        <view class="line-title">Item {{index + 1}}：{{item.itemNo || '-'}}</view>
-        <view class="muted">说明：{{item.itemDescription || '-'}}</view>
-        <view class="muted">备注：{{item.remark || '-'}}</view>
+        <view class="line-title">Item {{index + 1}}：{{item.itemNoText}}</view>
+        <view class="muted">说明：{{item.itemDescriptionText}}</view>
+        <view class="muted">备注：{{item.remarkText}}</view>
       </view>
     </view>
 
@@ -46,7 +46,7 @@
     <view class="card">
       <view class="card-title">服务明细</view>
       <view wx:for="{{record.lineItems}}" wx:key="lineId" class="line">
-        <view class="line-title">{{index + 1}}. {{item.productDescription || '未填写服务描述'}}</view>
+        <view class="line-title">{{index + 1}}. {{item.productDescriptionText}}</view>
         <view class="muted">Center：{{item.orderCreateCenter}} ｜ Order Value：{{item.orderValue}}</view>
         <view class="metric-line"><text>Total MD / Hours</text><text>{{item.calculated.totalMD}} / {{item.calculated.hours}}</text></view>
         <view class="metric-line"><text>Net Sales</text><text>{{item.calculated.netSales}}</text></view>
@@ -57,7 +57,7 @@
     <view class="card">
       <view class="row" bindtap="toggleScenario">
         <view class="card-title">Productivity 情景</view>
-        <view class="muted">{{showScenario ? '收起' : '展开'}}</view>
+        <view class="muted">{{showScenarioText}}</view>
       </view>
       <view wx:if="{{showScenario}}">
         <view class="scenario">

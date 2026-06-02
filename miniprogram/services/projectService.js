@@ -24,11 +24,16 @@ function exportCsv(params) {
   return callProjectService('exportCsv', params || {});
 }
 
+function loadPrecalBySap(sapNo) {
+  return callProjectService('loadPrecalBySap', { sapNo });
+}
+
 module.exports = {
   callProjectService,
   listProjects,
   getProjectDetail,
   saveProject,
   removeProject,
-  exportCsv
+  exportCsv,
+  loadPrecalBySap
 };

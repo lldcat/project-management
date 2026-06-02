@@ -56,57 +56,139 @@ function collectSapNos(precal) {
   appendFromField('sapNumbers');
   appendFromField('sapNoList');
   appendFromField('sapProjects');
+  appendFromField('sapCode');
+  appendFromField('sapNo');
+  appendFromField('sapProjectNo');
+  appendFromField('mainSapNo');
 
   return Object.keys(sapSet);
 }
 
-function pickTravelFee(precal) {
-  let source = precal.travelFee;
-  if (source === undefined || source === null) source = precal.subcontractingTravelFee;
-  if (source === undefined || source === null) source = precal.subcontractingExtTravelFee;
-  return toNumber(source);
+
+function hasMeaningfulValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim() !== '';
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+function firstMeaningfulValue(values) {
+  for (const value of values || []) {
+    if (hasMeaningfulValue(value)) return value;
+  }
+  return '';
+}
+
+function toOptionalNumber(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string' && value.trim() === '') return '';
+  const n = Number(value);
+  return Number.isFinite(n) ? n : '';
+}
+
+function normalizeSapBindingList(precal) {
+  return (precal && precal.sapBindings || []).map(item => {
+    if (typeof item === 'string') return { sapNo: normalizeSapNo(item), memberName: '', remark: '' };
+    return {
+      sapId: item && item.sapId || '',
+      sapNo: normalizeSapNo(item && (item.sapNo || item.sapCode || item.sapProjectNo || item.value)),
+      memberName: String(item && item.memberName || '').trim(),
+      remark: String(item && item.remark || '').trim()
+    };
+  }).filter(item => item.sapNo);
+}
+
+function collectLegacyItems(precal) {
+  const merged = [];
+  const seen = {};
+  const add = (raw, index) => {
+    const item = raw || {};
+    const itemNo = String(item.itemNo || item.no || item.value || ((index + 1) * 1000)).trim();
+    if (!itemNo || seen[itemNo]) return;
+    seen[itemNo] = true;
+    merged.push({
+      itemId: item.itemId || item.id || `item_${Date.now()}_${merged.length}`,
+      itemNo,
+      itemDescription: String(item.itemDescription || item.description || item.name || '').trim(),
+      remark: String(item.remark || '').trim()
+    });
+  };
+  (precal && precal.itemList || []).forEach(add);
+  (precal && precal.sapBindings || []).forEach(sap => {
+    (sap && sap.items || []).forEach(add);
+  });
+  return merged;
+}
+
+function buildSubProjectsFromPrecal(precal, sapNumbers) {
+  const itemList = collectLegacyItems(precal);
+  const source = sapNumbers.length ? sapNumbers : itemList.map(item => item.itemNo);
+  if (!source.length) {
+    return [{ id: `sub_${Date.now()}_0`, name: '', budgetHours: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }];
+  }
+  return source.map((sapNo, index) => {
+    const item = itemList[index] || {};
+    return {
+      id: `sub_${Date.now()}_${index}`,
+      sapNo,
+      sapProjectNo: sapNo,
+      subProjectNo: item.itemNo || String((index + 1) * 1000),
+      itemNo: item.itemNo || '',
+      itemDescription: item.itemDescription || '',
+      name: item.itemDescription || item.itemNo || sapNo || `子项目 ${index + 1}`,
+      budgetHours: '',
+      budgetAmount: '',
+      budgetLaborUnitPrice: 5000,
+      plannedCompletedHours: '',
+      actualHours: ''
+    };
+  });
 }
 
 function buildProjectFromPrecal(precal, inputSapNo) {
+  const sapBindings = normalizeSapBindingList(precal);
   const sapNumbers = collectSapNos(precal);
-  const mainSapNo = normalizeSapNo(inputSapNo) || sapNumbers[0] || '';
-  const orderValue = toNumber((precal.calculationResult || {}).totalOrderValue || precal.totalOrderValue || precal.orderValue);
-  const totalMD = toNumber((precal.calculationResult || {}).totalMD || precal.totalMD);
-  const travelFee = pickTravelFee(precal);
-  const budgetTotalHours = totalMD * 8;
-  const projectTotalBudget = orderValue - travelFee;
-  const subProjects = sapNumbers.map((sapNo, index) => ({
-    id: `sub_${Date.now()}_${index}`,
-    sapNo,
-    subProjectNo: sapNo,
-    name: sapNo,
-    budgetHours: 0,
-    budgetAmount: 0,
-    budgetLaborUnitPrice: 0,
-    plannedCompletedHours: 0,
-    actualHours: 0
-  }));
+  const mainSapNo = normalizeSapNo(inputSapNo) || normalizeSapNo(precal && precal.mainSapNo) || sapNumbers[0] || '';
+  const result = precal.calculationResult || {};
+  const orderValue = toOptionalNumber(firstMeaningfulValue([result.totalOrderValue, precal.totalOrderValue, precal.orderValue]));
+  const totalMD = toOptionalNumber(firstMeaningfulValue([result.totalMD, precal.totalMD]));
+  const travelFee = toOptionalNumber(firstMeaningfulValue([precal.travelFee, precal.subcontractingTravelFee, precal.subcontractingExtTravelFee, result.subcontractingTravel, result.travelFee]));
+  const budgetTotalHours = totalMD === '' ? '' : totalMD * 8;
+  const projectTotalBudget = orderValue === '' ? '' : (travelFee === '' ? orderValue : orderValue - travelFee);
+  const operatingMargin = toOptionalNumber(firstMeaningfulValue([result.operatingMargin, precal.operatingMargin]));
+  const itemList = collectLegacyItems(precal);
+  const customerName = String(precal.customerName || precal.clientName || '').trim();
+
   return {
-    projectName: `${precal.customerName || '项目'}-${mainSapNo}`,
-    customerName: String(precal.customerName || '').trim(),
+    projectName: customerName && mainSapNo ? `${customerName}-${mainSapNo}` : (customerName || mainSapNo || ''),
+    customerName,
+    clientName: customerName,
     projectNo: mainSapNo,
     mainSapNo,
     sapNumbers,
+    sapBindings,
     precalId: precal._id,
     precalNo: precal.precalNo || '',
+    service: precal.service || '',
+    salesOwnerName: precal.salesOwnerName || '',
     orderValue,
     totalMD,
     budgetTotalHours,
+    budgetHours: budgetTotalHours,
     projectTotalBudget,
+    totalBudget: projectTotalBudget,
     bac: projectTotalBudget,
     travelFee,
+    travelCost: travelFee,
+    operatingMargin,
+    itemList,
     startDate: '',
     endDate: '',
     projectManager: '',
     projectMembers: [],
     status: 'active',
     constants: { hoursPerDay: 8, personDayCost: 5000 },
-    subProjects,
+    subProjects: buildSubProjectsFromPrecal(precal, sapNumbers),
     employeeBudgets: [],
     arHours: []
   };
@@ -118,7 +200,11 @@ async function getPrecalBySapNo(sapNo) {
   const fetches = await Promise.all([
     precalRecords.where({ 'sapBindings.sapNo': no, deleted: _.neq(true) }).limit(100).get(),
     precalRecords.where({ sapNos: no, deleted: _.neq(true) }).limit(100).get(),
-    precalRecords.where({ sapNumbers: no, deleted: _.neq(true) }).limit(100).get()
+    precalRecords.where({ sapNumbers: no, deleted: _.neq(true) }).limit(100).get(),
+    precalRecords.where({ sapNo: no, deleted: _.neq(true) }).limit(100).get(),
+    precalRecords.where({ sapCode: no, deleted: _.neq(true) }).limit(100).get(),
+    precalRecords.where({ sapProjectNo: no, deleted: _.neq(true) }).limit(100).get(),
+    precalRecords.where({ mainSapNo: no, deleted: _.neq(true) }).limit(100).get()
   ]);
   const merged = [];
   const seen = {};
@@ -144,9 +230,9 @@ function validatePrecalForProject(precal) {
   const sapNumbers = collectSapNos(precal);
   if (!sapNumbers.length) return { ok: false, message: '该 Pre-cal 尚未绑定 SAP 项目号' };
   const customerName = String(precal.customerName || '').trim();
-  const orderValue = toNumber((precal.calculationResult || {}).totalOrderValue || precal.totalOrderValue || precal.orderValue);
-  const totalMD = toNumber((precal.calculationResult || {}).totalMD || precal.totalMD);
-  if (!customerName || !orderValue || !totalMD) {
+  const orderValue = toOptionalNumber((precal.calculationResult || {}).totalOrderValue || precal.totalOrderValue || precal.orderValue);
+  const totalMD = toOptionalNumber((precal.calculationResult || {}).totalMD || precal.totalMD);
+  if (!customerName || orderValue === '' || totalMD === '') {
     return { ok: false, message: 'Pre-cal 数据不完整，请联系 CS 补充' };
   }
   return { ok: true, sapNumbers };
@@ -396,6 +482,24 @@ function cleanProjectInput(input) {
     projectMembers,
     status: project.status || 'active',
     travelFee: toNumber(project.travelFee),
+    clientName: String(project.clientName || project.customerName || '').trim(),
+    mainSapNo: String(project.mainSapNo || project.projectNo || '').trim(),
+    sapNumbers: Array.isArray(project.sapNumbers) ? project.sapNumbers.map(normalizeSapNo).filter(Boolean) : collectSapNos(project),
+    sapBindings: normalizeSapBindingList(project),
+    precalId: String(project.precalId || '').trim(),
+    precalNo: String(project.precalNo || '').trim(),
+    service: String(project.service || '').trim(),
+    salesOwnerName: String(project.salesOwnerName || '').trim(),
+    orderValue: toOptionalNumber(project.orderValue),
+    totalMD: toOptionalNumber(project.totalMD),
+    budgetTotalHours: toOptionalNumber(project.budgetTotalHours || project.budgetHours),
+    budgetHours: toOptionalNumber(project.budgetHours || project.budgetTotalHours),
+    projectTotalBudget: toOptionalNumber(project.projectTotalBudget || project.totalBudget),
+    totalBudget: toOptionalNumber(project.totalBudget || project.projectTotalBudget),
+    bac: toOptionalNumber(project.bac || project.totalBudget || project.projectTotalBudget),
+    travelCost: toOptionalNumber(project.travelCost || project.travelFee),
+    operatingMargin: toOptionalNumber(project.operatingMargin),
+    itemList: collectLegacyItems(project),
     constants: {
       hoursPerDay: 8,
       personDayCost: toNumber(project.constants && project.constants.personDayCost) || 5000
@@ -403,6 +507,11 @@ function cleanProjectInput(input) {
     subProjects: Array.isArray(project.subProjects) ? project.subProjects.map(item => ({
       id: item.id || '',
       name: String(item.name || '').trim(),
+      sapNo: String(item.sapNo || item.sapProjectNo || '').trim(),
+      sapProjectNo: String(item.sapProjectNo || item.sapNo || '').trim(),
+      subProjectNo: String(item.subProjectNo || item.itemNo || '').trim(),
+      itemNo: String(item.itemNo || '').trim(),
+      itemDescription: String(item.itemDescription || '').trim(),
       budgetHours: toNumber(item.budgetHours),
       budgetLaborUnitPrice: toNumber(item.budgetLaborUnitPrice),
       plannedCompletedHours: toNumber(item.plannedCompletedHours)
@@ -705,7 +814,17 @@ exports.main = async (event) => {
       return { ok: true, project: decorateProjectAccess(project, openid, user), user };
     }
 
-    
+
+    if (action === 'loadPrecalBySap') {
+      assertActive(user);
+      assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以按 SAP 查询 Pre-cal。');
+      const sapNo = normalizeSapNo(event.sapNo);
+      if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
+      const precal = await getPrecalBySapNo(sapNo);
+      if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal', user };
+      return { ok: true, project: buildProjectFromPrecal(precal, sapNo), precal, user };
+    }
+
        if (action === 'createFromSap') {
       assertActive(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以从 SAP 创建项目。');
@@ -790,6 +909,13 @@ exports.main = async (event) => {
 
       assertActive(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以创建项目。');
+      if (cleaned.precalId) {
+        const precal = await getRecord(cleaned.precalId);
+        if (precal && precal.createdProjectId) {
+          return { ok: false, message: '该 Pre-cal 对应项目已存在', id: precal.createdProjectId, user };
+        }
+      }
+
       cleaned._openid = openid;
       cleaned.ownerOpenid = openid;
       cleaned.createdAt = now;
@@ -797,6 +923,19 @@ exports.main = async (event) => {
       cleaned.deleted = false;
       cleaned.version = 1;
       const addRes = await projects.add({ data: cleaned });
+
+      if (cleaned.precalId) {
+        await precalRecords.doc(cleaned.precalId).update({
+          data: {
+            createdProjectId: addRes._id,
+            status: 'Project Created',
+            updatedAt: now,
+            updatedBy: openid,
+            version: _.inc(1)
+          }
+        }).catch(err => console.warn('更新 Pre-cal 项目创建状态失败：', cleaned.precalId, err));
+      }
+
       return { ok: true, id: addRes._id, user };
     }
 

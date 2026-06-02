@@ -61,7 +61,9 @@ function collectSapNos(precal) {
 }
 
 function pickTravelFee(precal) {
-  const source = precal.travelFee ?? precal.subcontractingTravelFee ?? precal.subcontractingExtTravelFee;
+  let source = precal.travelFee;
+  if (source === undefined || source === null) source = precal.subcontractingTravelFee;
+  if (source === undefined || source === null) source = precal.subcontractingExtTravelFee;
   return toNumber(source);
 }
 

@@ -11,12 +11,19 @@ Page({
       })
       .catch(err => wx.showToast({ title: err.message || '加载失败', icon: 'none' }));
   },
-  onBasicInput(e) { this.setData({ [`parameters.${e.currentTarget.dataset.field}`]: e.detail.value }); },
+  onBasicInput(e) {
+    const field = e.currentTarget.dataset.field;
+    const data = {};
+    data['parameters.' + field] = e.detail.value;
+    this.setData(data);
+  },
   onCentersInput(e) { this.setData({ centersText: e.detail.value || '' }); },
   onRateInput(e) {
     const index = e.currentTarget.dataset.index;
     const field = e.currentTarget.dataset.field;
-    this.setData({ [`parameters.serviceRates[${index}].${field}`]: e.detail.value });
+    const data = {};
+    data['parameters.serviceRates[' + index + '].' + field] = e.detail.value;
+    this.setData(data);
   },
   saveParameters() {
     const parameters = Object.assign({}, this.data.parameters, {

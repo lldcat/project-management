@@ -181,7 +181,7 @@
     </view>
 
     <view class="section-title">异常提醒</view>
-    <view wx:for="{{preview.metrics.alerts}}" wx:key="code" class="tag {{item.level === 'risk' ? 'tag-risk' : (item.level === 'warning' ? 'tag-warning' : 'tag-normal')}}">
+    <view wx:for="{{preview.metrics.alerts}}" wx:key="code" class="tag {{item.statusClass}}">
       {{item.text}}
     </view>
   </view>

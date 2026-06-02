@@ -55,6 +55,12 @@ function displayValue(value) {
   return hasValue(value) ? value : '-';
 }
 
+function buildAlertDisplay(alerts) {
+  return (alerts || []).map(item => Object.assign({}, item, {
+    statusClass: item.level === 'risk' ? 'tag-risk' : (item.level === 'warning' ? 'tag-warning' : 'tag-normal')
+  }));
+}
+
 function buildPrecalDisplay(form) {
   const data = form || {};
   return {
@@ -285,31 +291,39 @@ Page({
     }, () => this.refreshPreview());
   },
 
-  syncPrecalBySap(options) {
-    if (this.data.readOnly || this.data.isEdit) return Promise.resolve({ skipped: true });
-    const sapNo = normalizeSapNo(this.data.sapSearchNo);
-    if (!sapNo) return Promise.resolve({ skipped: true });
-    if (!options || !options.force) {
-      if (sapNo === this.data.lastSyncedSapNo) return Promise.resolve({ skipped: true });
-    }
+  async syncPrecalBySap(options) {
+    if (this.data.readOnly || this.data.isEdit) return { skipped: true };
+    const opts = options || {};
+    const sapNo = normalizeSapNo(this.data.sapSearchNo || this.data.form.projectNo || this.data.form.mainSapNo || this.data.form.sapNo);
+    if (!sapNo) return { skipped: true };
+    if (!opts.force && sapNo === this.data.lastSyncedSapNo) return { skipped: true };
+
+    let loadingShown = false;
     this.setData({ precalSyncing: true, precalSyncMessage: '' });
-    wx.showLoading({ title: '同步中' });
-    return projectService.loadPrecalBySap(sapNo)
-      .then(res => {
-        this.applyPrecalToProjectForm(res.project || {}, sapNo);
-        wx.showToast({ title: '已同步 Pre-cal 数据', icon: 'success' });
-        return res;
-      })
-      .catch(err => {
-        const message = err.message || '同步 Pre-cal 数据失败';
-        this.setData({ precalSyncMessage: message, precalPreview: null, hasPrecalPreview: false, lastSyncedSapNo: '', precalDisplay: buildPrecalDisplay(this.data.form) });
-        wx.showToast({ title: message, icon: 'none' });
-        throw err;
-      })
-      .finally(() => {
-        this.setData({ precalSyncing: false });
-        wx.hideLoading();
+    try {
+      if (!opts.silent) {
+        wx.showLoading({ title: '同步中' });
+        loadingShown = true;
+      }
+      const res = await projectService.loadPrecalBySap(sapNo);
+      this.applyPrecalToProjectForm(res.project || res.precal || {}, sapNo);
+      if (!opts.silent) wx.showToast({ title: '已同步 Pre-cal 数据', icon: 'success' });
+      return res;
+    } catch (err) {
+      const message = err.message || '同步 Pre-cal 数据失败';
+      this.setData({
+        precalSyncMessage: message,
+        precalPreview: null,
+        hasPrecalPreview: false,
+        lastSyncedSapNo: '',
+        precalDisplay: buildPrecalDisplay(this.data.form)
       });
+      if (!opts.silent) wx.showToast({ title: message, icon: 'none' });
+      throw err;
+    } finally {
+      this.setData({ precalSyncing: false });
+      if (loadingShown) wx.hideLoading();
+    }
   },
 
   onBasicInput(e) {
@@ -435,6 +449,9 @@ Page({
 
   refreshPreview() {
     const preview = enrichProject(this.data.form);
+    preview.metrics = Object.assign({}, preview.metrics || {}, {
+      alerts: buildAlertDisplay((preview.metrics || {}).alerts)
+    });
     this.setData({ preview });
   },
 
@@ -505,33 +522,40 @@ Page({
     return form;
   },
 
-  saveProject() {
+  async saveProject() {
     if (this.data.readOnly) {
       wx.showToast({ title: '当前项目为只读', icon: 'none' });
       return;
     }
-  
-    const sapNo = String(this.data.sapSearchNo || '').trim();
-    const ensureSynced = (!this.data.id && sapNo && sapNo !== this.data.lastSyncedSapNo)
-      ? this.syncPrecalBySap({ force: true })
-      : Promise.resolve();
 
-    ensureSynced.then(() => {
-      if (!this.validateForm()) return;
-      const project = this.normalizeForm();
+    const form = this.data.form || {};
+    const sapNo = normalizeSapNo(this.data.sapSearchNo || form.projectNo || form.mainSapNo || form.sapNo);
+    const needPrecalSync = !this.data.id && sapNo && (!form.precalNo || sapNo !== this.data.lastSyncedSapNo);
+    if (needPrecalSync) {
+      try {
+        await this.syncPrecalBySap({ force: true, silent: true });
+      } catch (err) {
+        wx.showToast({ title: err.message || '未找到该 SAP 项目号对应的 Pre-cal', icon: 'none' });
+        return;
+      }
+    }
+
+    if (!this.validateForm()) return;
+    const project = this.normalizeForm();
+    let loadingShown = false;
+    try {
       wx.showLoading({ title: '保存中' });
-      projectService.saveProject(this.data.id, project)
-      .then(res => {
-        if (!this.data.id && res.id) {
-          this.setData({ id: res.id, isEdit: true });
-        }
-        wx.showToast({ title: '已保存', icon: 'success' });
-      })
-      .catch(err => {
-        wx.showToast({ title: err.message || '保存失败', icon: 'none' });
-      })
-      .finally(() => wx.hideLoading());
-    }).catch(() => {});
+      loadingShown = true;
+      const res = await projectService.saveProject(this.data.id, project);
+      if (!this.data.id && res.id) {
+        this.setData({ id: res.id, isEdit: true });
+      }
+      wx.showToast({ title: '已保存', icon: 'success' });
+    } catch (err) {
+      wx.showToast({ title: err.message || '保存失败', icon: 'none' });
+    } finally {
+      if (loadingShown) wx.hideLoading();
+    }
   },
 
   goBack() {

@@ -8,7 +8,22 @@
   <view class="card">
     <view class="section-title">基础信息</view>
     <label wx:if="{{!isEdit}}" class="form-label">通过 SAP 项目号创建（推荐）</label>
-    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入任一已绑定 SAP 项目号，保存时将自动按 Pre-cal 创建完整项目" bindinput="onSapInput" />
+    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入任一已绑定 SAP 项目号，自动同步 Pre-cal 数据" bindinput="onSapInput" bindblur="onSapBlur" bindconfirm="onSapConfirm" />
+    <view wx:if="{{!isEdit}}" class="row action-row">
+      <button class="btn-secondary" size="mini" loading="{{precalSyncing}}" bindtap="onManualSyncPrecal">同步 Pre-cal 数据</button>
+      <text class="muted">{{precalSyncMessage}}</text>
+    </view>
+    <view wx:if="{{hasPrecalPreview}}" class="sub-card">
+      <view class="section-title">已同步 Pre-cal 信息</view>
+      <view class="metric-line"><text>Pre-cal 编号</text><text>{{precalDisplay.precalNo}}</text></view>
+      <view class="metric-line"><text>Service</text><text>{{precalDisplay.service}}</text></view>
+      <view class="metric-line"><text>Sales Owner</text><text>{{precalDisplay.salesOwnerName}}</text></view>
+      <view class="metric-line"><text>主 SAP 项目号</text><text>{{precalDisplay.mainSapNo}}</text></view>
+      <view class="metric-line"><text>项目总预算</text><text>{{precalDisplay.totalBudget}}</text></view>
+      <view class="metric-line"><text>预算总工时</text><text>{{precalDisplay.budgetHours}}</text></view>
+      <view class="metric-line"><text>差旅费</text><text>{{precalDisplay.travelCost}}</text></view>
+      <view class="metric-line"><text>Operating Margin</text><text>{{precalDisplay.operatingMargin}}</text></view>
+    </view>
 
     <label class="form-label">项目名称</label>
     <input class="input" disabled="{{readOnly}}" value="{{form.projectName}}" placeholder="例如：某客户 ESG/追溯咨询项目" data-field="projectName" bindinput="onBasicInput" />
@@ -55,11 +70,13 @@
 
     <view wx:for="{{form.subProjects}}" wx:key="id" class="sub-card">
       <view class="row sub-title-row">
-        <view class="sub-title">子项目 {{index + 1}}</view>
+        <view class="sub-title">子项目 {{index + 1}} <text wx:if="{{item.sapNo}}" class="mini-note">SAP：{{item.sapNo}}</text> <text wx:if="{{item.itemNo}}" class="mini-note">Item：{{item.itemNo}}</text></view>
         <button wx:if="{{!readOnly}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeSubProject">删除</button>
       </view>
       <label class="form-label">子项目名称</label>
       <input class="input" disabled="{{readOnly}}" value="{{item.name}}" placeholder="例如：ESG 咨询 / 追溯辅导" data-index="{{index}}" data-field="name" bindinput="onSubProjectInput" />
+      <view wx:if="{{item.sapNo}}" class="muted">SAP 项目号：{{item.sapNo}}</view>
+      <view wx:if="{{item.itemNo}}" class="muted">Item：{{item.itemNo}} {{item.itemDescription}}</view>
 
       <view class="grid-2">
         <view>
@@ -93,7 +110,7 @@
     <view wx:for="{{form.employeeBudgets}}" wx:key="id" class="sub-card">
       <view class="row sub-title-row">
         <view class="sub-title">人员预算 {{index + 1}} <text wx:if="{{item.isPm}}" class="mini-note">PM</text></view>
-        <button wx:if="{{!readOnly && !item.isPm}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeEmployeeBudget">删除</button>
+        <button wx:if="{{item.canRemove}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeEmployeeBudget">删除</button>
       </view>
       <view class="grid-2">
         <view>

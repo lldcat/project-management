@@ -36,6 +36,39 @@ function toNullableNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function hasValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'string') return value.trim() !== '';
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+function assignIfValue(target, field, value) {
+  if (hasValue(value)) target[field] = value;
+}
+
+function normalizeSapNo(value) {
+  return String(value || '').trim();
+}
+
+function displayValue(value) {
+  return hasValue(value) ? value : '-';
+}
+
+function buildPrecalDisplay(form) {
+  const data = form || {};
+  return {
+    precalNo: displayValue(data.precalNo),
+    service: displayValue(data.service),
+    salesOwnerName: displayValue(data.salesOwnerName),
+    mainSapNo: displayValue(data.mainSapNo || data.projectNo),
+    totalBudget: displayValue(data.totalBudget),
+    budgetHours: displayValue(data.budgetHours || data.budgetTotalHours),
+    travelCost: displayValue(data.travelCost || data.travelFee),
+    operatingMargin: displayValue(data.operatingMargin)
+  };
+}
+
 function mapByName(rows, valueField) {
   const map = {};
   (rows || []).forEach(item => {
@@ -69,9 +102,13 @@ function alignArHoursToEmployeeBudgets(employeeBudgets, existingArHours) {
 
 function applyEmployeeMeta(employeeBudgets, projectManager) {
   const pmName = normalizeName(projectManager);
-  return (employeeBudgets || []).map(item => Object.assign({}, item, {
-    isPm: !!pmName && normalizeName(item.memberName) === pmName
-  }));
+  return (employeeBudgets || []).map(item => {
+    const isPm = !!pmName && normalizeName(item.memberName) === pmName;
+    return Object.assign({}, item, {
+      isPm,
+      canRemove: !isPm
+    });
+  });
 }
 
 function normalizePeopleStructures(rawForm, options) {
@@ -99,6 +136,23 @@ function defaultForm() {
     projectMembers: [],
     status: 'active',
     travelFee: '',
+    clientName: '',
+    mainSapNo: '',
+    sapNumbers: [],
+    sapBindings: [],
+    precalId: '',
+    precalNo: '',
+    service: '',
+    salesOwnerName: '',
+    orderValue: '',
+    totalMD: '',
+    budgetTotalHours: '',
+    budgetHours: '',
+    projectTotalBudget: '',
+    totalBudget: '',
+    travelCost: '',
+    operatingMargin: '',
+    itemList: [],
     constants: {
       hoursPerDay: 8,
       personDayCost: 5000
@@ -129,7 +183,12 @@ Page({
     readOnly: false,
     pageTitle: '新增项目',
     sapSearchNo: '',
-    precalPreview: null
+    precalPreview: null,
+    precalSyncing: false,
+    lastSyncedSapNo: '',
+    precalSyncMessage: '',
+    hasPrecalPreview: false,
+    precalDisplay: buildPrecalDisplay(defaultForm())
   },
 
   onLoad(options) {
@@ -155,6 +214,9 @@ Page({
         form.employeeBudgets = (loaded.employeeBudgets || []).map(item => Object.assign({ id: createId('emp') }, item));
         form.arHours = (loaded.arHours || []).map(item => Object.assign({ id: createId('ar') }, item));
         form = normalizePeopleStructures(form, { includeArNames: true });
+        if (readOnly) {
+          form.employeeBudgets = (form.employeeBudgets || []).map(item => Object.assign({}, item, { canRemove: false }));
+        }
         const statusIndex = this.data.statusOptions.findIndex(item => item.value === form.status);
         this.setData({
           form,
@@ -175,7 +237,79 @@ Page({
 
 
   onSapInput(e) {
-    this.setData({ sapSearchNo: e.detail.value || '' });
+    const sapSearchNo = e.detail.value || '';
+    this.setData({ sapSearchNo, precalSyncMessage: '' });
+  },
+
+  onSapBlur() {
+    this.syncPrecalBySap();
+  },
+
+  onSapConfirm() {
+    this.syncPrecalBySap();
+  },
+
+  onManualSyncPrecal() {
+    this.syncPrecalBySap({ force: true });
+  },
+
+  applyPrecalToProjectForm(precalProject, sapNo) {
+    const current = JSON.parse(JSON.stringify(this.data.form));
+    const incoming = precalProject || {};
+    const form = Object.assign({}, current);
+    [
+      'projectName', 'customerName', 'clientName', 'projectNo', 'mainSapNo', 'precalId', 'precalNo',
+      'service', 'salesOwnerName', 'orderValue', 'totalMD', 'budgetTotalHours', 'budgetHours',
+      'projectTotalBudget', 'totalBudget', 'bac', 'travelFee', 'travelCost', 'operatingMargin'
+    ].forEach(field => assignIfValue(form, field, incoming[field]));
+
+    if (hasValue(incoming.sapNumbers)) form.sapNumbers = incoming.sapNumbers;
+    if (hasValue(incoming.sapBindings)) form.sapBindings = incoming.sapBindings;
+    if (hasValue(incoming.itemList)) form.itemList = incoming.itemList;
+    if (hasValue(incoming.subProjects)) form.subProjects = incoming.subProjects.map(item => Object.assign({ id: createId('sub') }, item));
+    if (hasValue(incoming.projectMembers)) form.projectMembers = incoming.projectMembers;
+    if (hasValue(incoming.employeeBudgets)) form.employeeBudgets = incoming.employeeBudgets;
+    if (hasValue(incoming.arHours)) form.arHours = incoming.arHours;
+    form.constants = Object.assign({ hoursPerDay: 8, personDayCost: 5000 }, current.constants || {}, incoming.constants || {});
+
+    const normalized = normalizePeopleStructures(form, { includeArNames: true });
+    this.setData({
+      form: normalized,
+      membersText: (normalized.projectMembers || []).join('、'),
+      sapSearchNo: normalizeSapNo(sapNo || incoming.mainSapNo || incoming.projectNo),
+      precalPreview: incoming,
+      hasPrecalPreview: true,
+      precalDisplay: buildPrecalDisplay(normalized),
+      lastSyncedSapNo: normalizeSapNo(sapNo || incoming.mainSapNo || incoming.projectNo),
+      precalSyncMessage: '已同步 Pre-cal 数据'
+    }, () => this.refreshPreview());
+  },
+
+  syncPrecalBySap(options) {
+    if (this.data.readOnly || this.data.isEdit) return Promise.resolve({ skipped: true });
+    const sapNo = normalizeSapNo(this.data.sapSearchNo);
+    if (!sapNo) return Promise.resolve({ skipped: true });
+    if (!options || !options.force) {
+      if (sapNo === this.data.lastSyncedSapNo) return Promise.resolve({ skipped: true });
+    }
+    this.setData({ precalSyncing: true, precalSyncMessage: '' });
+    wx.showLoading({ title: '同步中' });
+    return projectService.loadPrecalBySap(sapNo)
+      .then(res => {
+        this.applyPrecalToProjectForm(res.project || {}, sapNo);
+        wx.showToast({ title: '已同步 Pre-cal 数据', icon: 'success' });
+        return res;
+      })
+      .catch(err => {
+        const message = err.message || '同步 Pre-cal 数据失败';
+        this.setData({ precalSyncMessage: message, precalPreview: null, hasPrecalPreview: false, lastSyncedSapNo: '', precalDisplay: buildPrecalDisplay(this.data.form) });
+        wx.showToast({ title: message, icon: 'none' });
+        throw err;
+      })
+      .finally(() => {
+        this.setData({ precalSyncing: false });
+        wx.hideLoading();
+      });
   },
 
   onBasicInput(e) {
@@ -325,6 +459,19 @@ Page({
     let form = JSON.parse(JSON.stringify(this.data.form));
     form = normalizePeopleStructures(form);
     form.travelFee = toNullableNumber(form.travelFee);
+    form.travelCost = toNullableNumber(form.travelCost || form.travelFee);
+    form.orderValue = toNullableNumber(form.orderValue);
+    form.totalMD = toNullableNumber(form.totalMD);
+    form.budgetTotalHours = toNullableNumber(form.budgetTotalHours || form.budgetHours);
+    form.budgetHours = toNullableNumber(form.budgetHours || form.budgetTotalHours);
+    form.projectTotalBudget = toNullableNumber(form.projectTotalBudget || form.totalBudget);
+    form.totalBudget = toNullableNumber(form.totalBudget || form.projectTotalBudget);
+    form.operatingMargin = toNullableNumber(form.operatingMargin);
+    form.clientName = form.clientName || form.customerName;
+    form.mainSapNo = form.mainSapNo || form.projectNo;
+    form.sapNumbers = Array.isArray(form.sapNumbers) ? form.sapNumbers.map(normalizeSapNo).filter(Boolean) : [];
+    form.sapBindings = Array.isArray(form.sapBindings) ? form.sapBindings : [];
+    form.itemList = Array.isArray(form.itemList) ? form.itemList : [];
     form.constants = {
       hoursPerDay: 8,
       personDayCost: Number((form.constants && form.constants.personDayCost) || 5000)
@@ -333,6 +480,11 @@ Page({
     form.subProjects = (form.subProjects || []).map(item => ({
       id: item.id || createId('sub'),
       name: item.name || '',
+      sapNo: normalizeSapNo(item.sapNo || item.sapProjectNo),
+      sapProjectNo: normalizeSapNo(item.sapProjectNo || item.sapNo),
+      subProjectNo: String(item.subProjectNo || item.itemNo || '').trim(),
+      itemNo: String(item.itemNo || '').trim(),
+      itemDescription: String(item.itemDescription || '').trim(),
       budgetHours: toNullableNumber(item.budgetHours),
       budgetLaborUnitPrice: toNullableNumber(item.budgetLaborUnitPrice),
       plannedCompletedHours: toNullableNumber(item.plannedCompletedHours)
@@ -360,27 +512,15 @@ Page({
     }
   
     const sapNo = String(this.data.sapSearchNo || '').trim();
-    if (!this.data.id && sapNo) {
-      wx.showLoading({ title: '保存中' });
-      projectService.callProjectService('createFromSap', { sapNo })
-        .then(res => {
-          if (res.id) {
-            this.setData({ id: res.id, isEdit: true, sapSearchNo: '' });
-            this.loadDetail(res.id);
-          }
-          wx.showToast({ title: '已保存', icon: 'success' });
-        })
-        .catch(err => {
-          wx.showToast({ title: err.message || '保存失败', icon: 'none' });
-        })
-        .finally(() => wx.hideLoading());
-      return;
-    }
+    const ensureSynced = (!this.data.id && sapNo && sapNo !== this.data.lastSyncedSapNo)
+      ? this.syncPrecalBySap({ force: true })
+      : Promise.resolve();
 
-    if (!this.validateForm()) return;
-    const project = this.normalizeForm();
-    wx.showLoading({ title: '保存中' });
-    projectService.saveProject(this.data.id, project)
+    ensureSynced.then(() => {
+      if (!this.validateForm()) return;
+      const project = this.normalizeForm();
+      wx.showLoading({ title: '保存中' });
+      projectService.saveProject(this.data.id, project)
       .then(res => {
         if (!this.data.id && res.id) {
           this.setData({ id: res.id, isEdit: true });
@@ -391,6 +531,7 @@ Page({
         wx.showToast({ title: err.message || '保存失败', icon: 'none' });
       })
       .finally(() => wx.hideLoading());
+    }).catch(() => {});
   },
 
   goBack() {

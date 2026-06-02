@@ -12,7 +12,13 @@ Page({
     scenario70: {},
     scenario80: {},
     showScenario: false,
-    canEdit: false
+    canEdit: false,
+    canSubmit: false,
+    sapBindings: [],
+    hasSapBindings: false,
+    hasItems: false,
+    showScenarioText: '展开',
+    statusTagClass: 'tag-warning'
   },
 
   onLoad(options) { this.setData({ id: options.id || '' }); this.loadData(); },
@@ -32,16 +38,40 @@ Page({
         const s80 = (record.productivityScenarios || {}).productivity80 || {};
         const user = res.user || {};
         const roles = user.roles || (user.role ? [user.role] : []);
-        const canEdit = ['Draft', 'Withdrawn', 'Unlocked'].indexOf(record.status) >= 0 && (record.createdBy === user.openid || roles.indexOf('admin') >= 0);
+        const editableStatuses = ['Draft', 'Withdrawn', 'Unlocked'];
+        const canEdit = editableStatuses.indexOf(record.status) >= 0 && (record.createdBy === user.openid || roles.indexOf('admin') >= 0);
+        const canSubmit = editableStatuses.indexOf(record.status) >= 0;
+        const rawSapBindings = Array.isArray(record.sapBindings) ? record.sapBindings : [];
+        const sapBindings = rawSapBindings.map(item => Object.assign({}, item, {
+          memberNameText: item.memberName || '-',
+          remarkText: item.remark || '-'
+        }));
+        const rawItemList = record.itemList && record.itemList.length ? record.itemList : sapBindings.reduce((acc, sap) => acc.concat(sap.items || []), []);
+        const itemList = rawItemList.map(item => Object.assign({}, item, {
+          itemNoText: item.itemNo || '-',
+          itemDescriptionText: item.itemDescription || '-',
+          remarkText: item.remark || '-'
+        }));
         const lineItems = (record.lineItems || []).map(item => Object.assign({}, item, {
+          productDescriptionText: item.productDescription || '未填写服务描述',
           operatingMarginText: formatPercent((item.calculated || {}).operatingMargin)
         }));
         this.setData({
-          record: Object.assign({}, record, { lineItems }),
+          record: Object.assign({}, record, {
+            lineItems,
+            salesOwnerNameText: record.salesOwnerName || '-',
+            remarkText: record.remark || '-'
+          }),
           statusLabel: this.label(record.status),
-          sapText: (record.sapBindings || []).map(item => item.sapNo).join('、'),
-          itemList: (record.itemList && record.itemList.length ? record.itemList : (record.sapBindings || []).reduce((acc, sap) => acc.concat(sap.items || []), [])),
+          sapText: sapBindings.map(item => item.sapNo).join('、'),
+          sapBindings,
+          hasSapBindings: sapBindings.length > 0,
+          itemList,
+          hasItems: itemList.length > 0,
           canEdit,
+          canSubmit,
+          statusTagClass: record.status === 'SAP Bound' ? 'tag-normal' : 'tag-warning',
+          showScenarioText: this.data.showScenario ? '收起' : '展开',
           resultItems: [
             { key: 'totalOrderValue', label: 'Total Order Value', value: formatMoney(r.totalOrderValue) },
             { key: 'totalMD', label: 'Total MD', value: r.totalMD || 0 },
@@ -61,7 +91,13 @@ Page({
       .catch(err => wx.showToast({ title: err.message || '加载失败', icon: 'none' }));
   },
 
-  toggleScenario() { this.setData({ showScenario: !this.data.showScenario }); },
+  toggleScenario() {
+    const showScenario = !this.data.showScenario;
+    this.setData({
+      showScenario,
+      showScenarioText: showScenario ? '收起' : '展开'
+    });
+  },
   goEdit() { wx.navigateTo({ url: `/pages/precal/edit/index?id=${this.data.id}` }); },
   submit() {
     precalService.callPrecalService('submitPrecal', { precalRecordId: this.data.id })

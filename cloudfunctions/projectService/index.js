@@ -33,7 +33,7 @@ function normalizeMembers(input) {
   const result = [];
   const seen = {};
   const add = (value) => {
-    const raw = value && typeof value === 'object' ? (value.memberName || value.name || value.employeeName || value.userName) : value;
+    const raw = value && typeof value === 'object' ? value.memberName : value;
     const name = String(raw || '').trim();
     if (!name || seen[name]) return;
     seen[name] = true;
@@ -65,29 +65,6 @@ function collectSapNos(precal) {
     if (!item) return;
     splitSapText(item.sapOrderNo).forEach(pushSap);
   });
-
-  const appendFromField = (field) => {
-    const value = precal && precal[field];
-    if (!value) return;
-    if (Array.isArray(value)) {
-      value.forEach(item => {
-        if (typeof item === 'string') splitSapText(item).forEach(pushSap);
-        else if (item && typeof item === 'object') splitSapText(item.sapNo || item.sapProjectNo || item.sapCode || item.projectNo || item.value).forEach(pushSap);
-        else pushSap(item);
-      });
-      return;
-    }
-    splitSapText(value).forEach(pushSap);
-  };
-
-  appendFromField('sapNos');
-  appendFromField('sapNumbers');
-  appendFromField('sapNoList');
-  appendFromField('sapProjects');
-  appendFromField('sapCode');
-  appendFromField('sapNo');
-  appendFromField('sapProjectNo');
-  appendFromField('mainSapNo');
 
   return Object.keys(sapSet);
 }
@@ -126,11 +103,9 @@ function normalizeSapBindingList(precal) {
   const seen = {};
   const add = (raw, index) => {
     const item = raw || {};
-    const sapOrderNo = typeof item === 'string'
-      ? normalizeSapNo(item)
-      : normalizeSapNo(item.sapOrderNo || item.sapNo || item.sapCode || item.sapProjectNo || item.projectNo || item.value);
+    const sapOrderNo = typeof item === 'string' ? normalizeSapNo(item) : normalizeSapNo(item.sapOrderNo);
     if (!sapOrderNo) return;
-    const itemNo = defaultItemNoForSap(sapOrderNo, typeof item === 'string' ? '' : (item.itemNo || item.subProjectNo || item.no));
+    const itemNo = defaultItemNoForSap(sapOrderNo, typeof item === 'string' ? '' : item.itemNo);
     const active = typeof item === 'object' && item.active === false ? false : true;
     const key = `${sapOrderNo}#${itemNo}#${active ? 'active' : 'inactive'}`;
     if (seen[key]) return;
@@ -138,8 +113,6 @@ function normalizeSapBindingList(precal) {
     rows.push({
       sapId: typeof item === 'object' && (item.sapId || item.id) || `S${Date.now()}_${index}_${Math.floor(Math.random() * 100000)}`,
       sapOrderNo,
-      sapNo: sapOrderNo,
-      sapProjectNo: sapOrderNo,
       itemNo,
       active,
       source: typeof item === 'object' && item.source || 'manual',
@@ -157,61 +130,39 @@ function normalizeSapBindingList(precal) {
     });
   };
   (precal && precal.sapBindings || []).forEach(add);
-  if (rows.length) return rows;
-  ['sapOrderNo', 'sapNo', 'sapProjectNo', 'mainSapNo'].forEach(field => {
-    if (precal && precal[field]) add({ sapOrderNo: precal[field], itemNo: precal.itemNo, source: 'legacy' }, rows.length);
-  });
-  ['sapNos', 'sapNumbers', 'sapNoList', 'sapProjects', 'sapItems'].forEach(field => {
-    const value = precal && precal[field];
-    if (!Array.isArray(value)) return;
-    value.forEach(item => add(typeof item === 'string' ? { sapOrderNo: item, source: 'legacy' } : Object.assign({ source: 'legacy' }, item || {}), rows.length));
-  });
   return rows;
 }
 
-function collectLegacyItems(precal) {
+function normalizeItemList(precal) {
   const merged = [];
   const seen = {};
   const add = (raw, index) => {
     const item = raw || {};
-    const itemNo = String(item.itemNo || item.no || item.value || ((index + 1) * 1000)).trim();
+    const itemNo = String(item.itemNo || ((index + 1) * 1000)).trim();
     if (!itemNo || seen[itemNo]) return;
     seen[itemNo] = true;
     merged.push({
       itemId: item.itemId || item.id || `item_${Date.now()}_${merged.length}`,
       itemNo,
-      itemDescription: String(item.itemDescription || item.description || item.name || '').trim(),
-      name: String(item.name || item.itemDescription || item.description || '').trim(),
-      travelFee: toOptionalNumber(item.travelFee || item.travelCost || item.travelExpense),
-      travelCost: toOptionalNumber(item.travelCost || item.travelFee || item.travelExpense),
-      travelExpense: toOptionalNumber(item.travelExpense || item.travelFee || item.travelCost),
+      itemDescription: String(item.itemDescription || '').trim(),
+      name: String(item.name || item.itemDescription || '').trim(),
+      travelFee: toOptionalNumber(item.travelFee),
+      workingMd: toOptionalNumber(item.workingMd),
       budgetHours: toOptionalNumber(item.budgetHours),
       budgetAmount: toOptionalNumber(item.budgetAmount),
       remark: String(item.remark || '').trim()
     });
   };
   (precal && precal.itemList || []).forEach(add);
-  (precal && precal.sapBindings || []).forEach(sap => {
-    (sap && sap.items || []).forEach(add);
-  });
   return merged;
 }
 
 function readDetailName(detail, index) {
   const item = detail || {};
   return String(
-    item.projectDetailName ||
-    item.projectName ||
-    item.subProjectName ||
-    item.productDescription ||
-    item.serviceDetail ||
-    item.serviceContent ||
     item.itemDescription ||
-    item.description ||
-    item.itemName ||
     item.name ||
-    item.detail ||
-    item.remark ||
+    item.productDescription ||
     ''
   ).trim();
 }
@@ -220,15 +171,7 @@ function readDetailTravelFee(detail) {
   const item = detail || {};
   const value = toOptionalNumber(firstMeaningfulValue([
     item.travelFee,
-    item.travelCost,
-    item.travelExpense,
-    item.travellingCost,
-    item.travellingFee,
-    item.travelAmount,
-    item.budgetTravelFee,
     item.subcontractingTravel,
-    item.subcontractingExtTravelFee,
-    item['差旅费']
   ]));
   return value > 0 ? value : '';
 }
@@ -236,11 +179,9 @@ function readDetailTravelFee(detail) {
 function readDetailTravelMD(detail) {
   const item = detail || {};
   const value = toOptionalNumber(firstMeaningfulValue([
-    item.travelMD,
     item.travelMd,
-    item.mdForTravel,
-    item.calculated && item.calculated.travelMD,
-    item['差旅MD']
+    item.travelMD,
+    item.calculated && item.calculated.travelMD
   ]));
   return value > 0 ? value : '';
 }
@@ -248,11 +189,9 @@ function readDetailTravelMD(detail) {
 function readDetailQuotationMD(detail) {
   const item = detail || {};
   const value = toOptionalNumber(firstMeaningfulValue([
-    item.quotationMD,
     item.quotationMd,
-    item.mdForQuotation,
-    item.calculated && item.calculated.quotationMD,
-    item['报价MD']
+    item.quotationMD,
+    item.calculated && item.calculated.quotationMD
   ]));
   return value > 0 ? value : '';
 }
@@ -260,11 +199,9 @@ function readDetailQuotationMD(detail) {
 function readDetailTotalMD(detail) {
   const item = detail || {};
   const value = toOptionalNumber(firstMeaningfulValue([
-    item.totalMD,
     item.totalMd,
-    item.mdTotal,
-    item.calculated && item.calculated.totalMD,
-    item['Total MD']
+    item.totalMD,
+    item.calculated && item.calculated.totalMD
   ]));
   return value > 0 ? value : '';
 }
@@ -273,42 +210,35 @@ function readDetailWorkingMD(detail) {
   const item = detail || {};
   const onsiteMD = toOptionalNumber(firstMeaningfulValue([
     item.onsiteMD,
-    item.onsiteMd,
-    item.onSiteMD,
-    item['Onsite MD']
+    item.onsiteMd
   ]));
   const offsiteMD = toOptionalNumber(firstMeaningfulValue([
     item.offsiteMD,
-    item.offsiteMd,
-    item.offSiteMD,
-    item['Offsite MD']
+    item.offsiteMd
   ]));
 
   if (onsiteMD !== '' || offsiteMD !== '') {
-    const workingMD = toNumber(onsiteMD) + toNumber(offsiteMD);
-    return workingMD > 0 ? round2(workingMD) : '';
+    const workingMd = toNumber(onsiteMD) + toNumber(offsiteMD);
+    return workingMd > 0 ? round2(workingMd) : '';
   }
 
   const totalMD = readDetailTotalMD(item);
   if (totalMD === '') return '';
-  const workingMD = toNumber(totalMD) - toNumber(readDetailTravelMD(item)) - toNumber(readDetailQuotationMD(item));
-  return workingMD > 0 ? round2(workingMD) : '';
+  const workingMd = toNumber(totalMD) - toNumber(readDetailTravelMD(item)) - toNumber(readDetailQuotationMD(item));
+  return workingMd > 0 ? round2(workingMd) : '';
 }
 
 function readDetailAllocatableHours(detail) {
-  const workingMD = readDetailWorkingMD(detail);
-  return workingMD === '' ? '' : round2(toNumber(workingMD) * 8);
+  const workingMd = readDetailWorkingMD(detail);
+  return workingMd === '' ? '' : round2(toNumber(workingMd) * 8);
 }
 
 function readDetailOtherMiscFee(detail) {
   const item = detail || {};
   const value = toOptionalNumber(firstMeaningfulValue([
     item.otherMiscFee,
-    item.miscFee,
-    item.otherFee,
     item.otherProjectCosts,
-    item.subcontractingOther,
-    item['其他杂费']
+    item.subcontractingOther
   ]));
   return value > 0 ? value : '';
 }
@@ -340,17 +270,17 @@ function readDetailLaborUnitPriceRaw(detail) {
   ]));
   if (explicit > 0) return explicit;
 
-  const workingMD = readDetailWorkingMD(item);
+  const workingMd = readDetailWorkingMD(item);
   const orderValue = toOptionalNumber(firstMeaningfulValue([
     item.orderValue,
     item.budgetAmount,
     item.amount,
     item.totalAmount
   ]));
-  if (workingMD === '' || !toNumber(workingMD) || orderValue === '') return '';
+  if (workingMd === '' || !toNumber(workingMd) || orderValue === '') return '';
   const laborQuoteAmount = toNumber(orderValue) - toNumber(readDetailTravelFee(item)) - toNumber(readDetailOtherMiscFee(item));
   if (!Number.isFinite(laborQuoteAmount)) return '';
-  return laborQuoteAmount / toNumber(workingMD);
+  return laborQuoteAmount / toNumber(workingMd);
 }
 
 function readDetailLaborUnitPrice(detail) {
@@ -372,7 +302,7 @@ function hasPrecalDetailValue(detail) {
 
 function normalizePrecalDetails(precal) {
   const record = precal || {};
-  const arrayFields = ['projectDetails', 'itemDetails', 'detailList', 'projectDetailList', 'lineItems'];
+  const arrayFields = ['lineItems'];
   for (const field of arrayFields) {
     if (Array.isArray(record[field]) && record[field].length) {
       const normalized = record[field]
@@ -382,9 +312,9 @@ function normalizePrecalDetails(precal) {
           name: readDetailName(item, index) || `项目 ${index + 1}`,
           explicitName: readDetailName(item, index),
           travelFee: readDetailTravelFee(item),
-          travelMD: readDetailTravelMD(item),
-          quotationMD: readDetailQuotationMD(item),
-          workingMD: readDetailWorkingMD(item),
+          travelMd: readDetailTravelMD(item),
+          quotationMd: readDetailQuotationMD(item),
+          workingMd: readDetailWorkingMD(item),
           allocatableHours: readDetailAllocatableHours(item),
           budgetHours: readDetailBudgetHours(item),
           budgetAmount: readDetailBudgetAmount(item),
@@ -394,56 +324,20 @@ function normalizePrecalDetails(precal) {
       if (normalized.length) return normalized;
     }
   }
-
-  const details = [];
-  for (let i = 1; i <= 20; i++) {
-    const raw = {
-      projectDetailName: record[`projectDetail${i}Name`] || record[`projectDetail${i}`] || record[`projectName${i}`] || record[`subProjectName${i}`],
-      serviceDetail: record[`serviceDetail${i}`],
-      description: record[`description${i}`],
-      travelFee: record[`projectDetail${i}TravelFee`] || record[`travelFee${i}`] || record[`travelCost${i}`] || record[`travelExpense${i}`] || record[`travelAmount${i}`],
-      onsiteMD: record[`projectDetail${i}OnsiteMD`] || record[`onsiteMD${i}`],
-      offsiteMD: record[`projectDetail${i}OffsiteMD`] || record[`offsiteMD${i}`],
-      totalMD: record[`projectDetail${i}TotalMD`] || record[`totalMD${i}`],
-      travelMD: record[`projectDetail${i}TravelMD`] || record[`travelMD${i}`],
-      quotationMD: record[`projectDetail${i}QuotationMD`] || record[`quotationMD${i}`],
-      orderValue: record[`projectDetail${i}OrderValue`] || record[`orderValue${i}`],
-      budgetHours: record[`budgetHours${i}`],
-      budgetAmount: record[`budgetAmount${i}`],
-      budgetLaborUnitPriceRaw: record[`budgetLaborUnitPriceRaw${i}`],
-      budgetLaborUnitPrice: record[`budgetLaborUnitPrice${i}`] || record[`laborUnitPrice${i}`]
-    };
-    if (!hasPrecalDetailValue(raw)) continue;
-    details.push({
-      source: raw,
-      name: readDetailName(raw, details.length) || `项目 ${details.length + 1}`,
-      explicitName: readDetailName(raw, details.length),
-      travelFee: readDetailTravelFee(raw),
-      travelMD: readDetailTravelMD(raw),
-      quotationMD: readDetailQuotationMD(raw),
-      workingMD: readDetailWorkingMD(raw),
-      allocatableHours: readDetailAllocatableHours(raw),
-      budgetHours: readDetailBudgetHours(raw),
-      budgetAmount: readDetailBudgetAmount(raw),
-      budgetLaborUnitPriceRaw: readDetailLaborUnitPriceRaw(raw),
-      budgetLaborUnitPrice: readDetailLaborUnitPrice(raw)
-    });
-  }
-  return details;
+  return [];
 }
 
 function buildItemListFromPrecal(precal) {
   const details = normalizePrecalDetails(precal);
   if (!details.length) {
-    const legacyItems = collectLegacyItems(precal);
-    return legacyItems.length ? legacyItems : [{
+    const items = normalizeItemList(precal);
+    return items.length ? items : [{
       itemId: `item_${Date.now()}_0`,
       itemNo: '1000',
       itemDescription: '',
       name: '',
       travelFee: '',
-      travelCost: '',
-      travelExpense: '',
+      workingMd: '',
       budgetHours: '',
       budgetAmount: '',
       remark: ''
@@ -455,9 +349,7 @@ function buildItemListFromPrecal(precal) {
     itemDescription: detail.name || `项目 ${index + 1}`,
     name: detail.name || `项目 ${index + 1}`,
     travelFee: detail.travelFee,
-    travelCost: detail.travelFee,
-    travelExpense: detail.travelFee,
-    workingMD: detail.workingMD,
+    workingMd: detail.workingMd,
     allocatableHours: detail.allocatableHours,
     budgetHours: detail.allocatableHours,
     budgetAmount: detail.budgetAmount,
@@ -480,36 +372,36 @@ function sumPrecalDetailField(precal, field) {
 }
 
 function getProjectWorkingMD(precal) {
-  const detailWorkingMD = sumPrecalDetailField(precal, 'workingMD');
-  if (detailWorkingMD !== '') return detailWorkingMD;
+  const detailWorkingMd = sumPrecalDetailField(precal, 'workingMd');
+  if (detailWorkingMd !== '') return detailWorkingMd;
 
   const result = precal && precal.calculationResult || {};
   const onsiteMD = toOptionalNumber(firstMeaningfulValue([result.totalOnsiteMD, precal && precal.totalOnsiteMD, precal && precal.onsiteMD]));
   const offsiteMD = toOptionalNumber(firstMeaningfulValue([result.totalOffsiteMD, precal && precal.totalOffsiteMD, precal && precal.offsiteMD]));
   if (onsiteMD !== '' || offsiteMD !== '') {
-    const workingMD = toNumber(onsiteMD) + toNumber(offsiteMD);
-    return workingMD > 0 ? round2(workingMD) : '';
+    const workingMd = toNumber(onsiteMD) + toNumber(offsiteMD);
+    return workingMd > 0 ? round2(workingMd) : '';
   }
 
   const totalMD = toOptionalNumber(firstMeaningfulValue([result.totalMD, precal && precal.totalMD, precal && precal.mdTotal]));
   if (totalMD === '') return '';
   const travelMD = toOptionalNumber(firstMeaningfulValue([result.totalTravelMD, precal && precal.totalTravelMD, precal && precal.travelMD]));
   const quotationMD = toOptionalNumber(firstMeaningfulValue([result.totalQuotationMD, precal && precal.totalQuotationMD, precal && precal.quotationMD]));
-  const workingMD = toNumber(totalMD) - toNumber(travelMD) - toNumber(quotationMD);
-  return workingMD > 0 ? round2(workingMD) : '';
+  const workingMd = toNumber(totalMD) - toNumber(travelMD) - toNumber(quotationMD);
+  return workingMd > 0 ? round2(workingMd) : '';
 }
 
 function getProjectTravelMD(precal) {
-  const detailTravelMD = sumPrecalDetailField(precal, 'travelMD');
-  if (detailTravelMD !== '') return detailTravelMD;
+  const detailTravelMd = sumPrecalDetailField(precal, 'travelMd');
+  if (detailTravelMd !== '') return detailTravelMd;
   const result = precal && precal.calculationResult || {};
   const value = toOptionalNumber(firstMeaningfulValue([result.totalTravelMD, precal && precal.totalTravelMD, precal && precal.travelMD]));
   return value > 0 ? value : '';
 }
 
 function getProjectQuotationMD(precal) {
-  const detailQuotationMD = sumPrecalDetailField(precal, 'quotationMD');
-  if (detailQuotationMD !== '') return detailQuotationMD;
+  const detailQuotationMd = sumPrecalDetailField(precal, 'quotationMd');
+  if (detailQuotationMd !== '') return detailQuotationMd;
   const result = precal && precal.calculationResult || {};
   const value = toOptionalNumber(firstMeaningfulValue([result.totalQuotationMD, precal && precal.totalQuotationMD, precal && precal.quotationMD]));
   return value > 0 ? value : '';
@@ -522,23 +414,18 @@ function buildSubProjectsFromPrecal(precal, sapNumbers) {
     return details.map((detail, index) => {
       const item = detailItems[index] || {};
       const itemNo = item.itemNo || String((index + 1) * 1000);
-      const sapNo = sapNumbers[index] || '';
       const travelFee = detail.travelFee;
       return {
         id: `sub_${Date.now()}_${index}`,
-        sapNo,
-        sapProjectNo: sapNo,
         subProjectNo: itemNo,
         itemNo,
         itemDescription: item.itemDescription || detail.name || `项目 ${index + 1}`,
         name: detail.name || `项目 ${index + 1}`,
-        workingMD: detail.workingMD,
+        workingMd: detail.workingMd,
         allocatableHours: detail.allocatableHours,
         budgetHours: detail.allocatableHours,
         budgetAmount: detail.budgetAmount,
         travelFee,
-        travelCost: travelFee,
-        travelExpense: travelFee,
         budgetLaborUnitPriceRaw: detail.budgetLaborUnitPriceRaw,
         budgetLaborUnitPrice: detail.budgetLaborUnitPrice,
         plannedCompletedHours: '',
@@ -547,20 +434,17 @@ function buildSubProjectsFromPrecal(precal, sapNumbers) {
     });
   }
 
-  const legacyItems = collectLegacyItems(precal);
-  const source = legacyItems.length ? legacyItems : sapNumbers;
+  const items = normalizeItemList(precal);
+  const source = items.length ? items : sapNumbers;
   if (!source.length) {
     return [{ id: `sub_${Date.now()}_0`, name: '', itemNo: '1000', subProjectNo: '1000', budgetHours: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }];
   }
   return source.map((sourceItem, index) => {
-    const item = legacyItems[index] || {};
-    const sapNo = sapNumbers[index] || (typeof sourceItem === 'string' ? sourceItem : '');
+    const item = items[index] || {};
     const itemNo = item.itemNo || String((index + 1) * 1000);
     const itemDescription = item.itemDescription || '';
     return {
       id: `sub_${Date.now()}_${index}`,
-      sapNo,
-      sapProjectNo: sapNo,
       subProjectNo: itemNo,
       itemNo,
       itemDescription,
@@ -577,18 +461,18 @@ function buildSubProjectsFromPrecal(precal, sapNumbers) {
 function buildProjectFromPrecal(precal, inputSapNo) {
   const sapBindings = normalizeSapBindingList(precal);
   const sapNumbers = collectSapNos(precal);
-  const mainSapNo = normalizeSapNo(inputSapNo) || normalizeSapNo(precal && precal.mainSapNo) || sapNumbers[0] || '';
+  const primarySapNo = normalizeSapNo(inputSapNo) || sapNumbers[0] || '';
   const result = precal.calculationResult || {};
   const orderValue = toOptionalNumber(firstMeaningfulValue([result.totalOrderValue, precal.totalOrderValue, precal.orderValue]));
   const totalMD = toOptionalNumber(firstMeaningfulValue([result.totalMD, precal.totalMD, precal.mdTotal]));
-  const workingMD = getProjectWorkingMD(precal);
-  const travelMD = getProjectTravelMD(precal);
-  const quotationMD = getProjectQuotationMD(precal);
+  const workingMd = getProjectWorkingMD(precal);
+  const travelMd = getProjectTravelMD(precal);
+  const quotationMd = getProjectQuotationMD(precal);
   const detailTravelFee = sumPrecalDetailTravelFee(precal);
   const travelFee = detailTravelFee !== ''
     ? detailTravelFee
-    : toOptionalNumber(firstMeaningfulValue([precal.travelFee, precal.travelCost, precal.subcontractingTravelFee, precal.subcontractingExtTravelFee, result.subcontractingTravel, result.travelFee]));
-  const allocatableHours = workingMD === '' ? '' : round2(toNumber(workingMD) * 8);
+    : toOptionalNumber(firstMeaningfulValue([precal.travelFee, result.subcontractingTravel, result.travelFee]));
+  const allocatableHours = workingMd === '' ? '' : round2(toNumber(workingMd) * 8);
   const budgetTotalHours = allocatableHours;
   const projectTotalBudget = orderValue;
   const laborQuoteBudget = orderValue === '' ? '' : orderValue - toNumber(travelFee);
@@ -597,11 +481,10 @@ function buildProjectFromPrecal(precal, inputSapNo) {
   const customerName = String(precal.customerName || precal.clientName || '').trim();
 
   return {
-    projectName: customerName && mainSapNo ? `${customerName}-${mainSapNo}` : (customerName || mainSapNo || ''),
+    projectName: customerName && primarySapNo ? `${customerName}-${primarySapNo}` : (customerName || primarySapNo || ''),
     customerName,
     clientName: customerName,
-    projectNo: mainSapNo,
-    mainSapNo,
+    projectNo: '',
     sapNumbers,
     sapBindings,
     precalId: precal._id,
@@ -610,11 +493,10 @@ function buildProjectFromPrecal(precal, inputSapNo) {
     salesOwnerName: precal.salesOwnerName || '',
     orderValue,
     orderValueWithoutTravel: laborQuoteBudget,
-    totalMD,
-    workingMD,
-    workingMd: workingMD,
-    travelMD,
-    quotationMD,
+    totalMd: totalMD,
+    workingMd,
+    travelMd,
+    quotationMd,
     allocatableHours,
     budgetTotalHours,
     budgetHours: budgetTotalHours,
@@ -623,13 +505,11 @@ function buildProjectFromPrecal(precal, inputSapNo) {
     totalBudget: projectTotalBudget,
     bac: '',
     travelFee,
-    travelCost: travelFee,
     operatingMargin,
     itemList,
     startDate: '',
     endDate: '',
     projectManager: '',
-    projectMembers: [],
     status: 'active',
     constants: { hoursPerDay: 8, personDayCost: 5000 },
     subProjects: buildSubProjectsFromPrecal(precal, sapNumbers),
@@ -652,15 +532,7 @@ async function getPrecalBySapNo(sapNo) {
   if (!no) return null;
   const fetches = await Promise.all([
     safeGetPrecalCandidates({ 'sapBindings.sapOrderNo': no, deleted: _.neq(true) }, 'sapBindings.sapOrderNo'),
-    safeGetPrecalCandidates({ 'sapBindings.sapNo': no, deleted: _.neq(true) }, 'sapBindings.sapNo'),
-    safeGetPrecalCandidates({ 'sapBindings.sapProjectNo': no, deleted: _.neq(true) }, 'sapBindings.sapProjectNo'),
-    safeGetPrecalCandidates({ sapNos: no, deleted: _.neq(true) }, 'sapNos'),
-    safeGetPrecalCandidates({ sapNumbers: no, deleted: _.neq(true) }, 'sapNumbers'),
-    safeGetPrecalCandidates({ sapNo: no, deleted: _.neq(true) }, 'sapNo'),
-    safeGetPrecalCandidates({ sapCode: no, deleted: _.neq(true) }, 'sapCode'),
-    safeGetPrecalCandidates({ sapProjectNo: no, deleted: _.neq(true) }, 'sapProjectNo'),
-    safeGetPrecalCandidates({ sapOrderNo: no, deleted: _.neq(true) }, 'sapOrderNo'),
-    safeGetPrecalCandidates({ mainSapNo: no, deleted: _.neq(true) }, 'mainSapNo')
+    safeGetPrecalCandidates({ sapNumbers: no, deleted: _.neq(true) }, 'sapNumbers')
   ]);
   const merged = [];
   const seen = {};
@@ -921,7 +793,7 @@ function openidMapByMemberName(rows) {
   (rows || []).forEach(item => {
     const name = normalizeName(item.memberName, '');
     if (!name) return;
-    const openid = item.memberOpenid || item.openid || '';
+    const openid = item.memberOpenid || '';
     if (!map[name] && openid) map[name] = openid;
   });
   return map;
@@ -929,10 +801,7 @@ function openidMapByMemberName(rows) {
 
 function normalizeWorkloadAllocations(project) {
   const data = project || {};
-  const source = hasMeaningfulValue(data.employeeBudgets) ? data.employeeBudgets
-    : (hasMeaningfulValue(data.memberBudgets) ? data.memberBudgets
-      : (hasMeaningfulValue(data.workloadAllocations) ? data.workloadAllocations
-        : (hasMeaningfulValue(data.budgetHoursAllocation) ? data.budgetHoursAllocation : [])));
+  const source = hasMeaningfulValue(data.employeeBudgets) ? data.employeeBudgets : [];
   const rows = [];
 
   const addRow = (name, budgetHours, id, memberOpenid) => {
@@ -954,18 +823,12 @@ function normalizeWorkloadAllocations(project) {
       }
       if (!item || typeof item !== 'object') return;
       addRow(
-        item.memberName || item.name || item.employeeName || item.userName,
-        item.budgetHours !== undefined ? item.budgetHours
-          : (item.hours !== undefined ? item.hours
-            : (item.allocationHours !== undefined ? item.allocationHours : item.workload)),
+        item.memberName,
+        item.budgetHours,
         item.id,
-        item.memberOpenid || item.openid
+        item.memberOpenid
       );
     });
-  } else if (typeof source === 'string') {
-    normalizeMembers(source).forEach(name => addRow(name, ''));
-  } else if (source && typeof source === 'object') {
-    Object.keys(source).forEach(name => addRow(name, source[name]));
   }
 
   const budgetMap = valueMapByMemberName(rows, 'budgetHours');
@@ -999,8 +862,8 @@ function normalizeArHourRows(input) {
       }
       if (!item || typeof item !== 'object') return;
       addRow(
-        item.memberName || item.name || item.employeeName || item.userName,
-        item.hours !== undefined ? item.hours : item.actualHours,
+        item.memberName,
+        item.hours,
         item.id
       );
     });
@@ -1023,28 +886,23 @@ function buildEmployeeBudgetsFromNames(names, existingBudgets) {
   }));
 }
 
-function mergeBudgetFallbackRows(primaryRows, fallbackRows) {
-  return (primaryRows || []).concat(fallbackRows || []);
-}
-
-function ensurePmBudgetRow(rows, projectManager, pmOpenid, fallbackRows) {
+function ensurePmBudgetRow(rows, projectManager, pmOpenid) {
   const pmName = normalizeName(projectManager, '');
   if (!pmName) return rows || [];
-  const fallbackPm = (fallbackRows || []).find(item => normalizeName(item && item.memberName, '') === pmName) || {};
   let hasPm = false;
   const next = (rows || []).map(item => {
     if (normalizeName(item && item.memberName, '') !== pmName) return item;
     hasPm = true;
     return Object.assign({}, item, {
-      memberOpenid: item.memberOpenid || item.openid || pmOpenid || fallbackPm.memberOpenid || fallbackPm.openid || ''
+      memberOpenid: item.memberOpenid || pmOpenid || ''
     });
   });
   if (hasPm) return next;
   return next.concat({
-    id: fallbackPm.id || '',
-    memberOpenid: pmOpenid || fallbackPm.memberOpenid || fallbackPm.openid || '',
+    id: '',
+    memberOpenid: pmOpenid || '',
     memberName: pmName,
-    budgetHours: fallbackPm.budgetHours === undefined || fallbackPm.budgetHours === null ? '' : fallbackPm.budgetHours
+    budgetHours: ''
   });
 }
 
@@ -1068,7 +926,7 @@ function alignArHoursToEmployeeBudgets(employeeBudgets, existingArHours) {
 function memberOpenidsFromBudgets(employeeBudgets) {
   const map = {};
   (employeeBudgets || []).forEach(item => {
-    const openid = normalizeText(item && (item.memberOpenid || item.openid || item.userId));
+    const openid = normalizeText(item && item.memberOpenid);
     if (openid) map[openid] = true;
   });
   return Object.keys(map);
@@ -1089,10 +947,10 @@ function uniqueTexts(values) {
   return Object.keys(map);
 }
 
-function sapQueryValues(sapNos) {
+function sapQueryValues(sapNumbers) {
   const values = [];
   const seen = {};
-  uniqueTexts(sapNos).forEach(value => {
+  uniqueTexts(sapNumbers).forEach(value => {
     const text = normalizeSapNo(value);
     if (!text) return;
     if (!seen[text]) {
@@ -1158,18 +1016,18 @@ async function fetchUsersByField(field, values) {
 }
 
 function userArSheetName(user) {
-  return normalizeText(user && (user.arSheetName || user.employeeName || user.name));
+  return normalizeText(user && (user.arSheetName || user.name));
 }
 
 function collectProjectMembers(project) {
   const rows = [];
   (project.employeeBudgets || []).forEach(item => rows.push({
     memberName: normalizeText(item.memberName),
-    memberOpenid: normalizeText(item.memberOpenid || item.openid)
+    memberOpenid: normalizeText(item.memberOpenid)
   }));
   (project.arHours || []).forEach(item => rows.push({
     memberName: normalizeText(item.memberName),
-    memberOpenid: normalizeText(item.memberOpenid || item.openid)
+    memberOpenid: normalizeText(item.memberOpenid)
   }));
   return uniqueNames(rows.map(item => item.memberName)).map(name => {
     const source = rows.find(item => normalizeText(item.memberName) === name) || {};
@@ -1179,9 +1037,8 @@ function collectProjectMembers(project) {
 
 function collectProjectSapItemPairs(project) {
   const pairs = [];
-  const fallbackSap = normalizeSapNo(project.sapOrderNo || project.mainSapNo || project.projectNo || project.sapNo);
   const addPair = (sapValue, itemValue) => {
-    const sapOrderNo = normalizeSapNo(sapValue || fallbackSap);
+    const sapOrderNo = normalizeSapNo(sapValue);
     if (!sapOrderNo) return;
     pairs.push({
       sapOrderNo,
@@ -1191,14 +1048,6 @@ function collectProjectSapItemPairs(project) {
 
   const activeBindings = normalizeSapBindingList(project).filter(item => item.active !== false);
   activeBindings.forEach(item => addPair(item.sapOrderNo, item.itemNo));
-
-  if (!pairs.length) {
-    (project.subProjects || []).forEach(item => {
-      addPair(item.sapNo || item.sapProjectNo || project.mainSapNo || project.projectNo, item.itemNo || item.subProjectNo);
-    });
-  }
-
-  if (!pairs.length) addPair(fallbackSap, '1000');
 
   const seen = {};
   return pairs.filter(item => {
@@ -1217,9 +1066,7 @@ async function buildMemberSheetResolver(projectsInput) {
   const names = uniqueTexts(members.map(item => item.memberName));
   const userRows = []
     .concat(await fetchUsersByField('openid', openids))
-    .concat(await fetchUsersByField('_openid', openids))
     .concat(await fetchUsersByField('name', names))
-    .concat(await fetchUsersByField('employeeName', names))
     .concat(await fetchUsersByField('arSheetName', names));
   const byOpenid = {};
   const byName = {};
@@ -1227,11 +1074,11 @@ async function buildMemberSheetResolver(projectsInput) {
     if (!user || user.deleted === true) return;
     const sheetName = userArSheetName(user);
     if (!sheetName) return;
-    [user.openid, user._openid, user._id].forEach(id => {
+    [user.openid].forEach(id => {
       const key = normalizeText(id);
       if (key && !byOpenid[key]) byOpenid[key] = sheetName;
     });
-    [user.name, user.employeeName, user.arSheetName].forEach(name => {
+    [user.name, user.arSheetName].forEach(name => {
       const key = normalizeText(name);
       if (key && !byName[key]) byName[key] = sheetName;
     });
@@ -1243,7 +1090,7 @@ async function enrichEmployeeBudgetOpenids(project) {
   const data = Object.assign({}, project || {});
   const employeeBudgets = Array.isArray(data.employeeBudgets) ? data.employeeBudgets : [];
   const missingNames = uniqueTexts(employeeBudgets
-    .filter(item => !normalizeText(item && (item.memberOpenid || item.openid || item.userId)))
+    .filter(item => !normalizeText(item && item.memberOpenid))
     .map(item => item && item.memberName));
 
   if (!missingNames.length) {
@@ -1257,7 +1104,7 @@ async function enrichEmployeeBudgetOpenids(project) {
     const name = normalizeText(item && item.memberName);
     const matches = usersByName[name] || [];
     const matchedOpenid = matches.length === 1 ? matches[0].openid : '';
-    const memberOpenid = normalizeText(item && (item.memberOpenid || item.openid || item.userId)) || matchedOpenid || '';
+    const memberOpenid = normalizeText(item && item.memberOpenid) || matchedOpenid || '';
     return Object.assign({}, item, { memberOpenid });
   });
   data.memberOpenids = memberOpenidsFromBudgets(data.employeeBudgets);
@@ -1269,21 +1116,19 @@ async function resolveUsersByNames(names) {
   if (!cleanNames.length) return {};
   const rows = []
     .concat(await fetchUsersByField('name', cleanNames))
-    .concat(await fetchUsersByField('employeeName', cleanNames))
     .concat(await fetchUsersByField('arSheetName', cleanNames));
   const matches = {};
   rows.forEach(user => {
     if (!user || user.deleted === true || user.active === false) return;
-    const openid = normalizeText(user.openid || user._openid || user._id);
+    const openid = normalizeText(user.openid);
     if (!openid) return;
-    [user.name, user.employeeName, user.arSheetName].forEach(name => {
+    [user.name, user.arSheetName].forEach(name => {
       const key = normalizeText(name);
       if (!key) return;
       if (!matches[key]) matches[key] = {};
       matches[key][openid] = {
         openid,
         name: normalizeText(user.name),
-        employeeName: normalizeText(user.employeeName),
         arSheetName: normalizeText(user.arSheetName)
       };
     });
@@ -1307,6 +1152,14 @@ async function attachArMemberCandidates(project) {
   const memberOpenids = uniqueTexts(data.memberOpenids || []);
   const budgetRows = data.employeeBudgets || [];
   const resolvedUsers = await resolveUsersByNames(arHours.map(item => item && (item.arSheetName || item.memberName)));
+  const sapNumbersByMember = {};
+  (Array.isArray(data.arDetails) ? data.arDetails : []).forEach(detail => {
+    const memberName = normalizeText(detail && detail.employeeName);
+    const sapOrderNo = normalizeSapNo(detail && detail.sapOrderNo);
+    if (!memberName || !sapOrderNo) return;
+    if (!sapNumbersByMember[memberName]) sapNumbersByMember[memberName] = [];
+    sapNumbersByMember[memberName].push(sapOrderNo);
+  });
 
   data.arMemberCandidates = arHours
     .map(item => {
@@ -1324,7 +1177,7 @@ async function attachArMemberCandidates(project) {
       const matchedOpenid = uniqueMatches.length === 1 ? uniqueMatches[0].openid : '';
       const alreadyMember = !!matchedOpenid && (
         memberOpenids.indexOf(matchedOpenid) >= 0 ||
-        budgetRows.some(row => uniqueTexts([row && row.memberOpenid, row && row.openid, row && row.userId]).indexOf(matchedOpenid) >= 0)
+        budgetRows.some(row => normalizeText(row && row.memberOpenid) === matchedOpenid)
       );
       const matchStatus = alreadyMember
         ? 'alreadyMember'
@@ -1332,6 +1185,7 @@ async function attachArMemberCandidates(project) {
       return {
         memberName,
         arSheetName,
+        sapNumbers: uniqueTexts(sapNumbersByMember[memberName] || sapNumbersByMember[arSheetName] || []),
         hours: item.hours,
         matchedSummaryCount: item.matchedSummaryCount || 0,
         memberOpenid: matchedOpenid,
@@ -1355,21 +1209,18 @@ async function prepareProjectForSave(input, user, openid, existingProject) {
 
 async function fetchArSummariesForProjects(projectsInput) {
   const projectsList = projectsInput || [];
-  const sapNos = [];
+  const sapNumbers = [];
   projectsList.forEach(project => {
-    const mainSapOrderNo = normalizeSapNo(project && (project.mainSapNo || project.sapOrderNo || project.projectNo || project.sapNo));
     const sapBindings = normalizeSapBindingList(project).filter(item => item.active !== false);
-    const projectSapList = uniqueTexts([mainSapOrderNo]
-      .concat(collectSapNos(project))
+    const projectSapList = uniqueTexts(collectSapNos(project)
       .concat(collectProjectSapItemPairs(project).map(pair => pair.sapOrderNo)))
       .map(normalizeSapNo)
       .filter(Boolean);
-    console.log('[AR_MATCH] mainSapOrderNo=', mainSapOrderNo);
     console.log('[AR_MATCH] sapBindings=', sapBindings);
     console.log('[AR_MATCH] final sapList=', projectSapList);
-    sapNos.push(...projectSapList);
+    sapNumbers.push(...projectSapList);
   });
-  const uniqueSapNos = uniqueTexts(sapNos).map(normalizeSapNo).filter(Boolean);
+  const uniqueSapNos = uniqueTexts(sapNumbers).map(normalizeSapNo).filter(Boolean);
   const querySapValues = sapQueryValues(uniqueSapNos);
   if (!querySapValues.length) return [];
   const rows = [];
@@ -1521,15 +1372,14 @@ function cleanProjectInput(input, user, openid, existingProject) {
   const pmOpenid = String(hasExisting
     ? (existing.pmOpenid || existing.createdBy || project.pmOpenid || openid || '')
     : (openid || project.pmOpenid || '')).trim();
-  const projectMembers = normalizeMembers(project.projectMembers);
   const rawEmployeeBudgets = normalizeWorkloadAllocations(project);
-  const existingEmployeeBudgets = normalizeWorkloadAllocations(existing);
-  const budgetRowsWithFallback = mergeBudgetFallbackRows(rawEmployeeBudgets, existingEmployeeBudgets);
-  const pmBudgetRows = ensurePmBudgetRow(budgetRowsWithFallback, projectManager, pmOpenid, existingEmployeeBudgets);
+  const pmBudgetRows = ensurePmBudgetRow(rawEmployeeBudgets, projectManager, pmOpenid);
 
   const submittedEmployeeNames = rawEmployeeBudgets.map(item => item.memberName);
-  const employeeNames = uniqueNames([projectManager].concat(projectMembers, submittedEmployeeNames));
+  const employeeNames = uniqueNames([projectManager].concat(submittedEmployeeNames));
   const employeeBudgets = buildEmployeeBudgetsFromNames(employeeNames, pmBudgetRows);
+  const sapBindings = normalizeSapBindingList(project);
+  const sapNumbers = uniqueTexts(sapBindings.filter(item => item.active !== false).map(item => item.sapOrderNo));
 
   return {
     projectName: String(project.projectName || '').trim(),
@@ -1540,23 +1390,20 @@ function cleanProjectInput(input, user, openid, existingProject) {
     projectManager,
     pmOpenid,
     pmName: projectManager,
-    projectMembers,
     status: project.status || 'active',
     travelFee: toNumber(project.travelFee),
     clientName: String(project.clientName || project.customerName || '').trim(),
-    mainSapNo: String(project.mainSapNo || project.projectNo || '').trim(),
-    sapNumbers: Array.isArray(project.sapNumbers) ? project.sapNumbers.map(normalizeSapNo).filter(Boolean) : collectSapNos(project),
-    sapBindings: normalizeSapBindingList(project),
+    sapNumbers,
+    sapBindings,
     precalId: String(project.precalId || '').trim(),
     precalNo: String(project.precalNo || '').trim(),
     service: String(project.service || '').trim(),
     salesOwnerName: String(project.salesOwnerName || '').trim(),
     orderValue: toOptionalNumber(project.orderValue),
-    totalMD: toOptionalNumber(project.totalMD),
-    workingMD: toOptionalNumber(project.workingMD || project.workingMd),
-    workingMd: toOptionalNumber(project.workingMd || project.workingMD),
-    travelMD: toOptionalNumber(project.travelMD),
-    quotationMD: toOptionalNumber(project.quotationMD),
+    totalMd: toOptionalNumber(project.totalMd),
+    workingMd: toOptionalNumber(project.workingMd),
+    travelMd: toOptionalNumber(project.travelMd),
+    quotationMd: toOptionalNumber(project.quotationMd),
     allocatableHours: toOptionalNumber(project.allocatableHours),
     budgetTotalHours: toOptionalNumber(project.budgetTotalHours || project.budgetHours || project.allocatableHours),
     budgetHours: toOptionalNumber(project.budgetHours || project.budgetTotalHours || project.allocatableHours),
@@ -1564,9 +1411,8 @@ function cleanProjectInput(input, user, openid, existingProject) {
     projectTotalBudget: toOptionalNumber(firstMeaningfulValue([project.projectTotalBudget, project.totalBudget, project.precalProjectBudget, project.orderValue])),
     totalBudget: toOptionalNumber(firstMeaningfulValue([project.totalBudget, project.projectTotalBudget, project.precalProjectBudget, project.orderValue])),
     bac: '',
-    travelCost: toOptionalNumber(project.travelCost || project.travelFee),
     operatingMargin: toOptionalNumber(project.operatingMargin),
-    itemList: collectLegacyItems(project),
+    itemList: normalizeItemList(project),
     constants: {
       hoursPerDay: 8,
       personDayCost: toNumber(project.constants && project.constants.personDayCost) || 5000
@@ -1574,18 +1420,13 @@ function cleanProjectInput(input, user, openid, existingProject) {
     subProjects: Array.isArray(project.subProjects) ? project.subProjects.map(item => ({
       id: item.id || '',
       name: String(item.name || '').trim(),
-      sapNo: String(item.sapNo || item.sapProjectNo || '').trim(),
-      sapProjectNo: String(item.sapProjectNo || item.sapNo || '').trim(),
       subProjectNo: String(item.subProjectNo || item.itemNo || '').trim(),
       itemNo: String(item.itemNo || '').trim(),
       itemDescription: String(item.itemDescription || '').trim(),
-      workingMD: toOptionalNumber(item.workingMD || item.workingMd),
-      workingMd: toOptionalNumber(item.workingMd || item.workingMD),
+      workingMd: toOptionalNumber(item.workingMd),
       allocatableHours: toOptionalNumber(item.allocatableHours),
       budgetHours: toOptionalNumber(item.budgetHours),
-      travelFee: toOptionalNumber(item.travelFee || item.travelCost || item.travelExpense),
-      travelCost: toOptionalNumber(item.travelCost || item.travelFee || item.travelExpense),
-      travelExpense: toOptionalNumber(item.travelExpense || item.travelFee || item.travelCost),
+      travelFee: toOptionalNumber(item.travelFee),
       budgetLaborUnitPriceRaw: toOptionalNumber(item.budgetLaborUnitPriceRaw),
       budgetLaborUnitPrice: toOptionalNumber(item.budgetLaborUnitPrice),
       plannedCompletedHours: toOptionalNumber(item.plannedCompletedHours)
@@ -1630,35 +1471,24 @@ function pickPrimaryUser(records, openid) {
   })[0] || null;
 }
 
-function firstDefined(records, field, fallback) {
-  for (const item of records || []) {
-    if (item && item[field] !== undefined && item[field] !== null && item[field] !== '') return item[field];
-  }
-  return fallback;
-}
-
-function buildMergedUser(primary, records, openid, now) {
-  const roles = uniqueRoles(records && records.length ? records : [primary]);
-  const ordered = [primary].concat((records || []).filter(item => item && item._id !== primary._id));
+function buildMergedUser(primary, openid, now) {
+  const roles = uniqueRoles([primary]);
   return {
-    _openid: openid,
     openid,
-    name: normalizeText(firstDefined(ordered, 'name', '')),
-    employeeName: normalizeText(firstDefined(ordered, 'employeeName', '')),
-    arSheetName: normalizeText(firstDefined(ordered, 'arSheetName', '')),
-    role: primary && primary.role ? primary.role : roles[0],
+    name: normalizeText(primary && primary.name),
+    arSheetName: normalizeText(primary && primary.arSheetName),
     roles,
-    active: (records || []).some(item => item && item.active === false) ? false : true,
-    defaultPersonDayCost: Number(firstDefined(ordered, 'defaultPersonDayCost', 5000)) || 5000,
+    active: primary && primary.active === false ? false : true,
+    defaultPersonDayCost: Number(primary && primary.defaultPersonDayCost || 5000) || 5000,
     deleted: false,
-    version: Number(firstDefined(ordered, 'version', 1)) || 1,
-    createdAt: firstDefined(ordered, 'createdAt', now),
+    version: Number(primary && primary.version || 1) || 1,
+    createdAt: primary && primary.createdAt || now,
     updatedAt: now
   };
 }
 
 async function findUserRecords(openid) {
-  const res = await users.where(_.or([{ openid }, { _openid: openid }])).limit(100).get();
+  const res = await users.where({ openid }).limit(20).get();
   return res.data || [];
 }
 
@@ -1676,13 +1506,13 @@ async function getCurrentUser(openid) {
   const primary = pickPrimaryUser(records, openid);
 
   if (primary) {
-    const mergedUser = buildMergedUser(primary, records, openid, now);
+    const mergedUser = buildMergedUser(primary, openid, now);
     await users.doc(primary._id).update({ data: mergedUser });
     await removeDuplicateUsers(records, primary._id);
     return Object.assign({ _id: primary._id }, primary, mergedUser);
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, roles: ['pm'] }, openid, now);
   try {
     await users.doc(openid).set({ data: newUser });
     return Object.assign({ _id: openid }, newUser);
@@ -1690,7 +1520,7 @@ async function getCurrentUser(openid) {
     const retryRecords = await findUserRecords(openid);
     const retryPrimary = pickPrimaryUser(retryRecords, openid);
     if (retryPrimary) {
-      const mergedUser = buildMergedUser(retryPrimary, retryRecords, openid, now);
+      const mergedUser = buildMergedUser(retryPrimary, openid, now);
       await users.doc(retryPrimary._id).update({ data: mergedUser });
       await removeDuplicateUsers(retryRecords, retryPrimary._id);
       return Object.assign({ _id: retryPrimary._id }, retryPrimary, mergedUser);
@@ -1701,7 +1531,6 @@ async function getCurrentUser(openid) {
 
 function normalizeRoles(user) {
   if (user && Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
-  if (user && user.role) return [String(user.role)];
   return ['pm'];
 }
 
@@ -1757,32 +1586,19 @@ function canEditAll(user) {
 }
 
 function currentUserOpenids(openid, user) {
-  return uniqueTexts([openid, user && user.openid, user && user._openid, user && user._id]);
-}
-
-function currentUserNames(user) {
-  return uniqueTexts([user && user.name, user && user.employeeName, user && user.arSheetName]);
+  return uniqueTexts([openid, user && user.openid]);
 }
 
 function ownsProject(project, openid, user) {
   if (!project) return false;
   const openids = currentUserOpenids(openid, user);
-  const ownerIds = uniqueTexts([project.ownerOpenid, project._openid, project.createdBy, project.pmOpenid, project.createdByOpenid]);
-  if (openids.some(id => ownerIds.indexOf(id) >= 0)) return true;
-  if (ownerIds.length) return false;
-  const names = currentUserNames(user);
-  const pmNames = uniqueTexts([project.pmName, project.projectManager, project.ownerName, project.createdByName]);
-  return names.some(name => pmNames.indexOf(name) >= 0);
+  const ownerIds = uniqueTexts([project.ownerOpenid, project.createdBy, project.pmOpenid]);
+  return openids.some(id => ownerIds.indexOf(id) >= 0);
 }
 
 function memberMatchesUserByOpenid(member, openids) {
-  const memberIds = uniqueTexts([member && member.memberOpenid, member && member.openid, member && member.userId, member && member._openid]);
+  const memberIds = uniqueTexts([member && member.memberOpenid]);
   return memberIds.length && openids.some(id => memberIds.indexOf(id) >= 0);
-}
-
-function memberMatchesUserByName(member, names) {
-  const memberNames = uniqueTexts([member && member.memberName, member && member.name, member && member.employeeName, member && member.userName, member && member.arSheetName]);
-  return memberNames.length && names.some(name => memberNames.indexOf(name) >= 0);
 }
 
 function isProjectMember(project, openid, user) {
@@ -1792,29 +1608,22 @@ function isProjectMember(project, openid, user) {
   if (memberOpenids.length && openids.some(id => memberOpenids.indexOf(id) >= 0)) return true;
   const employeeBudgets = project.employeeBudgets || [];
   if (employeeBudgets.some(item => memberMatchesUserByOpenid(item, openids))) return true;
-
-  const hasStructuredMemberIds = memberOpenids.length || employeeBudgets.some(item => uniqueTexts([item && item.memberOpenid, item && item.openid, item && item.userId, item && item._openid]).length);
-  if (hasStructuredMemberIds) return false;
-
-  const names = currentUserNames(user);
-  if (employeeBudgets.some(item => memberMatchesUserByName(item, names))) return true;
-  return normalizeMembers(project.projectMembers).some(name => names.indexOf(name) >= 0);
+  return false;
 }
 
 function getMyAllocation(project, openid, user) {
   const openids = currentUserOpenids(openid, user);
-  const names = currentUserNames(user);
   const budgets = project && project.employeeBudgets || [];
   const arRows = project && project.arHours || [];
   const budgetByOpenid = budgets.find(item => memberMatchesUserByOpenid(item, openids)) || null;
-  const budget = budgetByOpenid || (!uniqueTexts(project && project.memberOpenids || []).length ? budgets.find(item => memberMatchesUserByName(item, names)) : null) || null;
-  const ar = arRows.find(item => memberMatchesUserByName(item, uniqueTexts([budget && budget.memberName].concat(names)))) || null;
+  const budget = budgetByOpenid || null;
+  const ar = budget ? arRows.find(item => normalizeName(item && item.memberName, '') === normalizeName(budget.memberName, '')) : null;
   const budgetHours = budget ? toAllocationNumber(budget.budgetHours) : '';
   const actualHours = ar ? toAllocationNumber(ar.hours) : '';
   const hasBudgetHours = budgetHours !== '';
   const hasActualHours = actualHours !== '';
   return {
-    memberName: normalizeText(budget && budget.memberName) || normalizeText(ar && ar.memberName) || currentUserNames(user)[0] || '',
+    memberName: normalizeText(budget && budget.memberName) || normalizeText(ar && ar.memberName) || '',
     budgetHours,
     actualHours,
     remainingHours: hasBudgetHours ? round2(toNumber(budgetHours) - toNumber(actualHours)) : '',
@@ -1877,21 +1686,12 @@ async function listProjects(openid, user) {
     await collect({ deleted: _.neq(true) });
   } else {
     const openids = currentUserOpenids(openid, user);
-    const names = currentUserNames(user);
     for (const chunk of chunkArray(openids, 20)) {
       await collect({ deleted: _.neq(true), ownerOpenid: _.in(chunk) });
-      await collect({ deleted: _.neq(true), _openid: _.in(chunk) });
       await collect({ deleted: _.neq(true), createdBy: _.in(chunk) });
       await collect({ deleted: _.neq(true), pmOpenid: _.in(chunk) });
       await collect({ deleted: _.neq(true), memberOpenids: _.in(chunk) });
       await collect({ deleted: _.neq(true), 'employeeBudgets.memberOpenid': _.in(chunk) });
-    }
-
-    for (const chunk of chunkArray(names, 20)) {
-      await collect({ deleted: _.neq(true), pmName: _.in(chunk) });
-      await collect({ deleted: _.neq(true), projectManager: _.in(chunk) });
-      await collect({ deleted: _.neq(true), projectMembers: _.in(chunk) });
-      await collect({ deleted: _.neq(true), 'employeeBudgets.memberName': _.in(chunk) });
     }
   }
 
@@ -2002,7 +1802,7 @@ exports.main = async (event) => {
     if (action === 'loadPrecalBySap') {
       assertActive(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以按 SAP 查询 Pre-cal。');
-      const sapNo = normalizeSapNo(event.sapNo || event.sapProjectNo || event.projectNo);
+      const sapNo = normalizeSapNo(event.sapNo || event.sapOrderNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
       const precal = await getPrecalBySapNo(sapNo);
       if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal。', user };
@@ -2015,7 +1815,7 @@ exports.main = async (event) => {
       assertActive(user);
       assertUserName(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以从 SAP 创建项目。');
-      const sapNo = normalizeSapNo(event.sapNo || event.sapProjectNo || event.projectNo);
+      const sapNo = normalizeSapNo(event.sapNo || event.sapOrderNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
       const nowMs = Date.now();
 
@@ -2049,11 +1849,9 @@ exports.main = async (event) => {
         });
 
         const projectData = await prepareProjectForSave(buildProjectFromPrecal(precal, sapNo), user, openid);
-        projectData._openid = openid;
         projectData.ownerOpenid = openid;
         projectData.createdAt = now;
         projectData.createdBy = openid;
-        projectData.createdByName = getUserName(user);
         projectData.updatedAt = now;
         projectData.updatedBy = openid;
         projectData.deleted = false;
@@ -2112,11 +1910,9 @@ exports.main = async (event) => {
           }
 
           const projectData = Object.assign({}, cleaned, {
-            _openid: openid,
             ownerOpenid: openid,
             createdAt: now,
             createdBy: openid,
-            createdByName: getUserName(user),
             deleted: false,
             version: 1
           });
@@ -2139,11 +1935,9 @@ exports.main = async (event) => {
         return Object.assign({ user }, txRes);
       }
 
-      cleaned._openid = openid;
       cleaned.ownerOpenid = openid;
       cleaned.createdAt = now;
       cleaned.createdBy = openid;
-      cleaned.createdByName = getUserName(user);
       cleaned.deleted = false;
       cleaned.version = 1;
       const addRes = await projects.add({ data: cleaned });

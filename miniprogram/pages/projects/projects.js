@@ -39,8 +39,8 @@ Page({
           return project;
         });
         const user = res.user || {};
-        const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role || 'pm'];
-        const role = user.role || roles[0] || 'pm';
+        const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : ['pm'];
+        const role = roles[0] || 'pm';
         const privileged = roles.indexOf('admin') >= 0 || roles.indexOf('ar') >= 0;
         const canExport = roles.some(item => ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'].indexOf(item) >= 0);
         this.setData({

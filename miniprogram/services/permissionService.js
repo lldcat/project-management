@@ -1,7 +1,6 @@
 function normalizeRoles(user) {
   if (user && Array.isArray(user.roles) && user.roles.length) return user.roles;
-  if (user && user.role) return [user.role];
-  return [];
+  return ['pm'];
 }
 
 function hasRole(user, role) {

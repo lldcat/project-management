@@ -100,12 +100,12 @@ function defaultItemNoForSap(sapOrderNo, itemNo) {
 function readSapNo(raw) {
   if (typeof raw === 'string') return normalizeText(raw);
   const item = raw || {};
-  return normalizeText(item.sapOrderNo || item.sapNo || item.sapProjectNo || item.sapCode || item.projectNo || item.value);
+  return normalizeText(item.sapOrderNo);
 }
 
 function readItemNo(raw, sapOrderNo) {
   const item = raw || {};
-  return defaultItemNoForSap(sapOrderNo, item.itemNo || item.subProjectNo || item.no);
+  return defaultItemNoForSap(sapOrderNo, item.itemNo);
 }
 
 function normalizeSapBinding(raw, index) {
@@ -117,8 +117,6 @@ function normalizeSapBinding(raw, index) {
   return {
     sapId: item.sapId || item.id || `S${Date.now()}_${index}_${Math.floor(Math.random() * 100000)}`,
     sapOrderNo,
-    sapNo: sapOrderNo,
-    sapProjectNo: sapOrderNo,
     itemNo,
     active,
     source: normalizeText(item.source) || 'manual',
@@ -136,7 +134,7 @@ function normalizeSapBinding(raw, index) {
   };
 }
 
-function mergeLegacySapBindings(record) {
+function normalizeRecordSapBindings(record) {
   const rows = [];
   const seen = {};
   const add = raw => {
@@ -149,21 +147,11 @@ function mergeLegacySapBindings(record) {
   };
 
   (Array.isArray(record && record.sapBindings) ? record.sapBindings : []).forEach(add);
-  if (rows.length) return rows;
-  ['sapOrderNo', 'sapNo', 'sapProjectNo', 'mainSapNo'].forEach(field => {
-    if (record && record[field]) add({ sapOrderNo: record[field], itemNo: record.itemNo, source: 'legacy' });
-  });
-  ['sapNos', 'sapNumbers', 'sapNoList', 'sapProjects', 'sapItems'].forEach(field => {
-    const value = record && record[field];
-    if (!Array.isArray(value)) return;
-    value.forEach(item => add(typeof item === 'string' ? { sapOrderNo: item, source: 'legacy' } : Object.assign({ source: 'legacy' }, item || {})));
-  });
-
   return rows;
 }
 
 function activeSapBindings(record) {
-  return mergeLegacySapBindings(record).filter(item => item.active !== false);
+  return normalizeRecordSapBindings(record).filter(item => item.active !== false);
 }
 
 function chunkArray(items, size) {
@@ -177,7 +165,6 @@ function chunkArray(items, size) {
 function normalizeRoles(user) {
   if (!user) return [];
   if (Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
-  if (user.role) return [String(user.role)];
   return ['pm'];
 }
 
@@ -223,33 +210,24 @@ function pickPrimaryUser(records, openid) {
   })[0] || null;
 }
 
-function firstDefined(records, field, fallback) {
-  for (const item of records || []) {
-    if (item && item[field] !== undefined && item[field] !== null && item[field] !== '') return item[field];
-  }
-  return fallback;
-}
-
-function buildMergedUser(primary, records, openid, now) {
-  const roles = uniqueRoles(records && records.length ? records : [primary]);
-  const ordered = [primary].concat((records || []).filter(item => item && item._id !== primary._id));
+function buildMergedUser(primary, openid, now) {
+  const roles = uniqueRoles([primary]);
   return {
-    _openid: openid,
     openid,
-    name: normalizeText(firstDefined(ordered, 'name', '')),
-    role: primary && primary.role ? primary.role : roles[0],
+    name: normalizeText(primary && primary.name),
+    arSheetName: normalizeText(primary && primary.arSheetName),
     roles,
-    active: (records || []).some(item => item && item.active === false) ? false : true,
-    defaultPersonDayCost: Number(firstDefined(ordered, 'defaultPersonDayCost', 5000)) || 5000,
+    active: primary && primary.active === false ? false : true,
+    defaultPersonDayCost: Number(primary && primary.defaultPersonDayCost || 5000) || 5000,
     deleted: false,
-    version: Number(firstDefined(ordered, 'version', 1)) || 1,
-    createdAt: firstDefined(ordered, 'createdAt', now),
+    version: Number(primary && primary.version || 1) || 1,
+    createdAt: primary && primary.createdAt || now,
     updatedAt: now
   };
 }
 
 async function findUserRecords(openid) {
-  const res = await users.where(_.or([{ openid }, { _openid: openid }])).limit(100).get();
+  const res = await users.where({ openid }).limit(20).get();
   return res.data || [];
 }
 
@@ -267,13 +245,13 @@ async function getCurrentUser(openid) {
   const primary = pickPrimaryUser(records, openid);
 
   if (primary) {
-    const mergedUser = buildMergedUser(primary, records, openid, now);
+    const mergedUser = buildMergedUser(primary, openid, now);
     await users.doc(primary._id).update({ data: mergedUser });
     await removeDuplicateUsers(records, primary._id);
     return Object.assign({ _id: primary._id }, primary, mergedUser);
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, roles: ['pm'] }, openid, now);
   try {
     await users.doc(openid).set({ data: newUser });
     return Object.assign({ _id: openid }, newUser);
@@ -281,7 +259,7 @@ async function getCurrentUser(openid) {
     const retryRecords = await findUserRecords(openid);
     const retryPrimary = pickPrimaryUser(retryRecords, openid);
     if (retryPrimary) {
-      const mergedUser = buildMergedUser(retryPrimary, retryRecords, openid, now);
+      const mergedUser = buildMergedUser(retryPrimary, openid, now);
       await users.doc(retryPrimary._id).update({ data: mergedUser });
       await removeDuplicateUsers(retryRecords, retryPrimary._id);
       return Object.assign({ _id: retryPrimary._id }, retryPrimary, mergedUser);
@@ -577,8 +555,8 @@ function canViewPrecal(user, openid, record) {
 
 function buildListItem(record) {
   const result = record.calculationResult || {};
-  const bindings = mergeLegacySapBindings(record);
-  const sapNos = bindings.filter(item => item.active !== false).map(item => item.sapOrderNo).filter(Boolean);
+  const bindings = normalizeRecordSapBindings(record);
+  const sapNumbers = bindings.filter(item => item.active !== false).map(item => item.sapOrderNo).filter(Boolean);
   return {
     _id: record._id,
     precalNo: record.precalNo,
@@ -591,7 +569,7 @@ function buildListItem(record) {
     totalOrderValue: result.totalOrderValue || 0,
     operatingMargin: result.operatingMargin || 0,
     resultOfOrder: result.resultOfOrder || 0,
-    sapNos,
+    sapNumbers,
     sapBindings: bindings,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
@@ -603,7 +581,7 @@ function buildListItem(record) {
 function keywordMatch(record, keyword) {
   const key = normalizeText(keyword).toLowerCase();
   if (!key) return true;
-  const sapText = mergeLegacySapBindings(record).map(item => item.sapOrderNo).join(' ');
+  const sapText = normalizeRecordSapBindings(record).map(item => item.sapOrderNo).join(' ');
   const text = [record.precalNo, record.customerName, record.service, record.salesOwnerName, sapText]
     .join(' ')
     .toLowerCase();
@@ -623,7 +601,6 @@ async function createPrecal(payload, openid, user) {
   const salesOwnerName = getUserName(user, 'Sales');
 
   const data = {
-    _openid: openid,
     precalNo: buildPrecalNo(),
     customerName: normalizeText(input.customerName),
     service: input.service,
@@ -756,7 +733,7 @@ async function getPrecalDetail(payload, openid, user) {
   const record = await getRecord(payload && payload.precalRecordId);
   if (!record) throw new Error('Pre-cal 记录不存在。');
   if (!canViewPrecal(user, openid, record)) throw new Error('无权查看该 Pre-cal。');
-  const normalizedRecord = Object.assign({}, record, { sapBindings: mergeLegacySapBindings(record) });
+  const normalizedRecord = Object.assign({}, record, { sapBindings: normalizeRecordSapBindings(record) });
   const arTime = await getArTimeForPrecal(normalizedRecord);
   return { ok: true, record: Object.assign({}, normalizedRecord, { arTime }), user };
 }
@@ -919,13 +896,8 @@ function normalizeSapBindings(rawBindings) {
 }
 function normalizeItemList(rawItems, rawBindings) {
   const list = Array.isArray(rawItems) ? rawItems : [];
-  const flattenedLegacy = [];
-  (Array.isArray(rawBindings) ? rawBindings : []).forEach(sap => {
-    (Array.isArray(sap.items) ? sap.items : []).forEach(item => flattenedLegacy.push(item));
-  });
-  const source = list.length ? list : flattenedLegacy;
   const itemSeen = {};
-  const normalized = source.map((item, idx) => {
+  const normalized = list.map((item, idx) => {
     const itemNo = normalizeText(item.itemNo) || String((idx + 1) * 1000);
     if (itemSeen[itemNo]) return null;
     itemSeen[itemNo] = true;
@@ -986,7 +958,7 @@ async function bindSap(payload, openid, user) {
   if ([STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.PROJECT_CREATED].indexOf(record.status) < 0) throw new Error('只有 Submitted、SAP Bound 或 Project Created 状态可以维护 SAP号。');
   const sapBindings = normalizeSapBindings(payload && payload.sapBindings);
   const itemList = normalizeItemList(payload && payload.itemList, payload && payload.sapBindings);
-  const previousBindings = mergeLegacySapBindings(record);
+  const previousBindings = normalizeRecordSapBindings(record);
 
   const now = db.serverDate();
   const operatorName = getUserName(user, 'CS');
@@ -1059,7 +1031,7 @@ async function unlockPrecal(payload, openid, user) {
   if (!reason) throw new Error('请填写解锁原因。');
   const record = await getRecord(id);
   if (!record) throw new Error('Pre-cal 记录不存在。');
-  if (record.status !== STATUS.SAP_BOUND) throw new Error('只有 SAP Bound 状态可以解锁。');
+  if ([STATUS.SAP_BOUND, STATUS.PROJECT_CREATED].indexOf(record.status) < 0) throw new Error('只有 SAP Bound 或 Project Created 状态可以解锁。');
   const now = db.serverDate();
   await precalRecords.doc(id).update({
     data: {
@@ -1074,7 +1046,7 @@ async function unlockPrecal(payload, openid, user) {
     }
   });
   await addLog(record, {
-    logType: 'admin_unlock', action: 'unlock', fromStatus: STATUS.SAP_BOUND, toStatus: STATUS.UNLOCKED,
+    logType: 'admin_unlock', action: 'unlock', fromStatus: record.status, toStatus: STATUS.UNLOCKED,
     reason, operatorOpenid: openid, operatorName: getUserName(user), operatorRoles: normalizeRoles(user)
   });
   return { ok: true, id, status: STATUS.UNLOCKED, user };
@@ -1085,8 +1057,10 @@ async function cancelPrecal(payload, openid, user) {
   const reason = normalizeText(payload && payload.reason) || '取消 Pre-cal';
   const record = await getRecord(id);
   if (!record) throw new Error('Pre-cal 记录不存在。');
-  if (!(record.createdBy === openid || hasRole(user, 'admin'))) throw new Error('无权取消该 Pre-cal。');
-  if (record.status === STATUS.SAP_BOUND) throw new Error('已绑定 SAP 的记录不能直接取消。');
+  const isAdmin = hasRole(user, 'admin');
+  if (!(record.createdBy === openid || isAdmin)) throw new Error('无权取消该 Pre-cal。');
+  if (record.status === STATUS.SAP_BOUND && !isAdmin) throw new Error('已绑定 SAP 的记录不能直接取消。');
+  if (record.status === STATUS.PROJECT_CREATED) throw new Error('已创建项目的 Pre-cal 不能直接取消，请先处理关联项目。');
   const now = db.serverDate();
   await precalRecords.doc(id).update({ data: { status: STATUS.CANCELLED, updatedAt: now, updatedBy: openid, version: _.inc(1) } });
   await addLog(record, {

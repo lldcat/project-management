@@ -11,7 +11,6 @@ const ROLE_OPTIONS = [
 
 function normalizeRoles(user) {
   if (user && Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
-  if (user && user.role) return [String(user.role)];
   return ['pm'];
 }
 
@@ -43,8 +42,8 @@ Page({
         const users = (res.users || []).map(item => {
           const roles = normalizeRoles(item);
           return Object.assign({}, item, {
-            displayName: item.name || item.employeeName || item.openid || item._openid || item._id || '-',
-            displayOpenid: item.openid || item._openid || item._id || '-',
+            displayName: item.name || item.openid || '-',
+            displayOpenid: item.openid || '-',
             roles,
             roleText: roleText(roles),
             roleOptions: ROLE_OPTIONS.map(option => Object.assign({}, option, {
@@ -77,7 +76,7 @@ Page({
     const index = Number(e.currentTarget.dataset.index);
     const user = this.data.users[index];
     if (!user) return;
-    const openid = user.openid || user._openid || user._id;
+    const openid = user.openid;
     this.setData({ savingOpenid: openid });
     userService.updateUserRoles(openid, user.roles)
       .then(() => {

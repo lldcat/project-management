@@ -50,6 +50,10 @@
         <view class="stat-label">已绑定 SAP</view>
       </view>
       <view class="stat-card precal-stat">
+        <view class="stat-value">{{precalStats.projectCreated}}</view>
+        <view class="stat-label">已创建项目</view>
+      </view>
+      <view class="stat-card precal-stat">
         <view class="stat-value">{{precalStats.other}}</view>
         <view class="stat-label">其他状态</view>
       </view>

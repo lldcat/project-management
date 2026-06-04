@@ -30,6 +30,7 @@ Page({
       draft: 0,
       pendingSap: 0,
       sapBound: 0,
+      projectCreated: 0,
       other: 0,
       withdrawn: 0,
       unlocked: 0,
@@ -64,8 +65,7 @@ Page({
         const riskProjects = projects.filter(item => item.metrics.hasRisk).slice(0, 8);
         const user = res.user || {};
         const roles = this.normalizeRoles(user);
-        const role = user.role || roles[0] || 'pm';
-        const privileged = role === 'admin' || role === 'ar' || roles.indexOf('admin') >= 0;
+        const privileged = roles.indexOf('admin') >= 0 || roles.indexOf('ar') >= 0;
         this.setData({
           projects,
           riskProjects,
@@ -128,6 +128,7 @@ Page({
       draft: 0,
       pendingSap: 0,
       sapBound: 0,
+      projectCreated: 0,
       withdrawn: 0,
       unlocked: 0,
       cancelled: 0,
@@ -138,6 +139,10 @@ Page({
       if (status === 'Draft') stats.draft += 1;
       else if (status === 'Submitted') stats.pendingSap += 1;
       else if (status === 'SAP Bound') stats.sapBound += 1;
+      else if (status === 'Project Created') {
+        stats.sapBound += 1;
+        stats.projectCreated += 1;
+      }
       else {
         stats.other += 1;
         if (status === 'Withdrawn') stats.withdrawn += 1;
@@ -150,7 +155,6 @@ Page({
 
   normalizeRoles(user) {
     if (user && Array.isArray(user.roles) && user.roles.length) return user.roles;
-    if (user && user.role) return [user.role];
     return ['pm'];
   },
 

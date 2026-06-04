@@ -3,7 +3,7 @@
     <view class="row">
       <view>
         <view class="card-title">Admin - Pre-cal 管理</view>
-        <view class="muted">查看全部记录、解锁已绑定 SAP 的 Pre-cal。</view>
+        <view class="muted">查看全部记录、维护 SAP、解锁或取消 Pre-cal。</view>
       </view>
       <button class="btn-secondary" size="mini" bindtap="goParams">参数维护</button>
     </view>
@@ -23,8 +23,10 @@
     </view>
     <view class="metric-line"><text>总订单金额</text><text>{{item.totalOrderValueText}}</text></view>
     <view class="metric-line"><text>SAP号</text><text>{{item.sapTextDisplay}}</text></view>
-    <view class="actions" catchtap="noop">
-      <button wx:if="{{item.canUnlock}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="unlock">解锁</button>
+    <view wx:if="{{item.hasActions}}" class="actions" catchtap="noop">
+      <button wx:if="{{item.canMaintainSap}}" class="btn-secondary" size="mini" data-id="{{item._id}}" catchtap="goBindSap">维护 SAP</button>
+      <button wx:if="{{item.canUnlock}}" class="btn-secondary" size="mini" data-id="{{item._id}}" catchtap="unlock">解锁</button>
+      <button wx:if="{{item.canCancel}}" class="btn-danger" size="mini" data-id="{{item._id}}" catchtap="cancel">取消</button>
     </view>
   </view>
 </view>

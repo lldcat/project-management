@@ -26,7 +26,7 @@ function uniqueNames(names) {
 
 function normalizeMembers(input) {
   const memberValue = item => {
-    if (item && typeof item === 'object') return item.memberName || item.name || item.employeeName || item.userName || '';
+    if (item && typeof item === 'object') return item.memberName || '';
     return item;
   };
   if (Array.isArray(input)) {
@@ -105,17 +105,17 @@ function buildPrecalDisplay(form) {
     precalNo: displayValue(data.precalNo),
     service: displayValue(data.service),
     salesOwnerName: displayValue(data.salesOwnerName),
-    mainSapNo: displayValue(data.mainSapNo || data.projectNo),
+    sapText: displayValue((data.sapNumbers || []).join('、')),
     totalBudget: displayValue(data.precalProjectBudget || data.totalBudget || data.projectTotalBudget),
     budgetHours: displayValue(data.allocatableHours || data.budgetHours || data.budgetTotalHours),
-    travelCost: displayValue(data.travelCost || data.travelFee),
+    travelFee: displayValue(data.travelFee),
     operatingMargin: displayValue(data.operatingMargin)
   };
 }
 
 function buildSapBindingDisplay(form) {
   const rows = (Array.isArray(form && form.sapBindings) ? form.sapBindings : []).map(item => {
-    const sapOrderNo = normalizeSapNo(item.sapOrderNo || item.sapNo || item.sapProjectNo);
+    const sapOrderNo = normalizeSapNo(item.sapOrderNo);
     return Object.assign({}, item, {
       sapOrderNo,
       itemNoText: item.itemNo || (sapOrderNo.indexOf('7') === 0 ? '1000' : '-'),
@@ -157,17 +157,14 @@ function mapOpenidByName(rows) {
   (rows || []).forEach(item => {
     const name = normalizeName(item.memberName);
     if (!name) return;
-    map[name] = item.memberOpenid || item.openid || '';
+    map[name] = item.memberOpenid || '';
   });
   return map;
 }
 
 function normalizeWorkloadAllocations(project) {
   const data = project || {};
-  const source = hasValue(data.employeeBudgets) ? data.employeeBudgets
-    : (hasValue(data.memberBudgets) ? data.memberBudgets
-      : (hasValue(data.workloadAllocations) ? data.workloadAllocations
-        : (hasValue(data.budgetHoursAllocation) ? data.budgetHoursAllocation : [])));
+  const source = hasValue(data.employeeBudgets) ? data.employeeBudgets : [];
   const rows = [];
 
   const addRow = (name, budgetHours, id, memberOpenid) => {
@@ -189,18 +186,12 @@ function normalizeWorkloadAllocations(project) {
       }
       if (!item || typeof item !== 'object') return;
       addRow(
-        item.memberName || item.name || item.employeeName || item.userName,
-        item.budgetHours !== undefined ? item.budgetHours
-          : (item.hours !== undefined ? item.hours
-            : (item.allocationHours !== undefined ? item.allocationHours : item.workload)),
+        item.memberName,
+        item.budgetHours,
         item.id,
-        item.memberOpenid || item.openid
+        item.memberOpenid
       );
     });
-  } else if (typeof source === 'string') {
-    normalizeMembers(source).forEach(name => addRow(name, ''));
-  } else if (source && typeof source === 'object') {
-    Object.keys(source).forEach(name => addRow(name, source[name]));
   }
 
   const budgetMap = mapByName(rows, 'budgetHours');
@@ -241,8 +232,8 @@ function normalizeArHourRows(input) {
       }
       if (!item || typeof item !== 'object') return;
       addRow(
-        item.memberName || item.name || item.employeeName || item.userName,
-        item.hours !== undefined ? item.hours : item.actualHours,
+        item.memberName,
+        item.hours,
         item.id,
         item
       );
@@ -291,9 +282,7 @@ function addMembersToAllocations(form, names) {
   if (!cleanNames.length) return data;
   const existing = normalizeWorkloadAllocations(data);
   const allocationNames = uniqueNames(existing.map(item => item.memberName).concat(cleanNames));
-  const next = Object.assign({}, data, {
-    projectMembers: uniqueNames(normalizeMembers(data.projectMembers).concat(cleanNames))
-  });
+  const next = Object.assign({}, data);
   next.employeeBudgets = applyEmployeeMeta(buildEmployeeBudgets(allocationNames, existing), next.projectManager);
   next.arHours = data.arHours || [];
   return next;
@@ -334,12 +323,11 @@ function normalizePeopleStructures(rawForm, options) {
   const form = JSON.parse(JSON.stringify(rawForm || {}));
   const includeArNames = !!(options && options.includeArNames);
   const pmName = normalizeName(form.projectManager);
-  const memberNames = normalizeMembers(form.projectMembers);
   form.employeeBudgets = normalizeWorkloadAllocations(form);
   const employeeNames = form.employeeBudgets.map(item => item.memberName);
   const arRows = normalizeArHourRows(form.arHours);
   const arNames = includeArNames ? arRows.map(item => item.memberName) : [];
-  const names = uniqueNames([pmName].concat(memberNames, employeeNames, arNames));
+  const names = uniqueNames([pmName].concat(employeeNames, arNames));
 
   form.employeeBudgets = applyEmployeeMeta(buildEmployeeBudgets(names, form.employeeBudgets || []), pmName);
   form.arHours = arRows;
@@ -358,7 +346,7 @@ function calculateAllocationSummary(project) {
   const explicitBudgetHours = toOptionalNumberValue(form.allocatableHours !== undefined && form.allocatableHours !== ''
     ? form.allocatableHours
     : (form.budgetTotalHours !== undefined && form.budgetTotalHours !== '' ? form.budgetTotalHours : form.budgetHours));
-  const workingMd = toOptionalNumberValue(form.workingMD !== undefined && form.workingMD !== '' ? form.workingMD : form.workingMd);
+  const workingMd = toOptionalNumberValue(form.workingMd);
   const projectBudgetHours = explicitBudgetHours !== ''
     ? Number(explicitBudgetHours)
     : (workingMd !== '' && Number.isFinite(Number(workingMd)) ? Number(workingMd) * 8 : '');
@@ -408,6 +396,7 @@ function normalizeArMemberCandidates(input) {
       const matchStatus = item.matchStatus || '';
       return Object.assign({}, item, {
         candidateKey: `${item.memberOpenid || ''}#${item.memberName || ''}#${item.arSheetName || ''}`,
+        sapText: (item.sapNumbers || []).join('、') || '-',
         hoursText: formatSummaryNumber(item.hours),
         matchedSummaryCountText: item.matchedSummaryCount || 0,
         statusClass: matchStatus === 'matched'
@@ -422,6 +411,10 @@ function normalizeArMemberCandidates(input) {
     .filter(item => normalizeName(item.memberName));
 }
 
+function employeeBudgetNames(employeeBudgets) {
+  return (employeeBudgets || []).map(item => normalizeName(item.memberName)).filter(Boolean).join('、');
+}
+
 function defaultForm() {
   return {
     projectName: '',
@@ -432,11 +425,9 @@ function defaultForm() {
     projectManager: '',
     pmOpenid: '',
     pmName: '',
-    projectMembers: [],
     status: 'active',
     travelFee: '',
     clientName: '',
-    mainSapNo: '',
     sapNumbers: [],
     sapBindings: [],
     precalId: '',
@@ -444,18 +435,16 @@ function defaultForm() {
     service: '',
     salesOwnerName: '',
     orderValue: '',
-    totalMD: '',
-    workingMD: '',
+    totalMd: '',
     workingMd: '',
-    travelMD: '',
-    quotationMD: '',
+    travelMd: '',
+    quotationMd: '',
     allocatableHours: '',
     budgetTotalHours: '',
     budgetHours: '',
     precalProjectBudget: '',
     projectTotalBudget: '',
     totalBudget: '',
-    travelCost: '',
     operatingMargin: '',
     itemList: [],
     constants: {
@@ -463,7 +452,7 @@ function defaultForm() {
       personDayCost: 5000
     },
     subProjects: [
-      { id: createId('sub'), name: '', itemNo: '1000', subProjectNo: '1000', budgetHours: '', travelFee: '', travelCost: '', travelExpense: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }
+      { id: createId('sub'), name: '', itemNo: '1000', subProjectNo: '1000', budgetHours: '', travelFee: '', budgetLaborUnitPrice: 5000, plannedCompletedHours: '' }
     ],
     employeeBudgets: [],
     arHours: [],
@@ -629,7 +618,7 @@ Page({
           inactiveSapBindings: sapDisplay.inactive,
           hasActiveSapBindings: sapDisplay.active.length > 0,
           hasInactiveSapBindings: sapDisplay.inactive.length > 0,
-          membersText: normalizeMembers(form.projectMembers).join('、'),
+          membersText: employeeBudgetNames(form.employeeBudgets),
           memberInputText: '',
           statusIndex: statusIndex >= 0 ? statusIndex : 0,
           currentStatusLabel: this.data.statusOptions[statusIndex >= 0 ? statusIndex : 0].label,
@@ -683,16 +672,15 @@ Page({
     const incoming = precalProject || {};
     const form = Object.assign({}, current);
     [
-      'projectName', 'customerName', 'clientName', 'projectNo', 'mainSapNo', 'precalId', 'precalNo',
-      'service', 'salesOwnerName', 'orderValue', 'totalMD', 'workingMD', 'workingMd', 'travelMD', 'quotationMD', 'allocatableHours', 'budgetTotalHours', 'budgetHours',
-      'precalProjectBudget', 'projectTotalBudget', 'totalBudget', 'travelFee', 'travelCost', 'operatingMargin'
+      'projectName', 'customerName', 'clientName', 'projectNo', 'precalId', 'precalNo',
+      'service', 'salesOwnerName', 'orderValue', 'totalMd', 'workingMd', 'travelMd', 'quotationMd', 'allocatableHours', 'budgetTotalHours', 'budgetHours',
+      'precalProjectBudget', 'projectTotalBudget', 'totalBudget', 'travelFee', 'operatingMargin'
     ].forEach(field => assignIfValue(form, field, incoming[field]));
 
     if (hasValue(incoming.sapNumbers)) form.sapNumbers = incoming.sapNumbers;
     if (hasValue(incoming.sapBindings)) form.sapBindings = incoming.sapBindings;
     if (hasValue(incoming.itemList)) form.itemList = incoming.itemList;
     if (hasValue(incoming.subProjects)) form.subProjects = incoming.subProjects.map(item => Object.assign({ id: createId('sub') }, item));
-    if (hasValue(incoming.projectMembers)) form.projectMembers = normalizeMembers(incoming.projectMembers);
     if (hasValue(incoming.employeeBudgets)) form.employeeBudgets = normalizeWorkloadAllocations(incoming);
     form.arHours = hasValue(incoming.arHours) ? normalizeArHourRows(incoming.arHours) : [];
     form.arDetails = hasValue(incoming.arDetails) ? normalizeArDetails(incoming.arDetails) : [];
@@ -720,16 +708,16 @@ Page({
       inactiveSapBindings: sapDisplay.inactive,
       hasActiveSapBindings: sapDisplay.active.length > 0,
       hasInactiveSapBindings: sapDisplay.inactive.length > 0,
-      membersText: normalizeMembers(normalized.projectMembers).join('、'),
+      membersText: employeeBudgetNames(normalized.employeeBudgets),
       memberInputText: '',
-      sapSearchNo: normalizeSapNo(sapNo || incoming.mainSapNo || incoming.projectNo),
+      sapSearchNo: normalizeSapNo(sapNo),
       precalPreview: incoming,
       hasPrecalPreview: true,
       precalDisplay: buildPrecalDisplay(normalized),
       arMemberCandidates,
       hasArMemberCandidates: arMemberCandidates.length > 0,
       canAddArMemberCandidates: arMemberCandidates.some(item => item.canAdd),
-      lastSyncedSapNo: normalizeSapNo(sapNo || incoming.mainSapNo || incoming.projectNo),
+      lastSyncedSapNo: normalizeSapNo(sapNo),
       precalSyncMessage: '已同步 Pre-cal 数据'
     }, () => this.refreshPreview());
   },
@@ -738,7 +726,7 @@ Page({
     if (this.data.readOnly || this.data.isEdit) return { skipped: true };
     if (this.data.precalSyncing) return { skipped: true };
     const opts = options || {};
-    const sapNo = normalizeSapNo(this.data.sapSearchNo || this.data.form.projectNo || this.data.form.mainSapNo || this.data.form.sapNo);
+    const sapNo = normalizeSapNo(this.data.sapSearchNo);
     if (!sapNo) {
       const message = '请先输入 SAP 项目号';
       if (!opts.silent) wx.showToast({ title: message, icon: 'none' });
@@ -817,7 +805,7 @@ Page({
     form = addMembersToAllocations(form, names);
     this.setData({
       form,
-      membersText: normalizeMembers(form.projectMembers).join('、'),
+      membersText: employeeBudgetNames(form.employeeBudgets),
       memberInputText: ''
     }, () => this.refreshPreview());
   },
@@ -825,7 +813,7 @@ Page({
   syncPeopleFromPmAndMembers() {
     if (this.data.readOnly) return;
     let form = JSON.parse(JSON.stringify(this.data.form));
-    const names = uniqueNames([form.projectManager].concat(form.projectMembers || []));
+    const names = uniqueNames([form.projectManager].concat((form.employeeBudgets || []).map(item => item.memberName)));
     if (!names.length) {
       wx.showToast({ title: '请先填写项目经理 PM 或项目组员', icon: 'none' });
       return;
@@ -867,8 +855,6 @@ Page({
       subProjectNo: String((this.data.form.subProjects.length + 1) * 1000),
       budgetHours: '',
       travelFee: '',
-      travelCost: '',
-      travelExpense: '',
       budgetLaborUnitPrice: 5000,
       plannedCompletedHours: ''
     });
@@ -964,7 +950,6 @@ Page({
       wx.showToast({ title: '候选人员已在项目组', icon: 'none' });
       return;
     }
-    form.projectMembers = uniqueNames(normalizeMembers(form.projectMembers).concat(addedNames));
     form.employeeBudgets = applyEmployeeMeta(existingBudgets, form.projectManager);
     const arMemberCandidates = normalizeArMemberCandidates(this.data.arMemberCandidates).map(item => {
       if (addedNames.indexOf(normalizeName(item.memberName)) < 0) return item;
@@ -977,7 +962,7 @@ Page({
     });
     this.setData({
       form,
-      membersText: normalizeMembers(form.projectMembers).join('、'),
+      membersText: employeeBudgetNames(form.employeeBudgets),
       arMemberCandidates,
       hasArMemberCandidates: arMemberCandidates.length > 0,
       canAddArMemberCandidates: arMemberCandidates.some(item => item.canAdd)
@@ -1029,13 +1014,11 @@ Page({
     form.projectManager = pmName;
     form = normalizePeopleStructures(form);
     form.travelFee = toNullableNumber(form.travelFee);
-    form.travelCost = toNullableNumber(form.travelCost || form.travelFee);
     form.orderValue = toNullableNumber(form.orderValue);
-    form.totalMD = toNullableNumber(form.totalMD);
-    form.workingMD = toNullableNumber(form.workingMD || form.workingMd);
-    form.workingMd = toNullableNumber(form.workingMd || form.workingMD);
-    form.travelMD = toNullableNumber(form.travelMD);
-    form.quotationMD = toNullableNumber(form.quotationMD);
+    form.totalMd = toNullableNumber(form.totalMd);
+    form.workingMd = toNullableNumber(form.workingMd);
+    form.travelMd = toNullableNumber(form.travelMd);
+    form.quotationMd = toNullableNumber(form.quotationMd);
     form.allocatableHours = toNullableNumber(form.allocatableHours);
     form.budgetTotalHours = toNullableNumber(form.budgetTotalHours || form.budgetHours || form.allocatableHours);
     form.budgetHours = toNullableNumber(form.budgetHours || form.budgetTotalHours || form.allocatableHours);
@@ -1045,30 +1028,46 @@ Page({
     form.bac = null;
     form.operatingMargin = toNullableNumber(form.operatingMargin);
     form.clientName = form.clientName || form.customerName;
-    form.mainSapNo = form.mainSapNo || form.projectNo;
-    form.sapNumbers = Array.isArray(form.sapNumbers) ? form.sapNumbers.map(normalizeSapNo).filter(Boolean) : [];
-    form.sapBindings = Array.isArray(form.sapBindings) ? form.sapBindings : [];
-    form.itemList = Array.isArray(form.itemList) ? form.itemList : [];
+    form.sapBindings = (Array.isArray(form.sapBindings) ? form.sapBindings : [])
+      .map(item => {
+        const sapOrderNo = normalizeSapNo(item.sapOrderNo);
+        return {
+          sapId: item.sapId || item.id || createId('sap'),
+          sapOrderNo,
+          itemNo: String(item.itemNo || (sapOrderNo.indexOf('7') === 0 ? '1000' : '')).trim(),
+          active: item.active === false ? false : true,
+          source: item.source || 'manual',
+          memberName: normalizeName(item.memberName),
+          remark: String(item.remark || '').trim()
+        };
+      })
+      .filter(item => item.sapOrderNo);
+    form.sapNumbers = form.sapBindings.filter(item => item.active !== false).map(item => item.sapOrderNo);
+    form.itemList = (Array.isArray(form.itemList) ? form.itemList : []).map(item => ({
+      itemId: item.itemId || item.id || createId('item'),
+      itemNo: String(item.itemNo || '').trim(),
+      itemDescription: String(item.itemDescription || '').trim(),
+      name: String(item.name || item.itemDescription || '').trim(),
+      travelFee: toNullableNumber(item.travelFee),
+      workingMd: toNullableNumber(item.workingMd),
+      budgetHours: toNullableNumber(item.budgetHours),
+      budgetAmount: toNullableNumber(item.budgetAmount),
+      remark: String(item.remark || '').trim()
+    })).filter(item => item.itemNo);
     form.constants = {
       hoursPerDay: 8,
       personDayCost: Number((form.constants && form.constants.personDayCost) || 5000)
     };
-    form.projectMembers = normalizeMembers(form.projectMembers);
     form.subProjects = (form.subProjects || []).map(item => ({
       id: item.id || createId('sub'),
       name: item.name || '',
-      sapNo: normalizeSapNo(item.sapNo || item.sapProjectNo),
-      sapProjectNo: normalizeSapNo(item.sapProjectNo || item.sapNo),
       subProjectNo: String(item.subProjectNo || item.itemNo || '').trim(),
       itemNo: String(item.itemNo || '').trim(),
       itemDescription: String(item.itemDescription || '').trim(),
-      workingMD: toNullableNumber(item.workingMD || item.workingMd),
-      workingMd: toNullableNumber(item.workingMd || item.workingMD),
+      workingMd: toNullableNumber(item.workingMd),
       allocatableHours: toNullableNumber(item.allocatableHours),
       budgetHours: toNullableNumber(item.budgetHours),
-      travelFee: toNullableNumber(item.travelFee || item.travelCost || item.travelExpense),
-      travelCost: toNullableNumber(item.travelCost || item.travelFee || item.travelExpense),
-      travelExpense: toNullableNumber(item.travelExpense || item.travelFee || item.travelCost),
+      travelFee: toNullableNumber(item.travelFee),
       budgetLaborUnitPriceRaw: toNullableNumber(item.budgetLaborUnitPriceRaw),
       budgetLaborUnitPrice: toNullableNumber(item.budgetLaborUnitPrice),
       plannedCompletedHours: toNullableNumber(item.plannedCompletedHours)
@@ -1096,7 +1095,7 @@ Page({
     }
 
     const form = this.data.form || {};
-    const sapNo = normalizeSapNo(this.data.sapSearchNo || form.projectNo || form.mainSapNo || form.sapNo);
+    const sapNo = normalizeSapNo(this.data.sapSearchNo);
     const needPrecalSync = !this.data.id && sapNo && (!form.precalNo || sapNo !== this.data.lastSyncedSapNo);
     if (needPrecalSync) {
       try {

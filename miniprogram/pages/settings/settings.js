@@ -9,7 +9,6 @@ Page({
     nameInput: '',
     missingName: false,
     savingName: false,
-    role: 'pm',
     roles: ['pm'],
     roleText: 'PM'
   },
@@ -20,15 +19,13 @@ Page({
 
   loadUser() {
     const user = app.globalData.user || {};
-    const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role || 'pm'];
-    const role = user.role || roles[0] || 'pm';
+    const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : ['pm'];
     this.setData({
       openid: app.globalData.openid || user.openid || '',
       envId: app.globalData.envId || '',
       name: user.name || '',
       nameInput: user.name || '',
       missingName: !String(user.name || '').trim(),
-      role,
       roles,
       roleText: roles.map(item => this.formatRole(item)).join(' / ')
     });

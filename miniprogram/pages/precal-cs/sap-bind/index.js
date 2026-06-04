@@ -5,7 +5,7 @@ function createItem(itemNo) {
   return { itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo, itemDescription: '', remark: '' };
 }
 function createSap() {
-  return { sapId: `S${Date.now()}_${Math.floor(Math.random() * 100000)}`, sapOrderNo: '', sapNo: '', sapNoText: '', itemNo: '1000', active: true, activeText: '有效', isActive: true, isInactive: false, source: 'manual', memberName: '', remark: '' };
+  return { sapId: `S${Date.now()}_${Math.floor(Math.random() * 100000)}`, sapOrderNo: '', sapNoText: '', itemNo: '1000', active: true, activeText: '有效', isActive: true, isInactive: false, source: 'manual', memberName: '', remark: '' };
 }
 function nextItemNo(items) {
   const nums = (items || []).map(item => parseInt(item.itemNo, 10)).filter(num => !isNaN(num));
@@ -13,7 +13,7 @@ function nextItemNo(items) {
   while (nums.indexOf(next) >= 0) next += 1000;
   return String(next);
 }
-function mergeLegacyItems(record) {
+function normalizeItems(record) {
   const merged = [];
   const seen = {};
 
@@ -37,11 +37,6 @@ function mergeLegacyItems(record) {
 
   (record.itemList || []).forEach(add);
 
-  // 兼容旧版本：之前 item 可能挂在 sapBindings.items 下面
-  (record.sapBindings || []).forEach(sap => {
-    (sap.items || []).forEach(add);
-  });
-
   return merged.length ? merged : [createItem('1000')];
 }
 
@@ -58,7 +53,7 @@ Page({
             salesOwnerNameText: record.salesOwnerName || '-'
           }),
           sapBindings: this.normalizeSapBindings(record.sapBindings && record.sapBindings.length ? record.sapBindings : [createSap()]),
-          itemList: mergeLegacyItems(record),
+          itemList: normalizeItems(record),
           summary: { totalOrderValueText: formatMoney(r.totalOrderValue), operatingMarginText: formatPercent(r.operatingMargin) }
         });
       })
@@ -66,10 +61,9 @@ Page({
   },
   normalizeSapBindings(list) {
     return (list || []).map(item => {
-      const sapOrderNo = String(item.sapOrderNo || item.sapNo || item.sapProjectNo || '').trim();
+      const sapOrderNo = String(item.sapOrderNo || '').trim();
       return Object.assign({}, item, {
         sapOrderNo,
-        sapNo: sapOrderNo,
         itemNo: item.itemNo || (sapOrderNo.indexOf('7') === 0 ? '1000' : ''),
         active: item.active === false ? false : true,
         activeText: item.active === false ? '已停用' : '有效',
@@ -86,9 +80,8 @@ Page({
     const data = {};
     const value = e.detail.value;
     data['sapBindings[' + index + '].' + field] = value;
-    if (field === 'sapOrderNo' || field === 'sapNo') {
+    if (field === 'sapOrderNo') {
       data['sapBindings[' + index + '].sapOrderNo'] = value;
-      data['sapBindings[' + index + '].sapNo'] = value;
       data['sapBindings[' + index + '].sapNoText'] = value;
       const current = this.data.sapBindings[index] || {};
       if (!current.itemNo && String(value || '').indexOf('7') === 0) data['sapBindings[' + index + '].itemNo'] = '1000';
@@ -126,7 +119,7 @@ Page({
         if (!res.confirm) return;
         const list = this.data.sapBindings.slice();
         const current = list[index] || {};
-        if (current.sapOrderNo || current.sapNo) {
+        if (current.sapOrderNo) {
           list[index] = Object.assign({}, current, {
             active: false,
             activeText: '已停用',
@@ -169,7 +162,7 @@ Page({
     for (let i = 0; i < this.data.sapBindings.length; i++) {
       const sap = this.data.sapBindings[i];
       if (sap.active === false) continue;
-      const normalizedSap = String(sap.sapOrderNo || sap.sapNo || '').trim();
+      const normalizedSap = String(sap.sapOrderNo || '').trim();
       const itemNo = String(sap.itemNo || '').trim() || (normalizedSap.indexOf('7') === 0 ? '1000' : '');
       const key = `${normalizedSap}#${itemNo}`;
 

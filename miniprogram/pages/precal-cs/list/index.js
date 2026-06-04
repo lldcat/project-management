@@ -17,7 +17,7 @@ Page({
   onPullDownRefresh() { this.loadData().finally(() => wx.stopPullDownRefresh()); },
   label(status) { return status === 'SAP Bound' ? '已绑定SAP' : status === 'Submitted' ? '待绑定SAP' : status === 'Project Created' ? '已创建项目' : status; },
   enrich(row) {
-    const sapText = (row.sapNos || []).join('、');
+    const sapText = (row.sapNumbers || []).join('、');
     return Object.assign({}, row, {
       statusLabel: this.label(row.status),
       totalOrderValueText: formatMoney(row.totalOrderValue),

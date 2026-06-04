@@ -34,7 +34,7 @@ Page({
       .catch(err => {
         console.error(err);
         wx.showToast({ title: '身份加载失败', icon: 'none' });
-        this.applyUser({ role: 'pm', roles: ['pm'] });
+        this.applyUser({ roles: ['pm'] });
       })
       .finally(() => this.setData({ loading: false }));
   },
@@ -54,7 +54,6 @@ Page({
 
   normalizeRoles(user) {
     if (user && Array.isArray(user.roles) && user.roles.length) return user.roles;
-    if (user && user.role) return [user.role];
     return ['pm'];
   },
 

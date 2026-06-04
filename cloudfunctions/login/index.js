@@ -13,7 +13,6 @@ function normalizeText(value) {
 function normalizeRoles(user) {
   if (!user) return [];
   if (Array.isArray(user.roles) && user.roles.length) return user.roles.map(String).filter(Boolean);
-  if (user.role) return [String(user.role)];
   return ['pm'];
 }
 
@@ -68,35 +67,24 @@ function pickPrimaryUser(records, openid) {
   })[0] || null;
 }
 
-function firstDefined(records, field, fallback) {
-  for (const item of records || []) {
-    if (item && item[field] !== undefined && item[field] !== null && item[field] !== '') return item[field];
-  }
-  return fallback;
-}
-
-function buildMergedUser(primary, records, openid, now) {
-  const roles = uniqueRoles(records && records.length ? records : [primary]);
-  const ordered = [primary].concat((records || []).filter(item => item && item._id !== primary._id));
+function buildMergedUser(primary, openid, now) {
+  const roles = uniqueRoles([primary]);
   return {
-    _openid: openid,
     openid,
-    name: normalizeText(firstDefined(ordered, 'name', '')),
-    employeeName: normalizeText(firstDefined(ordered, 'employeeName', '')),
-    arSheetName: normalizeText(firstDefined(ordered, 'arSheetName', '')),
-    role: primary && primary.role ? primary.role : roles[0],
+    name: normalizeText(primary && primary.name),
+    arSheetName: normalizeText(primary && primary.arSheetName),
     roles,
-    active: (records || []).some(item => item && item.active === false) ? false : true,
-    defaultPersonDayCost: Number(firstDefined(ordered, 'defaultPersonDayCost', 5000)) || 5000,
+    active: primary && primary.active === false ? false : true,
+    defaultPersonDayCost: Number(primary && primary.defaultPersonDayCost || 5000) || 5000,
     deleted: false,
-    version: Number(firstDefined(ordered, 'version', 1)) || 1,
-    createdAt: firstDefined(ordered, 'createdAt', now),
+    version: Number(primary && primary.version || 1) || 1,
+    createdAt: primary && primary.createdAt || now,
     updatedAt: now
   };
 }
 
 async function findUserRecords(openid) {
-  const res = await users.where(_.or([{ openid }, { _openid: openid }])).limit(100).get();
+  const res = await users.where({ openid }).limit(20).get();
   return res.data || [];
 }
 
@@ -115,13 +103,13 @@ async function getOrCreateCurrentUser(openid) {
   const primary = pickPrimaryUser(records, openid);
 
   if (primary) {
-    const mergedUser = buildMergedUser(primary, records, openid, now);
+    const mergedUser = buildMergedUser(primary, openid, now);
     await users.doc(primary._id).update({ data: mergedUser });
     const duplicateCount = await removeDuplicateUsers(records, primary._id);
     return { user: Object.assign({ _id: primary._id }, primary, mergedUser), duplicateCount };
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, roles: ['pm'] }, openid, now);
 
   try {
     await users.doc(openid).set({ data: newUser });
@@ -131,7 +119,7 @@ async function getOrCreateCurrentUser(openid) {
     const retryRecords = await findUserRecords(openid);
     const retryPrimary = pickPrimaryUser(retryRecords, openid);
     if (retryPrimary) {
-      const mergedUser = buildMergedUser(retryPrimary, retryRecords, openid, now);
+      const mergedUser = buildMergedUser(retryPrimary, openid, now);
       await users.doc(retryPrimary._id).update({ data: mergedUser });
       const duplicateCount = await removeDuplicateUsers(retryRecords, retryPrimary._id);
       return { user: Object.assign({ _id: retryPrimary._id }, retryPrimary, mergedUser), duplicateCount };
@@ -167,16 +155,15 @@ async function listUsers(openid) {
 async function updateUserRoles(openid, payload) {
   const current = (await getOrCreateCurrentUser(openid)).user;
   assertAdmin(current);
-  const targetOpenid = normalizeText(payload && (payload.openid || payload._openid || payload.userId));
+  const targetOpenid = normalizeText(payload && payload.openid);
   const roles = sanitizeRoles(payload && payload.roles);
   if (!targetOpenid) return { ok: false, message: '用户 openid 不能为空。' };
-  const records = await users.where(_.or([{ openid: targetOpenid }, { _openid: targetOpenid }, { _id: targetOpenid }])).limit(20).get();
+  const records = await users.where({ openid: targetOpenid }).limit(20).get();
   const target = pickPrimaryUser(records.data || [], targetOpenid);
   if (!target) return { ok: false, message: '用户不存在。' };
   const now = db.serverDate();
   await users.doc(target._id).update({
     data: {
-      role: roles[0],
       roles,
       updatedAt: now,
       updatedBy: openid,

@@ -42,34 +42,33 @@ Page({
         const s70 = (record.productivityScenarios || {}).productivity70 || {};
         const s80 = (record.productivityScenarios || {}).productivity80 || {};
         const user = res.user || {};
-        const roles = user.roles || (user.role ? [user.role] : []);
+        const roles = Array.isArray(user.roles) ? user.roles : [];
         const editableStatuses = ['Draft', 'Withdrawn', 'Unlocked'];
         const canEdit = editableStatuses.indexOf(record.status) >= 0 && (record.createdBy === user.openid || roles.indexOf('admin') >= 0);
         const canSubmit = editableStatuses.indexOf(record.status) >= 0;
         const rawSapBindings = Array.isArray(record.sapBindings) ? record.sapBindings : [];
         const normalizedSapBindings = rawSapBindings.map(item => {
-          const sapOrderNo = item.sapOrderNo || item.sapNo || item.sapProjectNo || '';
+          const sapOrderNo = item.sapOrderNo || '';
           return Object.assign({}, item, {
             sapOrderNo,
-            sapNo: sapOrderNo,
             itemNo: item.itemNo || (String(sapOrderNo).indexOf('7') === 0 ? '1000' : ''),
             active: item.active === false ? false : true
           });
         });
         const sapBindings = normalizedSapBindings.filter(item => item.active !== false).map(item => Object.assign({}, item, {
-          sapNoText: item.sapOrderNo || item.sapNo || '-',
+          sapNoText: item.sapOrderNo || '-',
           memberNameText: item.memberName || '-',
           itemNoText: item.itemNo || '-',
           remarkText: item.remark || '-'
         }));
         const inactiveSapBindings = normalizedSapBindings.filter(item => item.active === false).map(item => Object.assign({}, item, {
-          sapNoText: item.sapOrderNo || item.sapNo || '-',
+          sapNoText: item.sapOrderNo || '-',
           memberNameText: item.memberName || '-',
           itemNoText: item.itemNo || '-',
           disabledReasonText: item.disabledReason || '-',
           remarkText: item.remark || '-'
         }));
-        const rawItemList = record.itemList && record.itemList.length ? record.itemList : sapBindings.reduce((acc, sap) => acc.concat(sap.items || []), []);
+        const rawItemList = record.itemList && record.itemList.length ? record.itemList : [];
         const itemList = rawItemList.map(item => Object.assign({}, item, {
           itemNoText: item.itemNo || '-',
           itemDescriptionText: item.itemDescription || '-',
@@ -87,7 +86,7 @@ Page({
             remarkText: record.remark || '-'
           }),
           statusLabel: this.label(record.status),
-          sapText: sapBindings.map(item => item.sapNo).join('、'),
+          sapText: sapBindings.map(item => item.sapOrderNo).join('、'),
           sapBindings,
           hasSapBindings: sapBindings.length > 0,
           inactiveSapBindings,

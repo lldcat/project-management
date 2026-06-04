@@ -18,10 +18,10 @@
       <view class="metric-line"><text>Pre-cal 编号</text><text>{{precalDisplay.precalNo}}</text></view>
       <view class="metric-line"><text>Service</text><text>{{precalDisplay.service}}</text></view>
       <view class="metric-line"><text>Sales Owner</text><text>{{precalDisplay.salesOwnerName}}</text></view>
-      <view class="metric-line"><text>主 SAP 项目号</text><text>{{precalDisplay.mainSapNo}}</text></view>
+      <view class="metric-line"><text>SAP 项目号</text><text>{{precalDisplay.sapText}}</text></view>
       <view class="metric-line"><text>Pre-cal 项目总预算</text><text>{{precalDisplay.totalBudget}}</text></view>
       <view class="metric-line"><text>可分配工作工时</text><text>{{precalDisplay.budgetHours}}</text></view>
-      <view class="metric-line"><text>差旅费</text><text>{{precalDisplay.travelCost}}</text></view>
+      <view class="metric-line"><text>差旅费</text><text>{{precalDisplay.travelFee}}</text></view>
       <view class="metric-line"><text>Operating Margin</text><text>{{precalDisplay.operatingMargin}}</text></view>
     </view>
 
@@ -101,14 +101,13 @@
 
     <view wx:for="{{form.subProjects}}" wx:key="id" class="sub-card">
       <view class="row sub-title-row">
-        <view class="sub-title">子项目 {{index + 1}} <text wx:if="{{item.sapNo}}" class="mini-note">SAP：{{item.sapNo}}</text> <text wx:if="{{item.itemNo}}" class="mini-note">Item：{{item.itemNo}}</text></view>
+        <view class="sub-title">子项目 {{index + 1}} <text wx:if="{{item.itemNo}}" class="mini-note">Item：{{item.itemNo}}</text></view>
         <button wx:if="{{!readOnly}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeSubProject">删除</button>
       </view>
       <label class="form-label">子项目名称</label>
       <input class="input" disabled="{{readOnly}}" value="{{item.name}}" placeholder="例如：ESG 咨询 / 追溯辅导" data-index="{{index}}" data-field="name" bindinput="onSubProjectInput" />
       <label class="form-label">子项目号 / Item No.</label>
       <input class="input" disabled="{{readOnly}}" value="{{item.itemNo}}" placeholder="例如：1000" data-index="{{index}}" data-field="itemNo" bindinput="onSubProjectInput" />
-      <view wx:if="{{item.sapNo}}" class="muted">SAP 项目号：{{item.sapNo}}</view>
       <view wx:if="{{item.itemNo}}" class="muted">Item：{{item.itemNo}} {{item.itemDescription}}</view>
 
       <view class="grid-2">
@@ -206,6 +205,7 @@
           <view class="sub-title">{{item.memberName}}</view>
           <view class="tag {{item.statusClass}}">{{item.matchStatusText}}</view>
         </view>
+        <view class="metric-line"><text>SAP</text><text>{{item.sapText}}</text></view>
         <view class="metric-line"><text>AR 工时</text><text class="metric-value">{{item.hoursText}} h</text></view>
         <view class="metric-line"><text>匹配汇总数</text><text>{{item.matchedSummaryCountText}}</text></view>
         <view wx:if="{{item.arSheetName && item.arSheetName != item.memberName}}" class="muted">AR 名称：{{item.arSheetName}}</view>
@@ -213,16 +213,6 @@
       </view>
     </view>
 
-    <view wx:if="{{form.arDetails.length == 0}}" class="muted empty-hint">暂无匹配 AR 明细。</view>
-    <view wx:for="{{form.arDetails}}" wx:key="detailKey" class="sub-card">
-      <view class="row sub-title-row">
-        <view class="sub-title">{{item.employeeName}} <text wx:if="{{item.employeeName == form.projectManager}}" class="mini-note">PM</text></view>
-      </view>
-      <view class="metric-line"><text>SAP</text><text>{{item.sapOrderNo}}</text></view>
-      <view class="metric-line"><text>Item</text><text>{{item.itemNo}}</text></view>
-      <view class="metric-line"><text>AR Time</text><text class="metric-value">{{item.totalArHours || 0}} h</text></view>
-      <view class="muted">Record Count：{{item.recordCount || 0}}</view>
-    </view>
   </view>
 
   <view wx:if="{{canViewFullProject}}" class="card">

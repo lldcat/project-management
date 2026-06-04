@@ -5,7 +5,7 @@ function createItem(itemNo) {
   return { itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo, itemDescription: '', remark: '' };
 }
 function createSap() {
-  return { sapId: `S${Date.now()}_${Math.floor(Math.random() * 100000)}`, sapNo: '', memberName: '', remark: '' };
+  return { sapId: `S${Date.now()}_${Math.floor(Math.random() * 100000)}`, sapOrderNo: '', sapNo: '', sapNoText: '', itemNo: '1000', active: true, activeText: '有效', isActive: true, isInactive: false, source: 'manual', memberName: '', remark: '' };
 }
 function nextItemNo(items) {
   const nums = (items || []).map(item => parseInt(item.itemNo, 10)).filter(num => !isNaN(num));
@@ -54,20 +54,45 @@ Page({
         const record = res.record || {};
         const r = record.calculationResult || {};
         this.setData({
-          record,
-          sapBindings: record.sapBindings && record.sapBindings.length ? record.sapBindings : [createSap()],
+          record: Object.assign({}, record, {
+            salesOwnerNameText: record.salesOwnerName || '-'
+          }),
+          sapBindings: this.normalizeSapBindings(record.sapBindings && record.sapBindings.length ? record.sapBindings : [createSap()]),
           itemList: mergeLegacyItems(record),
           summary: { totalOrderValueText: formatMoney(r.totalOrderValue), operatingMarginText: formatPercent(r.operatingMargin) }
         });
       })
       .catch(err => wx.showToast({ title: err.message || '加载失败', icon: 'none' }));
   },
+  normalizeSapBindings(list) {
+    return (list || []).map(item => {
+      const sapOrderNo = String(item.sapOrderNo || item.sapNo || item.sapProjectNo || '').trim();
+      return Object.assign({}, item, {
+        sapOrderNo,
+        sapNo: sapOrderNo,
+        itemNo: item.itemNo || (sapOrderNo.indexOf('7') === 0 ? '1000' : ''),
+        active: item.active === false ? false : true,
+        activeText: item.active === false ? '已停用' : '有效',
+        isInactive: item.active === false,
+        isActive: item.active !== false,
+        sapNoText: sapOrderNo
+      });
+    });
+  },
   onReasonInput(e) { this.setData({ reason: e.detail.value || '' }); },
   onSapInput(e) {
     const index = e.currentTarget.dataset.index;
     const field = e.currentTarget.dataset.field;
     const data = {};
-    data['sapBindings[' + index + '].' + field] = e.detail.value;
+    const value = e.detail.value;
+    data['sapBindings[' + index + '].' + field] = value;
+    if (field === 'sapOrderNo' || field === 'sapNo') {
+      data['sapBindings[' + index + '].sapOrderNo'] = value;
+      data['sapBindings[' + index + '].sapNo'] = value;
+      data['sapBindings[' + index + '].sapNoText'] = value;
+      const current = this.data.sapBindings[index] || {};
+      if (!current.itemNo && String(value || '').indexOf('7') === 0) data['sapBindings[' + index + '].itemNo'] = '1000';
+    }
     this.setData(data);
   },
   onItemInput(e) {
@@ -78,6 +103,18 @@ Page({
     this.setData(data);
   },
   addSap() { this.setData({ sapBindings: this.data.sapBindings.concat([createSap()]) }); },
+  restoreSap(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const data = {};
+    data['sapBindings[' + index + '].active'] = true;
+    data['sapBindings[' + index + '].activeText'] = '有效';
+    data['sapBindings[' + index + '].isInactive'] = false;
+    data['sapBindings[' + index + '].isActive'] = true;
+    data['sapBindings[' + index + '].disabledAt'] = null;
+    data['sapBindings[' + index + '].disabledBy'] = null;
+    data['sapBindings[' + index + '].disabledReason'] = null;
+    this.setData(data);
+  },
   removeSap(e) {
     const index = Number(e.currentTarget.dataset.index);
     wx.showModal({
@@ -88,7 +125,18 @@ Page({
       success: (res) => {
         if (!res.confirm) return;
         const list = this.data.sapBindings.slice();
-        list.splice(index, 1);
+        const current = list[index] || {};
+        if (current.sapOrderNo || current.sapNo) {
+          list[index] = Object.assign({}, current, {
+            active: false,
+            activeText: '已停用',
+            isInactive: true,
+            isActive: false,
+            disabledReason: current.disabledReason || 'user_removed'
+          });
+        } else {
+          list.splice(index, 1);
+        }
         this.setData({ sapBindings: list.length ? list : [createSap()] });
       }
     });
@@ -120,12 +168,15 @@ Page({
     const sapSeen = {};
     for (let i = 0; i < this.data.sapBindings.length; i++) {
       const sap = this.data.sapBindings[i];
-      const normalizedSap = String(sap.sapNo || '').trim();
+      if (sap.active === false) continue;
+      const normalizedSap = String(sap.sapOrderNo || sap.sapNo || '').trim();
+      const itemNo = String(sap.itemNo || '').trim() || (normalizedSap.indexOf('7') === 0 ? '1000' : '');
+      const key = `${normalizedSap}#${itemNo}`;
 
       if (!normalizedSap) return `第 ${i + 1} 个 SAP号为空`;
-      if (sapSeen[normalizedSap]) return `SAP号 ${normalizedSap} 重复`;
+      if (sapSeen[key]) return `SAP号 ${normalizedSap} / Item ${itemNo || '空'} 重复`;
 
-      sapSeen[normalizedSap] = true;
+      sapSeen[key] = true;
     }
 
     const itemSeen = {};

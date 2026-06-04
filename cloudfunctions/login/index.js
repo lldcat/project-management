@@ -14,7 +14,7 @@ function normalizeRoles(user) {
   if (!user) return [];
   if (Array.isArray(user.roles) && user.roles.length) return user.roles.map(String).filter(Boolean);
   if (user.role) return [String(user.role)];
-  return ['pm','sales','cs','ar'];
+  return ['pm'];
 }
 
 function uniqueRoles(records) {
@@ -25,7 +25,26 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm','sales','cs','ar'];
+  return roles.length ? roles : ['pm'];
+}
+
+function hasRole(user, role) {
+  return normalizeRoles(user).indexOf(role) >= 0;
+}
+
+function assertAdmin(user) {
+  if (!hasRole(user, 'admin')) throw new Error('只有 admin 可以维护用户角色。');
+}
+
+function sanitizeRoles(roles) {
+  const allowed = { pm: true, admin: true, ar: true, member: true, sales: true, cs: true, leader: true };
+  const seen = {};
+  (Array.isArray(roles) ? roles : []).forEach(role => {
+    const clean = normalizeText(role);
+    if (allowed[clean]) seen[clean] = true;
+  });
+  const result = Object.keys(seen);
+  return result.length ? result : ['pm'];
 }
 
 function userScore(user, openid) {
@@ -63,6 +82,8 @@ function buildMergedUser(primary, records, openid, now) {
     _openid: openid,
     openid,
     name: normalizeText(firstDefined(ordered, 'name', '')),
+    employeeName: normalizeText(firstDefined(ordered, 'employeeName', '')),
+    arSheetName: normalizeText(firstDefined(ordered, 'arSheetName', '')),
     role: primary && primary.role ? primary.role : roles[0],
     roles,
     active: (records || []).some(item => item && item.active === false) ? false : true,
@@ -100,7 +121,7 @@ async function getOrCreateCurrentUser(openid) {
     return { user: Object.assign({ _id: primary._id }, primary, mergedUser), duplicateCount };
   }
 
-  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm','sales','cs','ar'] }, [], openid, now);
+  const newUser = buildMergedUser({ _id: openid, role: 'pm', roles: ['pm'] }, [], openid, now);
 
   try {
     await users.doc(openid).set({ data: newUser });
@@ -136,6 +157,36 @@ async function updateCurrentUserName(openid, name) {
   return { ok: true, user: refreshed.user, duplicateCount: refreshed.duplicateCount };
 }
 
+async function listUsers(openid) {
+  const current = (await getOrCreateCurrentUser(openid)).user;
+  assertAdmin(current);
+  const res = await users.where({ deleted: false }).orderBy('updatedAt', 'desc').limit(200).get();
+  return { ok: true, user: current, users: res.data || [] };
+}
+
+async function updateUserRoles(openid, payload) {
+  const current = (await getOrCreateCurrentUser(openid)).user;
+  assertAdmin(current);
+  const targetOpenid = normalizeText(payload && (payload.openid || payload._openid || payload.userId));
+  const roles = sanitizeRoles(payload && payload.roles);
+  if (!targetOpenid) return { ok: false, message: '用户 openid 不能为空。' };
+  const records = await users.where(_.or([{ openid: targetOpenid }, { _openid: targetOpenid }, { _id: targetOpenid }])).limit(20).get();
+  const target = pickPrimaryUser(records.data || [], targetOpenid);
+  if (!target) return { ok: false, message: '用户不存在。' };
+  const now = db.serverDate();
+  await users.doc(target._id).update({
+    data: {
+      role: roles[0],
+      roles,
+      updatedAt: now,
+      updatedBy: openid,
+      version: _.inc(1)
+    }
+  });
+  const refreshed = await users.doc(target._id).get();
+  return { ok: true, user: current, targetUser: refreshed.data };
+}
+
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID;
@@ -146,9 +197,16 @@ exports.main = async (event) => {
 
   const action = event && event.action;
   const payload = event && event.payload || {};
-  const result = action === 'updateName'
-    ? await updateCurrentUserName(openid, payload.name)
-    : await getOrCreateCurrentUser(openid);
+  let result;
+  try {
+    if (action === 'updateName') result = await updateCurrentUserName(openid, payload.name);
+    else if (action === 'listUsers') result = await listUsers(openid);
+    else if (action === 'updateUserRoles') result = await updateUserRoles(openid, payload);
+    else result = await getOrCreateCurrentUser(openid);
+  } catch (err) {
+    console.error(err);
+    return { ok: false, message: err.message || 'login 服务异常。' };
+  }
 
   if (result.ok === false) return result;
 

@@ -23,11 +23,15 @@ function callFunction(functionName, action, data) {
   const callData = functionName === 'projectService'
     ? Object.assign({ action }, payload)
     : { action, payload };
+  const startedAt = Date.now();
 
   return wx.cloud.callFunction({
     name: functionName,
     data: callData
-  }).then(normalizeResult);
+  }).then(normalizeResult).catch(err => {
+    console.error(`[cloudbaseClient] ${functionName}.${action || '-'} 调用失败，用时 ${Date.now() - startedAt}ms`, err);
+    throw err;
+  });
 }
 
 function login() {

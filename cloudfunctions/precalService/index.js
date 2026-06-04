@@ -9,12 +9,15 @@ const users = db.collection('users');
 const precalRecords = db.collection('precal_records');
 const precalParameters = db.collection('precal_parameters');
 const precalLogs = db.collection('precal_logs');
+const arSummaries = db.collection('ar_summaries');
+const projects = db.collection('projects');
 
 const STATUS = {
   DRAFT: 'Draft',
   SUBMITTED: 'Submitted',
   WITHDRAWN: 'Withdrawn',
   SAP_BOUND: 'SAP Bound',
+  PROJECT_CREATED: 'Project Created',
   UNLOCKED: 'Unlocked',
   CANCELLED: 'Cancelled'
 };
@@ -74,6 +77,101 @@ function deepCopy(obj) {
 
 function normalizeText(value) {
   return String(value || '').trim();
+}
+
+function uniqueTexts(values) {
+  const seen = {};
+  const result = [];
+  (values || []).forEach(value => {
+    const text = normalizeText(value);
+    if (!text || seen[text]) return;
+    seen[text] = true;
+    result.push(text);
+  });
+  return result;
+}
+
+function defaultItemNoForSap(sapOrderNo, itemNo) {
+  const cleanItemNo = normalizeText(itemNo);
+  if (cleanItemNo) return cleanItemNo;
+  return normalizeText(sapOrderNo).indexOf('7') === 0 ? '1000' : '';
+}
+
+function readSapNo(raw) {
+  if (typeof raw === 'string') return normalizeText(raw);
+  const item = raw || {};
+  return normalizeText(item.sapOrderNo || item.sapNo || item.sapProjectNo || item.sapCode || item.projectNo || item.value);
+}
+
+function readItemNo(raw, sapOrderNo) {
+  const item = raw || {};
+  return defaultItemNoForSap(sapOrderNo, item.itemNo || item.subProjectNo || item.no);
+}
+
+function normalizeSapBinding(raw, index) {
+  const item = raw || {};
+  const sapOrderNo = readSapNo(item);
+  if (!sapOrderNo) return null;
+  const itemNo = readItemNo(item, sapOrderNo);
+  const active = item.active === false ? false : true;
+  return {
+    sapId: item.sapId || item.id || `S${Date.now()}_${index}_${Math.floor(Math.random() * 100000)}`,
+    sapOrderNo,
+    sapNo: sapOrderNo,
+    sapProjectNo: sapOrderNo,
+    itemNo,
+    active,
+    source: normalizeText(item.source) || 'manual',
+    memberName: normalizeText(item.memberName),
+    remark: normalizeText(item.remark),
+    createdAt: item.createdAt || '',
+    createdBy: item.createdBy || '',
+    createdByName: item.createdByName || '',
+    updatedAt: item.updatedAt || '',
+    updatedBy: item.updatedBy || '',
+    updatedByName: item.updatedByName || '',
+    disabledAt: item.disabledAt || null,
+    disabledBy: item.disabledBy || null,
+    disabledReason: item.disabledReason || null
+  };
+}
+
+function mergeLegacySapBindings(record) {
+  const rows = [];
+  const seen = {};
+  const add = raw => {
+    const normalized = normalizeSapBinding(raw, rows.length);
+    if (!normalized) return;
+    const key = `${normalized.sapOrderNo}#${normalized.itemNo}#${normalized.active === false ? 'inactive' : 'active'}`;
+    if (seen[key]) return;
+    seen[key] = true;
+    rows.push(normalized);
+  };
+
+  (Array.isArray(record && record.sapBindings) ? record.sapBindings : []).forEach(add);
+  if (rows.length) return rows;
+  ['sapOrderNo', 'sapNo', 'sapProjectNo', 'mainSapNo'].forEach(field => {
+    if (record && record[field]) add({ sapOrderNo: record[field], itemNo: record.itemNo, source: 'legacy' });
+  });
+  ['sapNos', 'sapNumbers', 'sapNoList', 'sapProjects', 'sapItems'].forEach(field => {
+    const value = record && record[field];
+    if (!Array.isArray(value)) return;
+    value.forEach(item => add(typeof item === 'string' ? { sapOrderNo: item, source: 'legacy' } : Object.assign({ source: 'legacy' }, item || {})));
+  });
+
+  return rows;
+}
+
+function activeSapBindings(record) {
+  return mergeLegacySapBindings(record).filter(item => item.active !== false);
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let i = 0; i < (items || []).length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
 }
 
 function normalizeRoles(user) {
@@ -473,13 +571,14 @@ async function getRecord(id) {
 
 function canViewPrecal(user, openid, record) {
   if (hasAnyRole(user, ['admin'])) return true;
-  if (hasRole(user, 'cs') && [STATUS.SUBMITTED, STATUS.SAP_BOUND].indexOf(record.status) >= 0) return true;
+  if (hasRole(user, 'cs') && [STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.PROJECT_CREATED].indexOf(record.status) >= 0) return true;
   return record.createdBy === openid || record.salesOwnerOpenid === openid;
 }
 
 function buildListItem(record) {
   const result = record.calculationResult || {};
-  const sapNos = (record.sapBindings || []).map(item => item.sapNo).filter(Boolean);
+  const bindings = mergeLegacySapBindings(record);
+  const sapNos = bindings.filter(item => item.active !== false).map(item => item.sapOrderNo).filter(Boolean);
   return {
     _id: record._id,
     precalNo: record.precalNo,
@@ -493,6 +592,7 @@ function buildListItem(record) {
     operatingMargin: result.operatingMargin || 0,
     resultOfOrder: result.resultOfOrder || 0,
     sapNos,
+    sapBindings: bindings,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
     submittedAt: record.submittedAt,
@@ -503,7 +603,7 @@ function buildListItem(record) {
 function keywordMatch(record, keyword) {
   const key = normalizeText(keyword).toLowerCase();
   if (!key) return true;
-  const sapText = (record.sapBindings || []).map(item => item.sapNo).join(' ');
+  const sapText = mergeLegacySapBindings(record).map(item => item.sapOrderNo).join(' ');
   const text = [record.precalNo, record.customerName, record.service, record.salesOwnerName, sapText]
     .join(' ')
     .toLowerCase();
@@ -656,7 +756,88 @@ async function getPrecalDetail(payload, openid, user) {
   const record = await getRecord(payload && payload.precalRecordId);
   if (!record) throw new Error('Pre-cal 记录不存在。');
   if (!canViewPrecal(user, openid, record)) throw new Error('无权查看该 Pre-cal。');
-  return { ok: true, record, user };
+  const normalizedRecord = Object.assign({}, record, { sapBindings: mergeLegacySapBindings(record) });
+  const arTime = await getArTimeForPrecal(normalizedRecord);
+  return { ok: true, record: Object.assign({}, normalizedRecord, { arTime }), user };
+}
+
+async function getArTimeForPrecal(record) {
+  const bindings = activeSapBindings(record);
+  const sapOrderNos = uniqueTexts(bindings.map(item => item.sapOrderNo));
+  if (!sapOrderNos.length) {
+    return { sapOrderNos: [], totalArHours: 0, details: [], hasDetails: false, noActiveSap: true, warningText: '当前项目没有有效 SAP 绑定，AR Time 将无法匹配。' };
+  }
+  const activePairs = {};
+  bindings.forEach(item => {
+    activePairs[`${item.sapOrderNo}#${item.itemNo || '1000'}`] = true;
+  });
+
+  const rows = [];
+  for (const chunk of chunkArray(sapOrderNos, 20)) {
+    const fetchByQuery = async (query) => {
+      let skip = 0;
+      while (true) {
+        const res = await arSummaries
+          .where(query)
+          .field({
+            sapOrderNo: true,
+            itemNo: true,
+            employeeName: true,
+            totalArHours: true,
+            recordCount: true,
+            updatedAt: true,
+            importedAt: true,
+            lastImportAt: true,
+            createdAt: true,
+            sheetName: true,
+            active: true
+          })
+          .skip(skip)
+          .limit(100)
+          .get();
+        const batch = res.data || [];
+        rows.push(...batch.filter(item => item.active !== false && activePairs[`${normalizeText(item.sapOrderNo)}#${normalizeText(item.itemNo) || '1000'}`]));
+        if (batch.length < 100) break;
+        skip += batch.length;
+      }
+    };
+    await fetchByQuery({ active: true, sapOrderNo: _.in(chunk) });
+    if (typeof _.exists === 'function') {
+      await fetchByQuery({ active: _.exists(false), sapOrderNo: _.in(chunk) });
+    } else {
+      await fetchByQuery({ active: _.neq(false), sapOrderNo: _.in(chunk) });
+    }
+  }
+
+  const detailMap = {};
+  rows.forEach(row => {
+    const employeeName = normalizeText(row.employeeName || row.sheetName) || '-';
+    const itemNo = normalizeText(row.itemNo) || '1000';
+    const sapOrderNo = normalizeText(row.sapOrderNo);
+    const key = `${employeeName}#${sapOrderNo}#${itemNo}`;
+    if (!detailMap[key]) {
+      detailMap[key] = { employeeName, sapOrderNo, itemNo, totalArHours: 0, recordCount: 0 };
+    }
+    detailMap[key].totalArHours += toNumber(row.totalArHours);
+    detailMap[key].recordCount += toNumber(row.recordCount);
+  });
+
+  const details = Object.keys(detailMap).map(key => Object.assign({}, detailMap[key], {
+    totalArHours: round4(detailMap[key].totalArHours),
+    recordCount: round4(detailMap[key].recordCount)
+  })).sort((a, b) => {
+    const nameDiff = a.employeeName.localeCompare(b.employeeName);
+    return nameDiff || a.itemNo.localeCompare(b.itemNo);
+  });
+
+  return {
+    sapOrderNos,
+    totalArHours: round4(sum(details, 'totalArHours')),
+    details,
+    hasDetails: details.length > 0,
+    noActiveSap: false,
+    warningText: ''
+  };
 }
 
 async function listMyPrecal(payload, openid, user) {
@@ -683,7 +864,7 @@ async function listPrecalForCS(payload, openid, user) {
   assertAnyRole(user, ['cs', 'admin'], '只有 CS 或 admin 可以查看 SAP 绑定列表。');
   const status = normalizeText(payload && payload.status);
   const keyword = normalizeText(payload && payload.keyword);
-  const allowed = [STATUS.SUBMITTED, STATUS.SAP_BOUND];
+  const allowed = [STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.PROJECT_CREATED];
   const queryStatus = status && status !== 'all' ? [status] : allowed;
   const pageSize = 100;
   let skip = 0;
@@ -722,48 +903,20 @@ async function listPrecalForAdmin(payload, openid, user) {
 
 function normalizeSapBindings(rawBindings) {
   const list = Array.isArray(rawBindings) ? rawBindings : [];
-  const sapSeen = {};
-  return list.map((sap, index) => {
-    const sapNo = normalizeText(sap.sapNo);
-    if (!sapNo) throw new Error(`第 ${index + 1} 个 SAP号为空。`);
-    if (sapSeen[sapNo]) throw new Error(`SAP号 ${sapNo} 重复。`);
-    sapSeen[sapNo] = true;
-
-    return {
-      sapId: sap.sapId || `S${Date.now()}_${Math.floor(Math.random() * 100000)}`,
-      sapNo,
-      memberName: normalizeText(sap.memberName),
-      remark: normalizeText(sap.remark),
-      createdBy: sap.createdBy || '',
-      createdByName: sap.createdByName || '',
-      createdAt: sap.createdAt || '',
-      updatedBy: sap.updatedBy || '',
-      updatedByName: sap.updatedByName || '',
-      updatedAt: sap.updatedAt || ''
-    };
-  });
-}
-function normalizeItemList(rawItems, fallbackBindings) {
-  const oldItems = (Array.isArray(rawItems) && rawItems.length)
-    ? rawItems
-    : (Array.isArray(fallbackBindings) ? fallbackBindings.reduce((acc, sap) => acc.concat(Array.isArray(sap && sap.items) ? sap.items : []), []) : []);
-  const itemSeen = {};
+  const activeSeen = {};
   const rows = [];
-  oldItems.forEach((item, idx) => {
-    const itemNo = normalizeText(item && item.itemNo) || String((idx + 1) * 1000);
-    if (!itemNo || itemSeen[itemNo]) return;
-    itemSeen[itemNo] = true;
-    rows.push({
-      itemId: item && item.itemId ? item.itemId : `I${Date.now()}_${Math.floor(Math.random() * 100000)}`,
-      itemNo,
-      itemDescription: normalizeText(item && item.itemDescription),
-      remark: normalizeText(item && item.remark)
-    });
+  list.forEach((sap, index) => {
+    const normalized = normalizeSapBinding(sap, index);
+    if (!normalized) return;
+    const activeKey = `${normalized.sapOrderNo}#${normalized.itemNo || '1000'}`;
+    if (normalized.active !== false) {
+      if (activeSeen[activeKey]) throw new Error(`SAP号 ${normalized.sapOrderNo} / Item ${normalized.itemNo || '1000'} 重复。`);
+      activeSeen[activeKey] = true;
+    }
+    rows.push(normalized);
   });
-  if (!rows.length) rows.push({ itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo: '1000', itemDescription: '', remark: '' });
   return rows;
 }
-
 function normalizeItemList(rawItems, rawBindings) {
   const list = Array.isArray(rawItems) ? rawItems : [];
   const flattenedLegacy = [];
@@ -786,34 +939,97 @@ function normalizeItemList(rawItems, rawBindings) {
   return normalized.length ? normalized : [{ itemId: `I${Date.now()}_${Math.floor(Math.random() * 100000)}`, itemNo: '1000', itemDescription: '', remark: '' }];
 }
 
+async function syncProjectsSapBindings(record, sapBindings, openid, now) {
+  const precalId = record && record._id;
+  const activeSapNos = uniqueTexts((sapBindings || [])
+    .filter(item => item && item.active !== false)
+    .map(item => item.sapOrderNo));
+  const updateData = {
+    sapBindings,
+    sapNumbers: activeSapNos,
+    sapBindingSyncedAt: now,
+    sapBindingSyncedBy: openid,
+    updatedAt: now,
+    updatedBy: openid,
+    version: _.inc(1)
+  };
+  const rows = [];
+  const seen = {};
+  const collect = async query => {
+    const res = await projects.where(query).limit(100).get();
+    (res.data || []).forEach(item => {
+      if (!item || !item._id || item.deleted === true || seen[item._id]) return;
+      seen[item._id] = true;
+      rows.push(item);
+    });
+  };
+  if (precalId) await collect({ precalId, deleted: _.neq(true) });
+  if (record && record.createdProjectId) {
+    try {
+      const res = await projects.doc(record.createdProjectId).get();
+      const item = Object.assign({ _id: record.createdProjectId }, res.data || {});
+      if (item && item._id && item.deleted !== true && !seen[item._id]) rows.push(item);
+    } catch (err) {
+      console.warn('按 createdProjectId 同步项目 SAP 失败：', err && err.message || err);
+    }
+  }
+  await Promise.all(rows.map(item => projects.doc(item._id).update({ data: updateData })));
+  return rows.length;
+}
+
 async function bindSap(payload, openid, user) {
   assertAnyRole(user, ['cs', 'admin'], '只有 CS 或 admin 可以绑定 SAP号。');
   const id = payload && payload.precalRecordId;
   const reason = normalizeText(payload && payload.reason) || '保存 SAP 绑定信息';
   const record = await getRecord(id);
   if (!record) throw new Error('Pre-cal 记录不存在。');
-  if ([STATUS.SUBMITTED, STATUS.SAP_BOUND].indexOf(record.status) < 0) throw new Error('只有 Submitted 或 SAP Bound 状态可以维护 SAP号。');
+  if ([STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.PROJECT_CREATED].indexOf(record.status) < 0) throw new Error('只有 Submitted、SAP Bound 或 Project Created 状态可以维护 SAP号。');
   const sapBindings = normalizeSapBindings(payload && payload.sapBindings);
   const itemList = normalizeItemList(payload && payload.itemList, payload && payload.sapBindings);
-  if (!sapBindings.length) throw new Error('至少需要录入一个 SAP号。');
+  const previousBindings = mergeLegacySapBindings(record);
 
   const now = db.serverDate();
   const operatorName = getUserName(user, 'CS');
-  const enriched = sapBindings.map(sap => Object.assign({}, sap, {
-    createdBy: sap.createdBy || openid,
-    createdByName: sap.createdByName || operatorName,
-    createdAt: sap.createdAt || now,
-    updatedBy: openid,
-    updatedByName: operatorName,
-    updatedAt: now
-  }));
+  const incomingKeys = {};
+  sapBindings.forEach(sap => {
+    incomingKeys[sap.sapId] = true;
+    incomingKeys[`${sap.sapOrderNo}#${sap.itemNo || '1000'}`] = true;
+  });
+  const disabledFromRemoval = previousBindings
+    .filter(sap => sap.active !== false)
+    .filter(sap => !incomingKeys[sap.sapId] && !incomingKeys[`${sap.sapOrderNo}#${sap.itemNo || '1000'}`])
+    .map(sap => Object.assign({}, sap, {
+      active: false,
+      disabledAt: sap.disabledAt || now,
+      disabledBy: sap.disabledBy || openid,
+      disabledReason: sap.disabledReason || 'user_removed',
+      updatedBy: openid,
+      updatedByName: operatorName,
+      updatedAt: now
+    }));
+  const enriched = sapBindings.concat(disabledFromRemoval).map(sap => {
+    const disabled = sap.active === false;
+    return Object.assign({}, sap, {
+      active: !disabled,
+      createdBy: sap.createdBy || openid,
+      createdByName: sap.createdByName || operatorName,
+      createdAt: sap.createdAt || now,
+      updatedBy: openid,
+      updatedByName: operatorName,
+      updatedAt: now,
+      disabledAt: disabled ? (sap.disabledAt || now) : null,
+      disabledBy: disabled ? (sap.disabledBy || openid) : null,
+      disabledReason: disabled ? (sap.disabledReason || 'user_removed') : null
+    });
+  });
+  if (!enriched.length) throw new Error('至少需要录入一个 SAP号。');
 
   await precalRecords.doc(id).update({
     data: {
       sapBindings: enriched,
       itemList,
-      status: STATUS.SAP_BOUND,
-      isLocked: true,
+      status: record.status === STATUS.PROJECT_CREATED ? STATUS.PROJECT_CREATED : STATUS.SAP_BOUND,
+      isLocked: false,
       sapBoundAt: record.sapBoundAt || now,
       sapBoundBy: record.sapBoundBy || openid,
       updatedAt: now,
@@ -826,13 +1042,14 @@ async function bindSap(payload, openid, user) {
     logType: 'sap_change', action: 'bind_sap', oldValue: { sapBindings: record.sapBindings || [], itemList: record.itemList || [] }, newValue: { sapBindings: enriched, itemList },
     reason, operatorOpenid: openid, operatorName, operatorRoles: normalizeRoles(user)
   });
-  if (record.status !== STATUS.SAP_BOUND) {
+  if (record.status === STATUS.SUBMITTED) {
     await addLog(record, {
       logType: 'status_change', action: 'sap_bound', fromStatus: record.status, toStatus: STATUS.SAP_BOUND,
       reason, operatorOpenid: openid, operatorName, operatorRoles: normalizeRoles(user)
     });
   }
-  return { ok: true, id, status: STATUS.SAP_BOUND, user };
+  await syncProjectsSapBindings(record, enriched, openid, now);
+  return { ok: true, id, status: record.status === STATUS.PROJECT_CREATED ? STATUS.PROJECT_CREATED : STATUS.SAP_BOUND, user };
 }
 
 async function unlockPrecal(payload, openid, user) {

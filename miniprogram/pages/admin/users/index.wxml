@@ -1,0 +1,27 @@
+<view class="container">
+  <view class="card">
+    <view class="card-title">用户角色</view>
+    <view class="muted">admin 可在这里分配 CS、Sales、PM、AR 等角色。</view>
+  </view>
+
+  <view wx:if="{{users.length == 0 && !loading}}" class="empty">暂无用户。</view>
+
+  <view wx:for="{{users}}" wx:key="_id" wx:for-index="userIndex" class="card user-card">
+    <view class="row">
+      <view>
+        <view class="card-title">{{item.displayName}}</view>
+        <view class="muted openid">{{item.displayOpenid}}</view>
+      </view>
+      <view class="tag tag-normal">{{item.roleText}}</view>
+    </view>
+
+    <checkbox-group data-index="{{userIndex}}" bindchange="onRoleChange" class="role-grid">
+      <label wx:for="{{item.roleOptions}}" wx:for-item="role" wx:key="key" class="role-option">
+        <checkbox value="{{role.key}}" checked="{{role.checked}}" />
+        <text>{{role.label}}</text>
+      </label>
+    </checkbox-group>
+
+    <button class="btn-primary" size="mini" loading="{{savingOpenid == item.displayOpenid}}" data-index="{{userIndex}}" bindtap="saveRoles">保存角色</button>
+  </view>
+</view>

@@ -5,7 +5,7 @@
     <view class="card">
       <view class="card-title">{{record.customerName}}</view>
       <view class="muted">{{record.precalNo}} ｜ {{record.service}} ｜ {{record.status}}</view>
-      <view class="metric-line"><text>Sales</text><text>{{record.salesOwnerName || '-'}}</text></view>
+      <view class="metric-line"><text>Sales</text><text>{{record.salesOwnerNameText}}</text></view>
       <view class="metric-line"><text>总订单金额</text><text>{{summary.totalOrderValueText}}</text></view>
       <view class="metric-line"><text>Operating Margin</text><text>{{summary.operatingMarginText}}</text></view>
     </view>
@@ -18,12 +18,18 @@
 
       <view wx:for="{{sapBindings}}" wx:for-item="sap" wx:for-index="sapIndex" wx:key="sapId" class="sap-card">
         <view class="row">
-          <view class="metric-value">SAP {{sapIndex + 1}}</view>
-          <button wx:if="{{sapBindings.length > 1}}" class="btn-danger" size="mini" data-index="{{sapIndex}}" bindtap="removeSap">删除 SAP</button>
+          <view class="metric-value">SAP {{sapIndex + 1}} ｜ {{sap.activeText}}</view>
+          <view>
+            <button wx:if="{{sap.isInactive}}" class="btn-secondary" size="mini" data-index="{{sapIndex}}" bindtap="restoreSap">恢复</button>
+            <button wx:if="{{sap.isActive}}" class="btn-danger" size="mini" data-index="{{sapIndex}}" bindtap="removeSap">删除 SAP</button>
+          </view>
         </view>
 
         <label class="form-label">SAP号</label>
-        <input class="input" value="{{sap.sapNo}}" data-index="{{sapIndex}}" data-field="sapNo" bindinput="onSapInput" placeholder="请输入SAP号" />
+        <input class="input" value="{{sap.sapNoText}}" data-index="{{sapIndex}}" data-field="sapOrderNo" bindinput="onSapInput" placeholder="请输入SAP号" />
+
+        <label class="form-label">Item号</label>
+        <input class="input" value="{{sap.itemNo}}" data-index="{{sapIndex}}" data-field="itemNo" bindinput="onSapInput" placeholder="7开头SAP默认1000" />
 
         <label class="form-label">关联人员</label>
         <input class="input" value="{{sap.memberName}}" data-index="{{sapIndex}}" data-field="memberName" bindinput="onSapInput" placeholder="请选择或输入关联人员（选填）" />

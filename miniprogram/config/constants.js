@@ -12,6 +12,7 @@ const PRECAL_STATUS = {
   SUBMITTED: 'Submitted',
   WITHDRAWN: 'Withdrawn',
   SAP_BOUND: 'SAP Bound',
+  PROJECT_CREATED: 'Project Created',
   UNLOCKED: 'Unlocked',
   CANCELLED: 'Cancelled'
 };
@@ -21,6 +22,7 @@ const PRECAL_STATUS_LABEL = {
   Submitted: '已提交',
   Withdrawn: '已撤销',
   'SAP Bound': '已绑定SAP',
+  'Project Created': '已创建项目',
   Unlocked: '已解锁',
   Cancelled: '已取消'
 };

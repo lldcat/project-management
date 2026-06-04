@@ -244,6 +244,9 @@ Page({
         wx.showToast({ title: '已提交', icon: 'success' });
         setTimeout(() => wx.navigateBack(), 500);
       })
-      .catch(() => {});
+      .catch(err => {
+        console.error('[precal-edit] 保存并提交失败：', err);
+        wx.showToast({ title: err.message || '保存并提交失败', icon: 'none' });
+      });
   }
 });

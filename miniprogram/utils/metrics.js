@@ -215,7 +215,9 @@ function buildAlerts(metrics) {
     alerts.push({ level: 'normal', code: 'NORMAL', text: '暂无明显异常。' });
   }
 
-  return alerts;
+  return alerts.map(item => Object.assign({}, item, {
+    statusClass: item.level === 'risk' ? 'tag-risk' : (item.level === 'warning' ? 'tag-warning' : 'tag-normal')
+  }));
 }
 
 function enrichProject(project) {

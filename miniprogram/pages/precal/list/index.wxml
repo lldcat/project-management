@@ -21,18 +21,18 @@
   <view wx:for="{{records}}" wx:key="_id" class="card" bindtap="goDetail" data-id="{{item._id}}">
     <view class="row">
       <view>
-        <view class="precal-title">{{item.customerName || '未填写客户'}}</view>
-        <view class="muted">{{item.service}} ｜ Sales：{{item.salesOwnerName || '-'}}</view>
+        <view class="precal-title">{{item.customerNameText}}</view>
+        <view class="muted">{{item.service}} ｜ Sales：{{item.salesOwnerNameText}}</view>
       </view>
-      <view class="tag status {{item.status == 'SAP Bound' ? 'tag-normal' : (item.status == 'Submitted' ? 'tag-warning' : '')}}">{{item.statusLabel}}</view>
+      <view class="tag status {{item.statusTagClass}}">{{item.statusLabel}}</view>
     </view>
     <view class="metric-line"><text>总订单金额</text><text class="metric-value">{{item.totalOrderValueText}}</text></view>
     <view class="metric-line"><text>Operating Margin</text><text class="metric-value">{{item.operatingMarginText}}</text></view>
-    <view class="metric-line"><text>SAP号</text><text class="metric-value">{{item.sapText || '-'}}</text></view>
+    <view class="metric-line"><text>SAP号</text><text class="metric-value">{{item.sapTextDisplay}}</text></view>
     <view class="actions" catchtap="noop">
-      <button wx:if="{{item.status == 'Draft' || item.status == 'Withdrawn' || item.status == 'Unlocked'}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="goEdit">编辑</button>
-      <button wx:if="{{item.status == 'Submitted'}}" class="btn-ghost" size="mini" data-id="{{item._id}}" bindtap="withdraw">撤销</button>
-      <button wx:if="{{item.status == 'Draft' || item.status == 'Withdrawn' || item.status == 'Unlocked'}}" class="btn-primary" size="mini" data-id="{{item._id}}" bindtap="submit">提交</button>
+      <button wx:if="{{item.canEditOrSubmit}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="goEdit">编辑</button>
+      <button wx:if="{{item.canWithdraw}}" class="btn-ghost" size="mini" data-id="{{item._id}}" bindtap="withdraw">撤销</button>
+      <button wx:if="{{item.canEditOrSubmit}}" class="btn-primary" size="mini" data-id="{{item._id}}" bindtap="submit">提交</button>
     </view>
   </view>
 </view>

@@ -28,11 +28,18 @@ Page({
   },
 
   enrich(row) {
+    const canEditOrSubmit = row.status === 'Draft' || row.status === 'Withdrawn' || row.status === 'Unlocked';
     return Object.assign({}, row, {
       statusLabel: this.statusLabel(row.status),
       totalOrderValueText: formatMoney(row.totalOrderValue),
       operatingMarginText: formatPercent(row.operatingMargin),
-      sapText: (row.sapNos || []).join('、')
+      sapText: (row.sapNos || []).join('、'),
+      sapTextDisplay: (row.sapNos || []).join('、') || '-',
+      customerNameText: row.customerName || '未填写客户',
+      salesOwnerNameText: row.salesOwnerName || '-',
+      statusTagClass: row.status === 'SAP Bound' ? 'tag-normal' : (row.status === 'Submitted' ? 'tag-warning' : ''),
+      canEditOrSubmit,
+      canWithdraw: row.status === 'Submitted'
     });
   },
 

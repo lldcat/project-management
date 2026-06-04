@@ -13,8 +13,18 @@ function updateName(name) {
   return apiClient.call('login', 'updateName', { name });
 }
 
+function listUsers() {
+  return apiClient.call('login', 'listUsers', {});
+}
+
+function updateUserRoles(openid, roles) {
+  return apiClient.call('login', 'updateUserRoles', { openid, roles });
+}
+
 module.exports = {
   login,
   getCurrentUser,
-  updateName
+  updateName,
+  listUsers,
+  updateUserRoles
 };

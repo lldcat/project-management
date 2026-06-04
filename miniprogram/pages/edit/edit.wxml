@@ -1,14 +1,14 @@
 <view class="container">
   <view class="card">
     <view class="card-title">{{pageTitle}}</view>
-    <view class="muted">所有绩效指标由系统自动计算。PM 录入自己负责的项目；管理角色 查看全部项目时，非本人项目默认为只读。</view>
-  <view wx:if="{{readOnly}}" class="tag tag-warning">只读模式：这是其他 PM 创建的项目，管理角色 可查看但不能修改。</view>
+    <view class="muted">PM/admin 可管理完整项目；项目组员可查看参与项目和自己的分配额度。</view>
+  <view wx:if="{{readOnly}}" class="tag tag-warning">只读模式：当前账号可查看该项目，但不能修改预算、成员或 SAP/Pre-cal 信息。</view>
   </view>
 
   <view class="card">
     <view class="section-title">基础信息</view>
     <label wx:if="{{!isEdit}}" class="form-label">通过 SAP 项目号创建（推荐）</label>
-    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入任一已绑定 SAP 项目号，自动同步 Pre-cal 数据" bindinput="onSapInput" bindblur="onSapBlur" bindconfirm="onSapConfirm" />
+    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入任一已绑定 SAP 项目号后点击同步" bindinput="onSapInput" />
     <view wx:if="{{!isEdit}}" class="row action-row">
       <button class="btn-secondary" size="mini" loading="{{precalSyncing}}" bindtap="onManualSyncPrecal">同步 Pre-cal 数据</button>
       <text class="muted">{{precalSyncMessage}}</text>
@@ -53,13 +53,15 @@
     <view class="readonly-field">{{pmDisplayName}}</view>
     <view wx:if="{{missingUserName}}" class="muted">PM 使用当前登录用户姓名。请先到“我的”页填写姓名。</view>
 
-    <label class="form-label">项目组员</label>
-    <textarea class="textarea" disabled="{{readOnly}}" value="{{memberInputText}}" placeholder="多个组员用逗号、分号、顿号或换行分隔；不需要重复填写 PM" bindinput="onMembersInput" bindblur="addMemberFromInput" bindconfirm="addMemberFromInput" confirm-type="done"></textarea>
-    <view wx:if="{{!readOnly}}" class="row member-input-actions">
-      <button class="btn-secondary" size="mini" bindtap="addMemberFromInput">添加组员</button>
-      <text class="muted">已添加：{{membersText || '暂无'}}</text>
+    <view wx:if="{{canViewFullProject}}">
+      <label class="form-label">项目组员</label>
+      <textarea class="textarea" disabled="{{readOnly}}" value="{{memberInputText}}" placeholder="多个组员用逗号、分号、顿号或换行分隔；不需要重复填写 PM" bindinput="onMembersInput" bindblur="addMemberFromInput" bindconfirm="addMemberFromInput" confirm-type="done"></textarea>
+      <view wx:if="{{!readOnly}}" class="row member-input-actions">
+        <button class="btn-secondary" size="mini" bindtap="addMemberFromInput">添加组员</button>
+        <text class="muted">已添加：{{membersText || '暂无'}}</text>
+      </view>
+      <view class="muted">系统会将确认后的“项目经理 PM + 项目组员”同步到人员预算；AR 人员仅作为实际工时展示。</view>
     </view>
-    <view class="muted">系统会将确认后的“项目经理 PM + 项目组员”同步到人员预算；AR 工时成员自动与人员预算保持一致。</view>
 
     <label class="form-label">项目状态</label>
     <picker disabled="{{readOnly}}" value="{{statusIndex}}" range="{{statusOptions}}" range-key="label" bindchange="onStatusChange">
@@ -67,7 +69,31 @@
     </picker>
   </view>
 
-  <view class="card">
+  <view wx:if="{{!canViewFullProject}}" class="card">
+    <view class="section-title">我的项目额度</view>
+    <view class="metric-line"><text>我的分配额度</text><text class="metric-value">{{myAllocationDisplay.budgetHoursText}}</text></view>
+    <view wx:if="{{myAllocationDisplay.hasActualHours}}" class="metric-line"><text>我的已用工时</text><text class="metric-value">{{myAllocationDisplay.actualHoursText}}</text></view>
+    <view wx:if="{{myAllocationDisplay.hasBudgetHours}}" class="metric-line"><text>我的剩余额度</text><text class="metric-value">{{myAllocationDisplay.remainingHoursText}}</text></view>
+  </view>
+
+  <view wx:if="{{canViewFullProject}}" class="card">
+    <view class="section-title">SAP 绑定</view>
+    <view wx:if="{{!hasActiveSapBindings}}" class="allocation-warning">当前项目没有有效 SAP 绑定，AR Time 将无法匹配。</view>
+    <view wx:for="{{activeSapBindings}}" wx:key="sapId" class="sub-card">
+      <view class="sub-title">{{item.sapOrderNo}}</view>
+      <view class="metric-line"><text>Item</text><text>{{item.itemNoText}}</text></view>
+      <view class="metric-line"><text>关联人员</text><text>{{item.memberNameText}}</text></view>
+      <view class="muted">备注：{{item.remarkText}}</view>
+    </view>
+    <view wx:if="{{hasInactiveSapBindings}}" class="section-title history-title">历史 SAP</view>
+    <view wx:for="{{inactiveSapBindings}}" wx:key="sapId" class="sub-card muted-sub-card">
+      <view class="sub-title">{{item.sapOrderNo}}（已停用）</view>
+      <view class="metric-line"><text>Item</text><text>{{item.itemNoText}}</text></view>
+      <view class="muted">原因：{{item.disabledReasonText}} ｜ 备注：{{item.remarkText}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{canViewFullProject}}" class="card">
     <view class="row">
       <view class="section-title inline-title">子项目预算与计划</view>
       <button wx:if="{{!readOnly}}" class="btn-secondary" size="mini" bindtap="addSubProject">新增子项目</button>
@@ -109,7 +135,7 @@
   </view>
 
 
-  <view class="card">
+  <view wx:if="{{canViewAllAllocations}}" class="card">
     <view class="row">
       <view>
         <view class="section-title inline-title">人员预算工时分配</view>
@@ -149,7 +175,7 @@
     </view>
   </view>
 
-  <view class="card">
+  <view wx:if="{{canViewFullProject}}" class="card">
     <view class="section-title">成本参数</view>
     <label class="form-label">差旅费</label>
     <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.travelFee}}" placeholder="元；纳入 BAC 计算" data-field="travelFee" bindinput="onBasicInput" />
@@ -159,21 +185,47 @@
     <view class="muted">AC（实际成本）= AR 工时合计 ÷ 8 × 内部人天成本。</view>
   </view>
 
-  <view class="card">
-    <view class="section-title">AR 工时</view>
-    <view class="muted">AR 成员自动与“人员预算工时分配”保持一致；如需增减成员，请先调整人员预算。PM 会被系统自动保留。</view>
+  <view wx:if="{{canViewFullProject}}" class="card">
+    <view class="section-title">AR Time</view>
+    <view class="muted">AR Time 来自 Excel Online，小程序仅展示同步结果，不写回 Excel。</view>
+    <view wx:if="{{form.arTimeWarning}}" class="allocation-warning">{{form.arTimeWarning}}</view>
+    <view class="metric-line"><text>AR Time 总计</text><text class="metric-value">{{form.arSummary.totalArHours || 0}} h</text></view>
+    <view class="metric-line"><text>匹配汇总数</text><text>{{form.arSummary.matchedSummaryCount || 0}}</text></view>
+    <view class="metric-line"><text>AR 更新时间</text><text>{{form.arSummary.latestUpdatedAtText || '-'}}</text></view>
 
-    <view wx:if="{{form.arHours.length == 0}}" class="muted empty-hint">暂无 AR 成员，请先填写项目经理 PM，或在人员预算中新增人员。</view>
-    <view wx:for="{{form.arHours}}" wx:key="id" class="sub-card">
-      <view class="row sub-title-row">
-        <view class="sub-title">{{item.memberName}} <text wx:if="{{item.memberName == form.projectManager}}" class="mini-note">PM</text></view>
+    <view wx:if="{{hasArMemberCandidates}}" class="ar-candidate-block">
+      <view class="row">
+        <view>
+          <view class="section-title inline-title">AR Time 发现的人员</view>
+          <view class="muted">这些人员仅来自 SAP 匹配结果，不会自动获得项目权限。添加后才会成为项目组员。</view>
+        </view>
+        <button wx:if="{{!readOnly && canAddArMemberCandidates}}" class="btn-secondary" size="mini" bindtap="addAllArMemberCandidates">添加可匹配人员</button>
       </view>
-      <label class="form-label">AR 工时</label>
-      <input class="input" disabled="{{readOnly}}" type="digit" value="{{item.hours}}" placeholder="小时；billable + project + travel time" data-index="{{index}}" bindinput="onArHourInput" />
+      <view wx:for="{{arMemberCandidates}}" wx:key="candidateKey" class="sub-card">
+        <view class="row sub-title-row">
+          <view class="sub-title">{{item.memberName}}</view>
+          <view class="tag {{item.statusClass}}">{{item.matchStatusText}}</view>
+        </view>
+        <view class="metric-line"><text>AR 工时</text><text class="metric-value">{{item.hoursText}} h</text></view>
+        <view class="metric-line"><text>匹配汇总数</text><text>{{item.matchedSummaryCountText}}</text></view>
+        <view wx:if="{{item.arSheetName && item.arSheetName != item.memberName}}" class="muted">AR 名称：{{item.arSheetName}}</view>
+        <button wx:if="{{!readOnly && item.canAdd}}" class="btn-secondary" size="mini" data-index="{{index}}" bindtap="addArMemberCandidate">添加为项目组员</button>
+      </view>
+    </view>
+
+    <view wx:if="{{form.arDetails.length == 0}}" class="muted empty-hint">暂无匹配 AR 明细。</view>
+    <view wx:for="{{form.arDetails}}" wx:key="detailKey" class="sub-card">
+      <view class="row sub-title-row">
+        <view class="sub-title">{{item.employeeName}} <text wx:if="{{item.employeeName == form.projectManager}}" class="mini-note">PM</text></view>
+      </view>
+      <view class="metric-line"><text>SAP</text><text>{{item.sapOrderNo}}</text></view>
+      <view class="metric-line"><text>Item</text><text>{{item.itemNo}}</text></view>
+      <view class="metric-line"><text>AR Time</text><text class="metric-value">{{item.totalArHours || 0}} h</text></view>
+      <view class="muted">Record Count：{{item.recordCount || 0}}</view>
     </view>
   </view>
 
-  <view class="card">
+  <view wx:if="{{canViewFullProject}}" class="card">
     <view class="card-title">自动计算预览</view>
     <view class="metric-line"><text>人工预算（不含杂费/差旅）</text><text class="metric-value">{{preview.display.laborBudget}}</text></view>
     <view class="metric-line"><text>杂费 / 差旅费</text><text class="metric-value">{{preview.display.travelFee}}</text></view>

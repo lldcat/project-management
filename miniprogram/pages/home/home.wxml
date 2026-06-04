@@ -89,8 +89,8 @@
   <view wx:for="{{riskProjects}}" wx:key="_id" class="card" bindtap="goEdit" data-id="{{item._id}}">
     <view class="row">
       <view>
-        <view class="project-title">{{item.projectName || '未命名项目'}}</view>
-        <view class="muted">{{item.projectNo || '无项目号'}} ｜ PM：{{item.displayPmName}}</view>
+        <view class="project-title">{{item.projectNameText}}</view>
+        <view class="muted">{{item.projectNoText}} ｜ PM：{{item.displayPmName}}</view>
       </view>
       <view class="tag tag-risk">风险</view>
     </view>
@@ -103,7 +103,7 @@
       <text class="metric-value">{{item.display.spi}}</text>
     </view>
     <view class="alert-list">
-      <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.level === 'risk' ? 'tag-risk' : (alert.level === 'warning' ? 'tag-warning' : 'tag-normal')}}">
+      <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.statusClass}}">
         {{alert.text}}
       </view>
     </view>

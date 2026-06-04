@@ -7,12 +7,19 @@ const _ = db.command;
 const users = db.collection('users');
 const projects = db.collection('projects');
 const precalRecords = db.collection('precal_records');
+const arSummaries = db.collection('ar_summaries');
 const CREATE_FROM_SAP_LOCK_TIMEOUT_MS = 20 * 60 * 1000;
 
 
 
 function normalizeSapNo(value) {
   return String(value || '').trim();
+}
+
+function defaultItemNoForSap(sapOrderNo, itemNo) {
+  const cleanItemNo = normalizeText(itemNo);
+  if (cleanItemNo) return cleanItemNo;
+  return normalizeSapNo(sapOrderNo).indexOf('7') === 0 ? '1000' : '';
 }
 
 function splitSapText(value) {
@@ -54,14 +61,9 @@ function collectSapNos(precal) {
     if (normalized) sapSet[normalized] = true;
   };
 
-  (precal && precal.sapBindings || []).forEach(item => {
+  normalizeSapBindingList(precal).filter(item => item.active !== false).forEach(item => {
     if (!item) return;
-    if (typeof item === 'string') {
-      splitSapText(item).forEach(pushSap);
-      return;
-    }
-    splitSapText(item.sapNo || item.sapCode || item.sapProjectNo || item.projectNo || item.value).forEach(pushSap);
-    splitSapText(item.sapProjectNo).forEach(pushSap);
+    splitSapText(item.sapOrderNo).forEach(pushSap);
   });
 
   const appendFromField = (field) => {
@@ -120,16 +122,51 @@ function toAllocationNumber(value) {
 }
 
 function normalizeSapBindingList(precal) {
-  return (precal && precal.sapBindings || []).map(item => {
-    if (typeof item === 'string') return { sapNo: normalizeSapNo(item), memberName: '', remark: '' };
-    return {
-      sapId: item && item.sapId || '',
-      sapNo: normalizeSapNo(item && (item.sapNo || item.sapCode || item.sapProjectNo || item.projectNo || item.value)),
-      sapProjectNo: normalizeSapNo(item && (item.sapProjectNo || item.sapNo || item.sapCode || item.projectNo || item.value)),
-      memberName: String(item && item.memberName || '').trim(),
-      remark: String(item && item.remark || '').trim()
-    };
-  }).filter(item => item.sapNo);
+  const rows = [];
+  const seen = {};
+  const add = (raw, index) => {
+    const item = raw || {};
+    const sapOrderNo = typeof item === 'string'
+      ? normalizeSapNo(item)
+      : normalizeSapNo(item.sapOrderNo || item.sapNo || item.sapCode || item.sapProjectNo || item.projectNo || item.value);
+    if (!sapOrderNo) return;
+    const itemNo = defaultItemNoForSap(sapOrderNo, typeof item === 'string' ? '' : (item.itemNo || item.subProjectNo || item.no));
+    const active = typeof item === 'object' && item.active === false ? false : true;
+    const key = `${sapOrderNo}#${itemNo}#${active ? 'active' : 'inactive'}`;
+    if (seen[key]) return;
+    seen[key] = true;
+    rows.push({
+      sapId: typeof item === 'object' && (item.sapId || item.id) || `S${Date.now()}_${index}_${Math.floor(Math.random() * 100000)}`,
+      sapOrderNo,
+      sapNo: sapOrderNo,
+      sapProjectNo: sapOrderNo,
+      itemNo,
+      active,
+      source: typeof item === 'object' && item.source || 'manual',
+      memberName: String(typeof item === 'object' && item.memberName || '').trim(),
+      remark: String(typeof item === 'object' && item.remark || '').trim(),
+      createdAt: typeof item === 'object' && item.createdAt || '',
+      createdBy: typeof item === 'object' && item.createdBy || '',
+      createdByName: typeof item === 'object' && item.createdByName || '',
+      updatedAt: typeof item === 'object' && item.updatedAt || '',
+      updatedBy: typeof item === 'object' && item.updatedBy || '',
+      updatedByName: typeof item === 'object' && item.updatedByName || '',
+      disabledAt: typeof item === 'object' && item.disabledAt || null,
+      disabledBy: typeof item === 'object' && item.disabledBy || null,
+      disabledReason: typeof item === 'object' && item.disabledReason || null
+    });
+  };
+  (precal && precal.sapBindings || []).forEach(add);
+  if (rows.length) return rows;
+  ['sapOrderNo', 'sapNo', 'sapProjectNo', 'mainSapNo'].forEach(field => {
+    if (precal && precal[field]) add({ sapOrderNo: precal[field], itemNo: precal.itemNo, source: 'legacy' }, rows.length);
+  });
+  ['sapNos', 'sapNumbers', 'sapNoList', 'sapProjects', 'sapItems'].forEach(field => {
+    const value = precal && precal[field];
+    if (!Array.isArray(value)) return;
+    value.forEach(item => add(typeof item === 'string' ? { sapOrderNo: item, source: 'legacy' } : Object.assign({ source: 'legacy' }, item || {}), rows.length));
+  });
+  return rows;
 }
 
 function collectLegacyItems(precal) {
@@ -614,6 +651,7 @@ async function getPrecalBySapNo(sapNo) {
   const no = normalizeSapNo(sapNo);
   if (!no) return null;
   const fetches = await Promise.all([
+    safeGetPrecalCandidates({ 'sapBindings.sapOrderNo': no, deleted: _.neq(true) }, 'sapBindings.sapOrderNo'),
     safeGetPrecalCandidates({ 'sapBindings.sapNo': no, deleted: _.neq(true) }, 'sapBindings.sapNo'),
     safeGetPrecalCandidates({ 'sapBindings.sapProjectNo': no, deleted: _.neq(true) }, 'sapBindings.sapProjectNo'),
     safeGetPrecalCandidates({ sapNos: no, deleted: _.neq(true) }, 'sapNos'),
@@ -621,8 +659,8 @@ async function getPrecalBySapNo(sapNo) {
     safeGetPrecalCandidates({ sapNo: no, deleted: _.neq(true) }, 'sapNo'),
     safeGetPrecalCandidates({ sapCode: no, deleted: _.neq(true) }, 'sapCode'),
     safeGetPrecalCandidates({ sapProjectNo: no, deleted: _.neq(true) }, 'sapProjectNo'),
-    safeGetPrecalCandidates({ mainSapNo: no, deleted: _.neq(true) }, 'mainSapNo'),
-    precalRecords.where({ deleted: _.neq(true) }).limit(200).get()
+    safeGetPrecalCandidates({ sapOrderNo: no, deleted: _.neq(true) }, 'sapOrderNo'),
+    safeGetPrecalCandidates({ mainSapNo: no, deleted: _.neq(true) }, 'mainSapNo')
   ]);
   const merged = [];
   const seen = {};
@@ -635,13 +673,19 @@ async function getPrecalBySapNo(sapNo) {
   });
 
   const rows = merged.filter(item => collectSapNos(item).indexOf(no) >= 0);
-  if (!rows.length) return null;
-  rows.sort((a, b) => {
+  const activeRows = rows.filter(item => normalizeSapBindingList(item).some(binding => binding.active !== false && binding.sapOrderNo === no));
+  if (!activeRows.length) return null;
+  if (activeRows.length > 1) {
+    const err = new Error('该 SAP 同时匹配到多个 Pre-cal，请先检查 SAP 绑定关系。');
+    err.code = 'SAP_PRECAL_CONFLICT';
+    throw err;
+  }
+  activeRows.sort((a, b) => {
     const ta = new Date(a.updatedAt || a.createdAt || 0).getTime();
     const tb = new Date(b.updatedAt || b.createdAt || 0).getTime();
     return tb - ta;
   });
-  return rows[0] || null;
+  return activeRows[0] || null;
 }
 
 function validatePrecalForProject(precal) {
@@ -864,7 +908,10 @@ function valueMapByMemberName(rows, valueField) {
   (rows || []).forEach(item => {
     const name = normalizeName(item.memberName, '');
     if (!name) return;
-    map[name] = item[valueField];
+    const value = item[valueField];
+    if (map[name] === undefined || !hasMeaningfulValue(map[name])) {
+      map[name] = value;
+    }
   });
   return map;
 }
@@ -874,7 +921,8 @@ function openidMapByMemberName(rows) {
   (rows || []).forEach(item => {
     const name = normalizeName(item.memberName, '');
     if (!name) return;
-    map[name] = item.memberOpenid || item.openid || '';
+    const openid = item.memberOpenid || item.openid || '';
+    if (!map[name] && openid) map[name] = openid;
   });
   return map;
 }
@@ -975,16 +1023,483 @@ function buildEmployeeBudgetsFromNames(names, existingBudgets) {
   }));
 }
 
+function mergeBudgetFallbackRows(primaryRows, fallbackRows) {
+  return (primaryRows || []).concat(fallbackRows || []);
+}
+
+function ensurePmBudgetRow(rows, projectManager, pmOpenid, fallbackRows) {
+  const pmName = normalizeName(projectManager, '');
+  if (!pmName) return rows || [];
+  const fallbackPm = (fallbackRows || []).find(item => normalizeName(item && item.memberName, '') === pmName) || {};
+  let hasPm = false;
+  const next = (rows || []).map(item => {
+    if (normalizeName(item && item.memberName, '') !== pmName) return item;
+    hasPm = true;
+    return Object.assign({}, item, {
+      memberOpenid: item.memberOpenid || item.openid || pmOpenid || fallbackPm.memberOpenid || fallbackPm.openid || ''
+    });
+  });
+  if (hasPm) return next;
+  return next.concat({
+    id: fallbackPm.id || '',
+    memberOpenid: pmOpenid || fallbackPm.memberOpenid || fallbackPm.openid || '',
+    memberName: pmName,
+    budgetHours: fallbackPm.budgetHours === undefined || fallbackPm.budgetHours === null ? '' : fallbackPm.budgetHours
+  });
+}
+
 function alignArHoursToEmployeeBudgets(employeeBudgets, existingArHours) {
   const arMap = valueMapByMemberName(existingArHours, 'hours');
   return (employeeBudgets || []).map(item => {
     const name = normalizeName(item.memberName, '');
+    const existing = (existingArHours || []).find(ar => normalizeName(ar.memberName, '') === name) || {};
     return {
-      id: ((existingArHours || []).find(ar => normalizeName(ar.memberName, '') === name) || {}).id || '',
+      id: existing.id || '',
       memberName: name,
+      memberOpenid: item.memberOpenid || existing.memberOpenid || '',
+      arSheetName: existing.arSheetName || '',
+      source: existing.source || '',
+      matchedSummaryCount: existing.matchedSummaryCount || 0,
       hours: toAllocationNumber(arMap[name])
     };
   }).filter(item => item.memberName);
+}
+
+function memberOpenidsFromBudgets(employeeBudgets) {
+  const map = {};
+  (employeeBudgets || []).forEach(item => {
+    const openid = normalizeText(item && (item.memberOpenid || item.openid || item.userId));
+    if (openid) map[openid] = true;
+  });
+  return Object.keys(map);
+}
+
+function chunkArray(items, size) {
+  const chunks = [];
+  for (let i = 0; i < (items || []).length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+function uniqueTexts(values) {
+  const map = {};
+  (values || []).forEach(value => {
+    const text = normalizeText(value);
+    if (text) map[text] = true;
+  });
+  return Object.keys(map);
+}
+
+function sapQueryValues(sapNos) {
+  const values = [];
+  const seen = {};
+  uniqueTexts(sapNos).forEach(value => {
+    const text = normalizeSapNo(value);
+    if (!text) return;
+    if (!seen[text]) {
+      seen[text] = true;
+      values.push(text);
+    }
+    if (/^\d+$/.test(text)) {
+      const numeric = Number(text);
+      if (Number.isSafeInteger(numeric) && !seen[String(numeric) + '#number']) {
+        seen[String(numeric) + '#number'] = true;
+        values.push(numeric);
+      }
+    }
+  });
+  return values;
+}
+
+function resolveArUpdatedAt(row) {
+  const values = [row && row.updatedAt, row && row.importedAt, row && row.lastImportAt, row && row.createdAt];
+  let bestValue = '';
+  let bestTime = 0;
+  values.forEach(value => {
+    if (!value) return;
+    let time = 0;
+    if (value instanceof Date) time = value.getTime();
+    else if (typeof value === 'number') time = value;
+    else if (typeof value === 'string') time = Date.parse(value) || 0;
+    else if (typeof value === 'object') time = value.$date || (typeof value.getTime === 'function' ? value.getTime() : 0);
+    if (time >= bestTime) {
+      bestTime = time;
+      bestValue = value;
+    }
+  });
+  return { value: bestValue, time: bestTime };
+}
+
+function formatArTimeValue(value, time) {
+  const resolved = time || resolveArUpdatedAt({ updatedAt: value }).time;
+  if (!resolved) return '';
+  const date = new Date(resolved);
+  if (Number.isNaN(date.getTime())) return '';
+  const shanghaiTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const pad2 = n => String(n).padStart(2, '0');
+  return [
+    shanghaiTime.getUTCFullYear(),
+    pad2(shanghaiTime.getUTCMonth() + 1),
+    pad2(shanghaiTime.getUTCDate())
+  ].join('-') + ' ' + [
+    pad2(shanghaiTime.getUTCHours()),
+    pad2(shanghaiTime.getUTCMinutes())
+  ].join(':');
+}
+
+async function fetchUsersByField(field, values) {
+  const texts = uniqueTexts(values);
+  if (!texts.length) return [];
+  const rows = [];
+  for (const chunk of chunkArray(texts, 20)) {
+    const res = await users.where({ [field]: _.in(chunk) }).limit(100).get();
+    rows.push(...(res.data || []));
+  }
+  return rows;
+}
+
+function userArSheetName(user) {
+  return normalizeText(user && (user.arSheetName || user.employeeName || user.name));
+}
+
+function collectProjectMembers(project) {
+  const rows = [];
+  (project.employeeBudgets || []).forEach(item => rows.push({
+    memberName: normalizeText(item.memberName),
+    memberOpenid: normalizeText(item.memberOpenid || item.openid)
+  }));
+  (project.arHours || []).forEach(item => rows.push({
+    memberName: normalizeText(item.memberName),
+    memberOpenid: normalizeText(item.memberOpenid || item.openid)
+  }));
+  return uniqueNames(rows.map(item => item.memberName)).map(name => {
+    const source = rows.find(item => normalizeText(item.memberName) === name) || {};
+    return { memberName: name, memberOpenid: source.memberOpenid || '' };
+  });
+}
+
+function collectProjectSapItemPairs(project) {
+  const pairs = [];
+  const fallbackSap = normalizeSapNo(project.sapOrderNo || project.mainSapNo || project.projectNo || project.sapNo);
+  const addPair = (sapValue, itemValue) => {
+    const sapOrderNo = normalizeSapNo(sapValue || fallbackSap);
+    if (!sapOrderNo) return;
+    pairs.push({
+      sapOrderNo,
+      itemNo: normalizeText(itemValue) || '1000'
+    });
+  };
+
+  const activeBindings = normalizeSapBindingList(project).filter(item => item.active !== false);
+  activeBindings.forEach(item => addPair(item.sapOrderNo, item.itemNo));
+
+  if (!pairs.length) {
+    (project.subProjects || []).forEach(item => {
+      addPair(item.sapNo || item.sapProjectNo || project.mainSapNo || project.projectNo, item.itemNo || item.subProjectNo);
+    });
+  }
+
+  if (!pairs.length) addPair(fallbackSap, '1000');
+
+  const seen = {};
+  return pairs.filter(item => {
+    const key = `${item.sapOrderNo}#${item.itemNo}`;
+    if (seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+}
+
+async function buildMemberSheetResolver(projectsInput) {
+  const projectsList = projectsInput || [];
+  const members = [];
+  projectsList.forEach(project => members.push(...collectProjectMembers(project)));
+  const openids = uniqueTexts(members.map(item => item.memberOpenid));
+  const names = uniqueTexts(members.map(item => item.memberName));
+  const userRows = []
+    .concat(await fetchUsersByField('openid', openids))
+    .concat(await fetchUsersByField('_openid', openids))
+    .concat(await fetchUsersByField('name', names))
+    .concat(await fetchUsersByField('employeeName', names))
+    .concat(await fetchUsersByField('arSheetName', names));
+  const byOpenid = {};
+  const byName = {};
+  userRows.forEach(user => {
+    if (!user || user.deleted === true) return;
+    const sheetName = userArSheetName(user);
+    if (!sheetName) return;
+    [user.openid, user._openid, user._id].forEach(id => {
+      const key = normalizeText(id);
+      if (key && !byOpenid[key]) byOpenid[key] = sheetName;
+    });
+    [user.name, user.employeeName, user.arSheetName].forEach(name => {
+      const key = normalizeText(name);
+      if (key && !byName[key]) byName[key] = sheetName;
+    });
+  });
+  return member => byOpenid[normalizeText(member.memberOpenid)] || byName[normalizeText(member.memberName)] || normalizeText(member.memberName);
+}
+
+async function enrichEmployeeBudgetOpenids(project) {
+  const data = Object.assign({}, project || {});
+  const employeeBudgets = Array.isArray(data.employeeBudgets) ? data.employeeBudgets : [];
+  const missingNames = uniqueTexts(employeeBudgets
+    .filter(item => !normalizeText(item && (item.memberOpenid || item.openid || item.userId)))
+    .map(item => item && item.memberName));
+
+  if (!missingNames.length) {
+    data.memberOpenids = memberOpenidsFromBudgets(employeeBudgets);
+    return data;
+  }
+
+  const usersByName = await resolveUsersByNames(missingNames);
+
+  data.employeeBudgets = employeeBudgets.map(item => {
+    const name = normalizeText(item && item.memberName);
+    const matches = usersByName[name] || [];
+    const matchedOpenid = matches.length === 1 ? matches[0].openid : '';
+    const memberOpenid = normalizeText(item && (item.memberOpenid || item.openid || item.userId)) || matchedOpenid || '';
+    return Object.assign({}, item, { memberOpenid });
+  });
+  data.memberOpenids = memberOpenidsFromBudgets(data.employeeBudgets);
+  return data;
+}
+
+async function resolveUsersByNames(names) {
+  const cleanNames = uniqueTexts(names);
+  if (!cleanNames.length) return {};
+  const rows = []
+    .concat(await fetchUsersByField('name', cleanNames))
+    .concat(await fetchUsersByField('employeeName', cleanNames))
+    .concat(await fetchUsersByField('arSheetName', cleanNames));
+  const matches = {};
+  rows.forEach(user => {
+    if (!user || user.deleted === true || user.active === false) return;
+    const openid = normalizeText(user.openid || user._openid || user._id);
+    if (!openid) return;
+    [user.name, user.employeeName, user.arSheetName].forEach(name => {
+      const key = normalizeText(name);
+      if (!key) return;
+      if (!matches[key]) matches[key] = {};
+      matches[key][openid] = {
+        openid,
+        name: normalizeText(user.name),
+        employeeName: normalizeText(user.employeeName),
+        arSheetName: normalizeText(user.arSheetName)
+      };
+    });
+  });
+  const resolved = {};
+  Object.keys(matches).forEach(name => {
+    const usersForName = Object.keys(matches[name]).map(openid => matches[name][openid]);
+    resolved[name] = usersForName;
+  });
+  return resolved;
+}
+
+async function attachArMemberCandidates(project) {
+  const data = Object.assign({}, project || {});
+  const arHours = Array.isArray(data.arHours) ? data.arHours : [];
+  if (!arHours.length) {
+    data.arMemberCandidates = [];
+    return data;
+  }
+
+  const memberOpenids = uniqueTexts(data.memberOpenids || []);
+  const budgetRows = data.employeeBudgets || [];
+  const resolvedUsers = await resolveUsersByNames(arHours.map(item => item && (item.arSheetName || item.memberName)));
+
+  data.arMemberCandidates = arHours
+    .map(item => {
+      const memberName = normalizeText(item && item.memberName);
+      const arSheetName = normalizeText(item && item.arSheetName) || memberName;
+      if (!memberName) return null;
+      const matches = uniqueTexts([memberName, arSheetName])
+        .reduce((acc, name) => acc.concat(resolvedUsers[name] || []), []);
+      const seen = {};
+      const uniqueMatches = matches.filter(user => {
+        if (!user || !user.openid || seen[user.openid]) return false;
+        seen[user.openid] = true;
+        return true;
+      });
+      const matchedOpenid = uniqueMatches.length === 1 ? uniqueMatches[0].openid : '';
+      const alreadyMember = !!matchedOpenid && (
+        memberOpenids.indexOf(matchedOpenid) >= 0 ||
+        budgetRows.some(row => uniqueTexts([row && row.memberOpenid, row && row.openid, row && row.userId]).indexOf(matchedOpenid) >= 0)
+      );
+      const matchStatus = alreadyMember
+        ? 'alreadyMember'
+        : (matchedOpenid ? 'matched' : (uniqueMatches.length > 1 ? 'ambiguous' : 'unmatched'));
+      return {
+        memberName,
+        arSheetName,
+        hours: item.hours,
+        matchedSummaryCount: item.matchedSummaryCount || 0,
+        memberOpenid: matchedOpenid,
+        matchStatus,
+        matchStatusText: matchStatus === 'alreadyMember'
+          ? '已在项目组'
+          : (matchStatus === 'matched' ? '可添加' : (matchStatus === 'ambiguous' ? '存在重名，请手动确认' : '未匹配账号')),
+        canAdd: matchStatus === 'matched'
+      };
+    })
+    .filter(Boolean);
+  return data;
+}
+
+async function prepareProjectForSave(input, user, openid, existingProject) {
+  const cleaned = cleanProjectInput(input, user, openid, existingProject);
+  const enriched = await enrichEmployeeBudgetOpenids(cleaned);
+  console.log('cloud cleaned employeeBudgets', enriched.employeeBudgets);
+  return attachComputedMetrics(enriched);
+}
+
+async function fetchArSummariesForProjects(projectsInput) {
+  const projectsList = projectsInput || [];
+  const sapNos = [];
+  projectsList.forEach(project => {
+    const mainSapOrderNo = normalizeSapNo(project && (project.mainSapNo || project.sapOrderNo || project.projectNo || project.sapNo));
+    const sapBindings = normalizeSapBindingList(project).filter(item => item.active !== false);
+    const projectSapList = uniqueTexts([mainSapOrderNo]
+      .concat(collectSapNos(project))
+      .concat(collectProjectSapItemPairs(project).map(pair => pair.sapOrderNo)))
+      .map(normalizeSapNo)
+      .filter(Boolean);
+    console.log('[AR_MATCH] mainSapOrderNo=', mainSapOrderNo);
+    console.log('[AR_MATCH] sapBindings=', sapBindings);
+    console.log('[AR_MATCH] final sapList=', projectSapList);
+    sapNos.push(...projectSapList);
+  });
+  const uniqueSapNos = uniqueTexts(sapNos).map(normalizeSapNo).filter(Boolean);
+  const querySapValues = sapQueryValues(uniqueSapNos);
+  if (!querySapValues.length) return [];
+  const rows = [];
+  const fieldSpec = {
+    sapOrderNo: true,
+    itemNo: true,
+    employeeName: true,
+    totalArHours: true,
+    recordCount: true,
+    updatedAt: true,
+    importedAt: true,
+    lastImportAt: true,
+    createdAt: true,
+    sheetName: true,
+    active: true
+  };
+  const fetchByQuery = async (query, label, chunkValues) => {
+    let skip = 0;
+    while (true) {
+      console.log('[AR_MATCH] query condition=', query);
+      const res = await arSummaries
+        .where(query)
+        .field(fieldSpec)
+        .skip(skip)
+        .limit(100)
+        .get();
+      const batch = res.data || [];
+      console.log(`[projectService] ar_summaries ${label}: sap=${JSON.stringify(chunkValues || [])}, skip=${skip}, count=${batch.length}`);
+      console.log('[AR_MATCH] summaries count=', batch.length);
+      console.log('[AR_MATCH] summaries=', batch);
+      rows.push(...batch);
+      if (batch.length < 100) break;
+      skip += batch.length;
+    }
+  };
+  for (const chunk of chunkArray(querySapValues, 20)) {
+    await fetchByQuery({ active: _.neq(false), sapOrderNo: _.in(chunk) }, 'active-not-false', chunk);
+  }
+  const seen = {};
+  return rows.filter(row => {
+    if (!row || row.active === false) return false;
+    const key = row._id || `${normalizeSapNo(row.sapOrderNo)}#${normalizeText(row.itemNo)}#${normalizeText(row.employeeName || row.sheetName)}#${Number(row.totalArHours || 0)}`;
+    if (seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+}
+
+function emptyArEnrichedProject(project, warningText) {
+  return attachComputedMetrics(Object.assign({}, project, {
+    arHours: [],
+    arDetails: [],
+    arSummary: { totalArHours: 0, matchedSummaryCount: 0, latestUpdatedAt: '', latestUpdatedAtText: '' },
+    arTimeWarning: warningText || ''
+  }));
+}
+
+function mergeArHoursForProject(project, summaryRows) {
+  const pairs = collectProjectSapItemPairs(project);
+  const activeBindings = normalizeSapBindingList(project).filter(item => item.active !== false);
+  if (!activeBindings.length) {
+    return emptyArEnrichedProject(project, '当前项目没有有效 SAP 绑定，AR Time 将无法匹配。');
+  }
+  const sapSet = {};
+  pairs.forEach(pair => {
+    sapSet[pair.sapOrderNo] = true;
+  });
+  collectSapNos(project).forEach(sapNo => {
+    sapSet[sapNo] = true;
+  });
+  const detailMap = {};
+  const memberMap = {};
+  let latest = { value: '', time: 0 };
+  let matchedSummaryCount = 0;
+  (summaryRows || []).forEach(row => {
+    const sapOrderNo = normalizeSapNo(row.sapOrderNo);
+    const itemNo = normalizeText(row.itemNo) || '1000';
+    if (!sapSet[sapOrderNo]) return;
+    matchedSummaryCount += 1;
+    const rowUpdatedAt = resolveArUpdatedAt(row);
+    if (rowUpdatedAt.time >= latest.time) latest = rowUpdatedAt;
+    const employeeName = normalizeText(row.employeeName || row.sheetName) || '-';
+    const detailKey = `${employeeName}#${sapOrderNo}#${itemNo}`;
+    if (!detailMap[detailKey]) {
+      detailMap[detailKey] = { employeeName, sapOrderNo, itemNo, totalArHours: 0, recordCount: 0 };
+    }
+    detailMap[detailKey].totalArHours += Number(row.totalArHours || 0);
+    detailMap[detailKey].recordCount += toNumber(row.recordCount);
+    if (!memberMap[employeeName]) {
+      memberMap[employeeName] = { memberName: employeeName, arSheetName: normalizeText(row.sheetName) || employeeName, source: 'ar_summaries', matchedSummaryCount: 0, hours: 0 };
+    }
+    memberMap[employeeName].hours += Number(row.totalArHours || 0);
+    memberMap[employeeName].matchedSummaryCount += 1;
+  });
+  const arDetails = Object.keys(detailMap).map(key => Object.assign({}, detailMap[key], {
+    totalArHours: round2(detailMap[key].totalArHours),
+    recordCount: round2(detailMap[key].recordCount)
+  })).sort((a, b) => {
+    const nameDiff = a.employeeName.localeCompare(b.employeeName);
+    if (nameDiff) return nameDiff;
+    const sapDiff = a.sapOrderNo.localeCompare(b.sapOrderNo);
+    return sapDiff || a.itemNo.localeCompare(b.itemNo);
+  });
+  const arHours = Object.keys(memberMap).map(name => Object.assign({}, memberMap[name], {
+    id: '',
+    memberOpenid: '',
+    hours: round2(memberMap[name].hours)
+  })).sort((a, b) => a.memberName.localeCompare(b.memberName));
+  const arSummary = {
+    totalArHours: round2(arHours.reduce((sum, item) => sum + toNumber(item.hours), 0)),
+    matchedSummaryCount,
+    latestUpdatedAt: latest.value || '',
+    latestUpdatedAtText: formatArTimeValue(latest.value, latest.time)
+  };
+  console.log('[AR_MATCH] totalArHours=', arSummary.totalArHours);
+  return attachComputedMetrics(Object.assign({}, project, { arHours, arDetails, arSummary, arTimeWarning: '' }));
+}
+
+async function enrichProjectsWithArSummaries(projectsInput, options) {
+  const projectsList = projectsInput || [];
+  const opts = options || {};
+  if (!projectsList.length) return projectsList;
+  try {
+    const summaryRows = await fetchArSummariesForProjects(projectsList);
+    const enriched = projectsList.map(project => mergeArHoursForProject(project, summaryRows));
+    return opts.includeArMemberCandidates ? await Promise.all(enriched.map(attachArMemberCandidates)) : enriched;
+  } catch (err) {
+    console.error('[projectService] 查询 ar_summaries 失败：', err);
+    return projectsList.map(project => emptyArEnrichedProject(project, 'AR Time 暂时无法加载。'));
+  }
 }
 
 function getUserName(user) {
@@ -1008,16 +1523,13 @@ function cleanProjectInput(input, user, openid, existingProject) {
     : (openid || project.pmOpenid || '')).trim();
   const projectMembers = normalizeMembers(project.projectMembers);
   const rawEmployeeBudgets = normalizeWorkloadAllocations(project);
-  const pmBudgetRows = projectManager ? rawEmployeeBudgets.concat({
-    id: '',
-    memberOpenid: pmOpenid,
-    memberName: projectManager,
-    budgetHours: ''
-  }) : rawEmployeeBudgets;
+  const existingEmployeeBudgets = normalizeWorkloadAllocations(existing);
+  const budgetRowsWithFallback = mergeBudgetFallbackRows(rawEmployeeBudgets, existingEmployeeBudgets);
+  const pmBudgetRows = ensurePmBudgetRow(budgetRowsWithFallback, projectManager, pmOpenid, existingEmployeeBudgets);
 
-  const employeeNames = uniqueNames([projectManager].concat(projectMembers, pmBudgetRows.map(item => item.memberName)));
+  const submittedEmployeeNames = rawEmployeeBudgets.map(item => item.memberName);
+  const employeeNames = uniqueNames([projectManager].concat(projectMembers, submittedEmployeeNames));
   const employeeBudgets = buildEmployeeBudgetsFromNames(employeeNames, pmBudgetRows);
-  const arHours = alignArHoursToEmployeeBudgets(employeeBudgets, normalizeArHourRows(project.arHours));
 
   return {
     projectName: String(project.projectName || '').trim(),
@@ -1079,7 +1591,7 @@ function cleanProjectInput(input, user, openid, existingProject) {
       plannedCompletedHours: toOptionalNumber(item.plannedCompletedHours)
     })) : [],
     employeeBudgets,
-    arHours
+    memberOpenids: memberOpenidsFromBudgets(employeeBudgets)
   };
 }
 function normalizeText(value) {
@@ -1132,6 +1644,8 @@ function buildMergedUser(primary, records, openid, now) {
     _openid: openid,
     openid,
     name: normalizeText(firstDefined(ordered, 'name', '')),
+    employeeName: normalizeText(firstDefined(ordered, 'employeeName', '')),
+    arSheetName: normalizeText(firstDefined(ordered, 'arSheetName', '')),
     role: primary && primary.role ? primary.role : roles[0],
     roles,
     active: (records || []).some(item => item && item.active === false) ? false : true,
@@ -1183,10 +1697,6 @@ async function getCurrentUser(openid) {
     }
     throw err;
   }
-}
-
-function ownsProject(project, openid) {
-  return project && (project.ownerOpenid === openid || project._openid === openid || project.createdBy === openid);
 }
 
 function normalizeRoles(user) {
@@ -1246,41 +1756,151 @@ function canEditAll(user) {
   return hasRole(user, 'admin');
 }
 
+function currentUserOpenids(openid, user) {
+  return uniqueTexts([openid, user && user.openid, user && user._openid, user && user._id]);
+}
+
+function currentUserNames(user) {
+  return uniqueTexts([user && user.name, user && user.employeeName, user && user.arSheetName]);
+}
+
+function ownsProject(project, openid, user) {
+  if (!project) return false;
+  const openids = currentUserOpenids(openid, user);
+  const ownerIds = uniqueTexts([project.ownerOpenid, project._openid, project.createdBy, project.pmOpenid, project.createdByOpenid]);
+  if (openids.some(id => ownerIds.indexOf(id) >= 0)) return true;
+  if (ownerIds.length) return false;
+  const names = currentUserNames(user);
+  const pmNames = uniqueTexts([project.pmName, project.projectManager, project.ownerName, project.createdByName]);
+  return names.some(name => pmNames.indexOf(name) >= 0);
+}
+
+function memberMatchesUserByOpenid(member, openids) {
+  const memberIds = uniqueTexts([member && member.memberOpenid, member && member.openid, member && member.userId, member && member._openid]);
+  return memberIds.length && openids.some(id => memberIds.indexOf(id) >= 0);
+}
+
+function memberMatchesUserByName(member, names) {
+  const memberNames = uniqueTexts([member && member.memberName, member && member.name, member && member.employeeName, member && member.userName, member && member.arSheetName]);
+  return memberNames.length && names.some(name => memberNames.indexOf(name) >= 0);
+}
+
+function isProjectMember(project, openid, user) {
+  if (!project) return false;
+  const openids = currentUserOpenids(openid, user);
+  const memberOpenids = uniqueTexts(project.memberOpenids || []);
+  if (memberOpenids.length && openids.some(id => memberOpenids.indexOf(id) >= 0)) return true;
+  const employeeBudgets = project.employeeBudgets || [];
+  if (employeeBudgets.some(item => memberMatchesUserByOpenid(item, openids))) return true;
+
+  const hasStructuredMemberIds = memberOpenids.length || employeeBudgets.some(item => uniqueTexts([item && item.memberOpenid, item && item.openid, item && item.userId, item && item._openid]).length);
+  if (hasStructuredMemberIds) return false;
+
+  const names = currentUserNames(user);
+  if (employeeBudgets.some(item => memberMatchesUserByName(item, names))) return true;
+  return normalizeMembers(project.projectMembers).some(name => names.indexOf(name) >= 0);
+}
+
+function getMyAllocation(project, openid, user) {
+  const openids = currentUserOpenids(openid, user);
+  const names = currentUserNames(user);
+  const budgets = project && project.employeeBudgets || [];
+  const arRows = project && project.arHours || [];
+  const budgetByOpenid = budgets.find(item => memberMatchesUserByOpenid(item, openids)) || null;
+  const budget = budgetByOpenid || (!uniqueTexts(project && project.memberOpenids || []).length ? budgets.find(item => memberMatchesUserByName(item, names)) : null) || null;
+  const ar = arRows.find(item => memberMatchesUserByName(item, uniqueTexts([budget && budget.memberName].concat(names)))) || null;
+  const budgetHours = budget ? toAllocationNumber(budget.budgetHours) : '';
+  const actualHours = ar ? toAllocationNumber(ar.hours) : '';
+  const hasBudgetHours = budgetHours !== '';
+  const hasActualHours = actualHours !== '';
+  return {
+    memberName: normalizeText(budget && budget.memberName) || normalizeText(ar && ar.memberName) || currentUserNames(user)[0] || '',
+    budgetHours,
+    actualHours,
+    remainingHours: hasBudgetHours ? round2(toNumber(budgetHours) - toNumber(actualHours)) : '',
+    hasBudgetHours,
+    hasActualHours
+  };
+}
+
 function canView(project, openid, user) {
   if (canViewAll(user)) return true;
-  return ownsProject(project, openid);
+  return ownsProject(project, openid, user) || isProjectMember(project, openid, user);
 }
 
 function canEdit(project, openid, user) {
   if (canEditAll(user)) return true;
-  return ownsProject(project, openid);
+  return ownsProject(project, openid, user);
 }
 
 function decorateProjectAccess(project, openid, user) {
+  const editable = canEdit(project, openid, user);
+  const viewAll = canViewAll(user);
+  const member = isProjectMember(project, openid, user);
   return Object.assign({}, project, {
-    _canEdit: canEdit(project, openid, user),
-    _canViewAll: canViewAll(user),
-    _isOwnProject: ownsProject(project, openid)
+    _canEdit: editable,
+    _canViewAll: viewAll,
+    _canViewFullProject: editable || viewAll,
+    _canViewAllAllocations: editable || viewAll,
+    _isOwnProject: ownsProject(project, openid, user),
+    _isProjectMember: member,
+    _myAllocation: getMyAllocation(project, openid, user)
   });
 }
 
 async function listProjects(openid, user) {
-  const baseQuery = canViewAll(user) ? {} : _.or([{ ownerOpenid: openid }, { _openid: openid }, { createdBy: openid }]);
   const pageSize = 100;
-  let skip = 0;
-  let rows = [];
+  const rows = [];
+  const seen = {};
+  const collect = async query => {
+    let skip = 0;
+    while (true) {
+      let res;
+      try {
+        res = await projects.where(query).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
+      } catch (err) {
+        console.warn('[projectService] 项目列表查询失败，已跳过条件：', query, err && err.message || err);
+        break;
+      }
+      const batch = res.data || [];
+      batch.forEach(item => {
+        if (!item || !item._id || seen[item._id]) return;
+        seen[item._id] = true;
+        rows.push(item);
+      });
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
+  };
 
-  while (true) {
-    const res = await projects.where(baseQuery).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
-    const batch = res.data || [];
-    rows = rows.concat(batch);
-    if (batch.length < pageSize) break;
-    skip += batch.length;
+  if (canViewAll(user)) {
+    await collect({ deleted: _.neq(true) });
+  } else {
+    const openids = currentUserOpenids(openid, user);
+    const names = currentUserNames(user);
+    for (const chunk of chunkArray(openids, 20)) {
+      await collect({ deleted: _.neq(true), ownerOpenid: _.in(chunk) });
+      await collect({ deleted: _.neq(true), _openid: _.in(chunk) });
+      await collect({ deleted: _.neq(true), createdBy: _.in(chunk) });
+      await collect({ deleted: _.neq(true), pmOpenid: _.in(chunk) });
+      await collect({ deleted: _.neq(true), memberOpenids: _.in(chunk) });
+      await collect({ deleted: _.neq(true), 'employeeBudgets.memberOpenid': _.in(chunk) });
+    }
+
+    for (const chunk of chunkArray(names, 20)) {
+      await collect({ deleted: _.neq(true), pmName: _.in(chunk) });
+      await collect({ deleted: _.neq(true), projectManager: _.in(chunk) });
+      await collect({ deleted: _.neq(true), projectMembers: _.in(chunk) });
+      await collect({ deleted: _.neq(true), 'employeeBudgets.memberName': _.in(chunk) });
+    }
   }
 
-  return rows
+  const visibleRows = rows
     .filter(item => item.deleted !== true)
-    .map(item => decorateProjectAccess(item, openid, user));
+    .filter(item => canView(item, openid, user))
+    .sort((a, b) => resolveServerDateMs(b.updatedAt) - resolveServerDateMs(a.updatedAt));
+  const enrichedRows = await enrichProjectsWithArSummaries(visibleRows);
+  return enrichedRows.map(item => decorateProjectAccess(item, openid, user));
 }
 
 async function getProjectById(id) {
@@ -1374,7 +1994,8 @@ exports.main = async (event) => {
       const project = await getProjectById(event.id);
       if (!project) return { ok: false, message: '项目不存在。', user };
       if (!canView(project, openid, user)) return { ok: false, message: '无权查看该项目。', user };
-      return { ok: true, project: decorateProjectAccess(project, openid, user), user };
+      const enriched = (await enrichProjectsWithArSummaries([project], { includeArMemberCandidates: true }))[0] || project;
+      return { ok: true, project: decorateProjectAccess(enriched, openid, user), user };
     }
 
 
@@ -1384,9 +2005,10 @@ exports.main = async (event) => {
       const sapNo = normalizeSapNo(event.sapNo || event.sapProjectNo || event.projectNo);
       if (!sapNo) return { ok: false, message: 'SAP 项目号不能为空。', user };
       const precal = await getPrecalBySapNo(sapNo);
-      if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal', user };
+      if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal。', user };
       const mappedPrecalData = buildProjectFromPrecal(precal, sapNo);
-      return { ok: true, project: mappedPrecalData, precal: mappedPrecalData, user };
+      const enrichedPrecalData = (await enrichProjectsWithArSummaries([mappedPrecalData], { includeArMemberCandidates: true }))[0] || mappedPrecalData;
+      return { ok: true, project: enrichedPrecalData, precal: enrichedPrecalData, user };
     }
 
        if (action === 'createFromSap') {
@@ -1399,7 +2021,7 @@ exports.main = async (event) => {
 
       const txRes = await db.runTransaction(async transaction => {
         const precal = await getPrecalBySapNo(sapNo);
-        if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal' };
+        if (!precal) return { ok: false, message: '未找到该 SAP 项目号对应的 Pre-cal。' };
 
         const validation = validatePrecalForProject(precal);
         if (!validation.ok) return { ok: false, message: validation.message };
@@ -1426,7 +2048,7 @@ exports.main = async (event) => {
           }
         });
 
-        const projectData = attachComputedMetrics(cleanProjectInput(buildProjectFromPrecal(precal, sapNo), user, openid));
+        const projectData = await prepareProjectForSave(buildProjectFromPrecal(precal, sapNo), user, openid);
         projectData._openid = openid;
         projectData.ownerOpenid = openid;
         projectData.createdAt = now;
@@ -1459,11 +2081,12 @@ exports.main = async (event) => {
     }
 
     if (action === 'save') { 
+      console.log('cloud received employeeBudgets', event.project && event.project.employeeBudgets);
       if (event.id) {
         const existing = await getProjectById(event.id);
         if (!existing) return { ok: false, message: '项目不存在，无法更新。', user };
         if (!canEdit(existing, openid, user)) return { ok: false, message: '无权编辑该项目。如需修改请联系项目创建人。', user };
-        const cleaned = attachComputedMetrics(cleanProjectInput(event.project, user, openid, existing));
+        const cleaned = await prepareProjectForSave(event.project, user, openid, existing);
         cleaned.updatedAt = now;
         cleaned.updatedBy = openid;
         await projects.doc(event.id).update({ data: Object.assign({}, cleaned, { version: _.inc(1) }) });
@@ -1473,7 +2096,7 @@ exports.main = async (event) => {
       assertActive(user);
       assertUserName(user);
       assertAnyRole(user, ['pm', 'admin'], '只有 PM 或 admin 可以创建项目。');
-      const cleaned = attachComputedMetrics(cleanProjectInput(event.project, user, openid));
+      const cleaned = await prepareProjectForSave(event.project, user, openid);
       cleaned.updatedAt = now;
       cleaned.updatedBy = openid;
       if (cleaned.precalId) {
@@ -1546,9 +2169,10 @@ exports.main = async (event) => {
     }
 
     if (action === 'exportCsv') {
+      assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'], '当前角色不能导出项目数据。');
       const data = await listProjects(openid, user);
       const rows = data.map(item => {
-        const metrics = computeMetrics(item);
+        const metrics = item.metrics || computeMetrics(item);
         return Object.assign({}, item, { bac: metrics.bac, metrics });
       });
       return { ok: true, csv: buildCsv(rows), user };

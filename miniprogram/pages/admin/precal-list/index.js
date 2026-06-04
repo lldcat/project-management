@@ -20,7 +20,18 @@ Page({
   onPullDownRefresh() { this.loadData().finally(() => wx.stopPullDownRefresh()); },
   noop() {},
   label(status) { const map = { Draft: '草稿', Submitted: '已提交', Withdrawn: '已撤销', 'SAP Bound': '已绑定SAP', Unlocked: '已解锁', Cancelled: '已取消' }; return map[status] || status; },
-  enrich(row) { return Object.assign({}, row, { statusLabel: this.label(row.status), totalOrderValueText: formatMoney(row.totalOrderValue), sapText: (row.sapNos || []).join('、') }); },
+  enrich(row) {
+    const sapText = (row.sapNos || []).join('、');
+    return Object.assign({}, row, {
+      statusLabel: this.label(row.status),
+      totalOrderValueText: formatMoney(row.totalOrderValue),
+      sapText,
+      sapTextDisplay: sapText || '-',
+      customerNameText: row.customerName || '未填写客户',
+      salesOwnerNameText: row.salesOwnerName || '-',
+      canUnlock: row.status === 'SAP Bound'
+    });
+  },
   loadData() {
     return precalService.callPrecalService('listPrecalForAdmin', { status: this.data.filterStatus, keyword: this.data.keyword })
       .then(res => this.setData({ records: (res.records || []).map(item => this.enrich(item)) }))

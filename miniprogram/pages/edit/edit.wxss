@@ -80,3 +80,9 @@
   color: #b42318;
   font-weight: 700;
 }
+.history-title {
+  margin: 22rpx 0 12rpx;
+}
+.muted-sub-card {
+  background: #f2f4f7;
+}

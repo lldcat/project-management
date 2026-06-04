@@ -11,7 +11,8 @@
     "pages/precal-cs/list/index",
     "pages/precal-cs/sap-bind/index",
     "pages/admin/precal-list/index",
-    "pages/admin/precal-parameters/index"
+    "pages/admin/precal-parameters/index",
+    "pages/admin/users/index"
   ],
   "window": {
     "navigationBarTitleText": "项目管理追踪",

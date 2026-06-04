@@ -56,6 +56,8 @@ Page({
         const projects = (res.projects || []).map(item => {
           const project = enrichProject(item);
           project.displayPmName = project.pmName || project.projectManager || '-';
+          project.projectNameText = project.projectName || '未命名项目';
+          project.projectNoText = project.projectNo || '无项目号';
           return project;
         });
         const stats = this.buildStats(projects);

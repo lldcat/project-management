@@ -15,8 +15,13 @@ Page({
     canEdit: false,
     canSubmit: false,
     sapBindings: [],
+    inactiveSapBindings: [],
     hasSapBindings: false,
+    hasInactiveSapBindings: false,
     hasItems: false,
+    arTime: { totalArHoursText: '0', details: [], hasDetails: false },
+    showArDetails: false,
+    showArDetailsText: '展开',
     showScenarioText: '展开',
     statusTagClass: 'tag-warning'
   },
@@ -25,7 +30,7 @@ Page({
   onShow() { if (this.data.id) this.loadData(); },
 
   label(status) {
-    const map = { Draft: '草稿', Submitted: '已提交', Withdrawn: '已撤销', 'SAP Bound': '已绑定SAP', Unlocked: '已解锁', Cancelled: '已取消' };
+    const map = { Draft: '草稿', Submitted: '已提交', Withdrawn: '已撤销', 'SAP Bound': '已绑定SAP', 'Project Created': '已创建项目', Unlocked: '已解锁', Cancelled: '已取消' };
     return map[status] || status;
   },
 
@@ -42,8 +47,26 @@ Page({
         const canEdit = editableStatuses.indexOf(record.status) >= 0 && (record.createdBy === user.openid || roles.indexOf('admin') >= 0);
         const canSubmit = editableStatuses.indexOf(record.status) >= 0;
         const rawSapBindings = Array.isArray(record.sapBindings) ? record.sapBindings : [];
-        const sapBindings = rawSapBindings.map(item => Object.assign({}, item, {
+        const normalizedSapBindings = rawSapBindings.map(item => {
+          const sapOrderNo = item.sapOrderNo || item.sapNo || item.sapProjectNo || '';
+          return Object.assign({}, item, {
+            sapOrderNo,
+            sapNo: sapOrderNo,
+            itemNo: item.itemNo || (String(sapOrderNo).indexOf('7') === 0 ? '1000' : ''),
+            active: item.active === false ? false : true
+          });
+        });
+        const sapBindings = normalizedSapBindings.filter(item => item.active !== false).map(item => Object.assign({}, item, {
+          sapNoText: item.sapOrderNo || item.sapNo || '-',
           memberNameText: item.memberName || '-',
+          itemNoText: item.itemNo || '-',
+          remarkText: item.remark || '-'
+        }));
+        const inactiveSapBindings = normalizedSapBindings.filter(item => item.active === false).map(item => Object.assign({}, item, {
+          sapNoText: item.sapOrderNo || item.sapNo || '-',
+          memberNameText: item.memberName || '-',
+          itemNoText: item.itemNo || '-',
+          disabledReasonText: item.disabledReason || '-',
           remarkText: item.remark || '-'
         }));
         const rawItemList = record.itemList && record.itemList.length ? record.itemList : sapBindings.reduce((acc, sap) => acc.concat(sap.items || []), []);
@@ -52,6 +75,7 @@ Page({
           itemDescriptionText: item.itemDescription || '-',
           remarkText: item.remark || '-'
         }));
+        const arTime = this.buildArTime(record.arTime);
         const lineItems = (record.lineItems || []).map(item => Object.assign({}, item, {
           productDescriptionText: item.productDescription || '未填写服务描述',
           operatingMarginText: formatPercent((item.calculated || {}).operatingMargin)
@@ -66,11 +90,15 @@ Page({
           sapText: sapBindings.map(item => item.sapNo).join('、'),
           sapBindings,
           hasSapBindings: sapBindings.length > 0,
+          inactiveSapBindings,
+          hasInactiveSapBindings: inactiveSapBindings.length > 0,
           itemList,
           hasItems: itemList.length > 0,
+          arTime,
           canEdit,
           canSubmit,
           statusTagClass: record.status === 'SAP Bound' ? 'tag-normal' : 'tag-warning',
+          showArDetailsText: this.data.showArDetails ? '收起' : '展开',
           showScenarioText: this.data.showScenario ? '收起' : '展开',
           resultItems: [
             { key: 'totalOrderValue', label: 'Total Order Value', value: formatMoney(r.totalOrderValue) },
@@ -89,6 +117,42 @@ Page({
         });
       })
       .catch(err => wx.showToast({ title: err.message || '加载失败', icon: 'none' }));
+  },
+
+  buildArTime(raw) {
+    const source = raw || {};
+    const details = (source.details || []).map(item => Object.assign({}, item, {
+      detailKey: `${item.employeeName || '-'}#${item.sapOrderNo || '-'}#${item.itemNo || '-'}`,
+      employeeNameText: item.employeeName || '-',
+      sapOrderNo: item.sapOrderNo || '-',
+      itemNoText: item.itemNo || '-',
+      totalArHoursText: this.formatHours(item.totalArHours),
+      recordCountText: item.recordCount || 0
+    }));
+    return {
+      sapOrderNos: source.sapOrderNos || [],
+      sapText: (source.sapOrderNos || []).join('、'),
+      sapDisplayText: (source.sapOrderNos || []).join('、') || '暂无 SAP号',
+      warningText: source.warningText || '',
+      noActiveSap: !!source.noActiveSap,
+      totalArHoursText: this.formatHours(source.totalArHours),
+      details,
+      hasDetails: details.length > 0
+    };
+  },
+
+  formatHours(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '0';
+    return String(Math.round(n * 100) / 100);
+  },
+
+  toggleArDetails() {
+    const showArDetails = !this.data.showArDetails;
+    this.setData({
+      showArDetails,
+      showArDetailsText: showArDetails ? '收起' : '展开'
+    });
   },
 
   toggleScenario() {

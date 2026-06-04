@@ -3,3 +3,8 @@
 .line { padding: 16rpx; border: 1rpx solid #eaecf0; border-radius: 14rpx; margin-bottom: 12rpx; }
 .line-title { font-weight: 700; }
 .scenario { background: #f9fafb; border-radius: 14rpx; padding: 16rpx; margin-bottom: 12rpx; }
+.ar-total { white-space: nowrap; }
+.ar-toggle { margin: 12rpx 0; text-align: right; }
+.history-title { margin: 20rpx 0 12rpx; }
+.muted-line { background: #f9fafb; }
+.ar-warning { color: #b42318; margin-top: 12rpx; }

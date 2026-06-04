@@ -9,10 +9,10 @@
     </view>
     <input class="input search" placeholder="搜索项目名称、项目号、客户或 PM" value="{{keyword}}" bindinput="onSearchInput" />
     <view class="filter-row">
-      <button class="{{filter === 'all' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="all" bindtap="switchFilter">全部</button>
-      <button class="{{filter === 'risk' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="risk" bindtap="switchFilter">风险</button>
-      <button class="{{filter === 'normal' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="normal" bindtap="switchFilter">正常</button>
-      <button class="btn-secondary" size="mini" bindtap="exportCsv">导出CSV</button>
+      <button class="{{filter == 'all' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="all" bindtap="switchFilter">全部</button>
+      <button class="{{filter == 'risk' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="risk" bindtap="switchFilter">风险</button>
+      <button class="{{filter == 'normal' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="normal" bindtap="switchFilter">正常</button>
+      <button wx:if="{{canExport}}" class="btn-secondary" size="mini" bindtap="exportCsv">导出CSV</button>
     </view>
   </view>
 
@@ -22,36 +22,44 @@
     <view bindtap="editProject" data-id="{{item._id}}">
       <view class="row">
         <view>
-          <view class="project-title">{{item.projectName || '未命名项目'}}</view>
-          <view class="muted">{{item.projectNo || '无项目号'}} ｜ {{item.customerName || '无客户名称'}} ｜ PM：{{item.displayPmName}}</view>
+          <view class="project-title">{{item.projectNameText}}</view>
+          <view class="muted">{{item.projectNoText}} ｜ {{item.customerNameText}} ｜ PM：{{item.displayPmName}}</view>
         </view>
-        <view class="tag {{item.metrics.hasRisk ? 'tag-risk' : 'tag-normal'}}">{{item.metrics.hasRisk ? '风险' : '正常'}}</view>
+        <view class="tag {{item.riskTagClass}}">{{item.riskTagText}}</view>
       </view>
-      <view class="metric-line">
-        <text>BAC（系统计算，含杂费/差旅）</text>
-        <text class="metric-value">{{item.display.bac}}</text>
+      <view wx:if="{{item._canViewFullProject}}">
+        <view class="metric-line">
+          <text>BAC（系统计算，含杂费/差旅）</text>
+          <text class="metric-value">{{item.display.bac}}</text>
+        </view>
+        <view class="metric-line">
+          <text>人工预算（不含杂费/差旅）</text>
+          <text class="metric-value">{{item.display.laborBudget}}</text>
+        </view>
+        <view class="metric-line">
+          <text>人员预算工时合计</text>
+          <text class="metric-value">{{item.display.sumEmployeeBudgetHours}}</text>
+        </view>
       </view>
-      <view class="metric-line">
-        <text>人工预算（不含杂费/差旅）</text>
-        <text class="metric-value">{{item.display.laborBudget}}</text>
+      <view wx:if="{{item.showMyAllocation}}" class="metric-line">
+        <text>我的分配额度</text>
+        <text class="metric-value">{{item.myAllocationText}}</text>
       </view>
-      <view class="metric-line">
-        <text>人员预算工时合计</text>
-        <text class="metric-value">{{item.display.sumEmployeeBudgetHours}}</text>
-      </view>
-      <view class="metric-line">
-        <text>AC（实际成本）</text>
-        <text class="metric-value">{{item.display.actualCost}}</text>
-      </view>
-      <view class="grid-2 small-metrics">
-        <view>CPI（成本绩效）：<text class="metric-value">{{item.display.cpi}}</text></view>
-        <view>SPI（进度绩效）：<text class="metric-value">{{item.display.spi}}</text></view>
-        <view>实际完成：<text class="metric-value">{{item.display.actualCompletionRatio}}</text></view>
-        <view>计划完成：<text class="metric-value">{{item.display.plannedCompletionRatio}}</text></view>
-      </view>
-      <view class="alert-list">
-        <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.level === 'risk' ? 'tag-risk' : (alert.level === 'warning' ? 'tag-warning' : 'tag-normal')}}">
-          {{alert.text}}
+      <view wx:if="{{item._canViewFullProject}}">
+        <view class="metric-line">
+          <text>AC（实际成本）</text>
+          <text class="metric-value">{{item.display.actualCost}}</text>
+        </view>
+        <view class="grid-2 small-metrics">
+          <view>CPI（成本绩效）：<text class="metric-value">{{item.display.cpi}}</text></view>
+          <view>SPI（进度绩效）：<text class="metric-value">{{item.display.spi}}</text></view>
+          <view>实际完成：<text class="metric-value">{{item.display.actualCompletionRatio}}</text></view>
+          <view>计划完成：<text class="metric-value">{{item.display.plannedCompletionRatio}}</text></view>
+        </view>
+        <view class="alert-list">
+          <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.statusClass}}">
+            {{alert.text}}
+          </view>
         </view>
       </view>
     </view>

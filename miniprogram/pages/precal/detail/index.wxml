@@ -22,9 +22,16 @@
       <view class="card-title">SAP 绑定信息</view>
       <view wx:if="{{!hasSapBindings}}" class="muted">暂无 SAP号</view>
       <view wx:for="{{sapBindings}}" wx:key="sapId" class="line">
-        <view class="line-title">SAP {{index + 1}}：{{item.sapNo}}</view>
+        <view class="line-title">SAP {{index + 1}}：{{item.sapNoText}}</view>
+        <view class="muted">Item：{{item.itemNoText}}</view>
         <view class="muted">关联人员：{{item.memberNameText}}</view>
         <view class="muted">备注：{{item.remarkText}}</view>
+      </view>
+      <view wx:if="{{hasInactiveSapBindings}}" class="section-title history-title">历史 SAP</view>
+      <view wx:for="{{inactiveSapBindings}}" wx:for-item="history" wx:key="sapId" class="line muted-line">
+        <view class="line-title">SAP {{index + 1}}：{{history.sapNoText}}（已停用）</view>
+        <view class="muted">Item：{{history.itemNoText}} ｜ 原因：{{history.disabledReasonText}}</view>
+        <view class="muted">备注：{{history.remarkText}}</view>
       </view>
     </view>
 
@@ -41,6 +48,28 @@
     <view class="card">
       <view class="card-title">计算结果</view>
       <view wx:for="{{resultItems}}" wx:key="key" class="metric-line"><text>{{item.label}}</text><text class="metric-value">{{item.value}}</text></view>
+    </view>
+
+    <view class="card">
+      <view class="row" bindtap="toggleArDetails">
+        <view>
+          <view class="card-title">AR Time</view>
+          <view class="muted">{{arTime.sapDisplayText}}</view>
+        </view>
+        <view class="metric-value ar-total">{{arTime.totalArHoursText}} h</view>
+      </view>
+      <view wx:if="{{!arTime.hasDetails}}" class="muted">暂无匹配 AR 明细</view>
+      <view wx:if="{{arTime.warningText}}" class="muted ar-warning">{{arTime.warningText}}</view>
+      <view wx:if="{{arTime.hasDetails}}" class="muted ar-toggle">{{showArDetailsText}}明细</view>
+      <view wx:if="{{showArDetails}}">
+        <view wx:for="{{arTime.details}}" wx:key="detailKey" class="line">
+          <view class="line-title">{{item.employeeNameText}}</view>
+          <view class="metric-line"><text>SAP</text><text>{{item.sapOrderNo}}</text></view>
+          <view class="metric-line"><text>Item</text><text>{{item.itemNoText}}</text></view>
+          <view class="metric-line"><text>AR Time</text><text>{{item.totalArHoursText}} h</text></view>
+          <view class="metric-line"><text>Record Count</text><text>{{item.recordCountText}}</text></view>
+        </view>
+      </view>
     </view>
 
     <view class="card">

@@ -16,15 +16,15 @@
   <view wx:for="{{records}}" wx:key="_id" class="card" bindtap="goDetail" data-id="{{item._id}}">
     <view class="row">
       <view>
-        <view class="metric-value">{{item.customerName || '未填写客户'}}</view>
-        <view class="muted">{{item.service}} ｜ Sales：{{item.salesOwnerName || '-'}}</view>
+        <view class="metric-value">{{item.customerNameText}}</view>
+        <view class="muted">{{item.service}} ｜ Sales：{{item.salesOwnerNameText}}</view>
       </view>
       <view class="tag">{{item.statusLabel}}</view>
     </view>
     <view class="metric-line"><text>总订单金额</text><text>{{item.totalOrderValueText}}</text></view>
-    <view class="metric-line"><text>SAP号</text><text>{{item.sapText || '-'}}</text></view>
+    <view class="metric-line"><text>SAP号</text><text>{{item.sapTextDisplay}}</text></view>
     <view class="actions" catchtap="noop">
-      <button wx:if="{{item.status == 'SAP Bound'}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="unlock">解锁</button>
+      <button wx:if="{{item.canUnlock}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="unlock">解锁</button>
     </view>
   </view>
 </view>

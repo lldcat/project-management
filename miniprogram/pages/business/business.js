@@ -44,7 +44,7 @@ Page({
     this.setData({
       userName: user.displayName || user.userName || user.name || '当前用户',
       roles,
-      roleText: roles.map(item => this.formatRole(item)).join(' / '),
+      roleText: roles.map(item => this.formatRole(item)).join(' / ') || '-',
       showProjectOps: this.hasAnyRole(roles, ['pm', 'leader', 'admin']),
       showSalesOps: roles.indexOf('sales') >= 0,
       showCSOps: this.hasAnyRole(roles, ['cs', 'admin']),
@@ -107,6 +107,10 @@ Page({
 
   goParameters() {
     wx.navigateTo({ url: '/pages/admin/precal-parameters/index' });
+  },
+
+  goUserAdmin() {
+    wx.navigateTo({ url: '/pages/admin/users/index' });
   },
 
   goSettings() {

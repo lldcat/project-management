@@ -9,7 +9,8 @@ Page({
     filter: 'all',
     listTitle: '我的项目',
     scopeText: 'PM 默认只显示自己创建的项目。',
-    userRole: 'pm'
+    userRole: 'pm',
+    canExport: true
   },
 
   onShow() {
@@ -25,18 +26,29 @@ Page({
       .then(res => {
         const projects = (res.projects || []).map(item => {
           const project = enrichProject(item);
+          const myAllocation = project._myAllocation || {};
+          const hasMyBudget = myAllocation.hasBudgetHours || myAllocation.budgetHours !== '';
           project.displayPmName = project.pmName || project.projectManager || '-';
+          project.projectNameText = project.projectName || '未命名项目';
+          project.projectNoText = project.projectNo || '无项目号';
+          project.customerNameText = project.customerName || '无客户名称';
+          project.riskTagText = project.metrics.hasRisk ? '风险' : '正常';
+          project.riskTagClass = project.metrics.hasRisk ? 'tag-risk' : 'tag-normal';
+          project.showMyAllocation = project._isProjectMember && !project._canViewFullProject;
+          project.myAllocationText = hasMyBudget ? `${myAllocation.budgetHours} h` : '未分配';
           return project;
         });
         const user = res.user || {};
         const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role || 'pm'];
         const role = user.role || roles[0] || 'pm';
         const privileged = roles.indexOf('admin') >= 0 || roles.indexOf('ar') >= 0;
+        const canExport = roles.some(item => ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'].indexOf(item) >= 0);
         this.setData({
           projects,
           userRole: role,
+          canExport,
           listTitle: privileged ? '全部项目' : '我的项目',
-          scopeText: privileged ? '当前为管理视角，可查看并导出全部可见项目（不再限制固定条数）。非本人项目默认只读。' : '当前为 PM 视角，只显示自己创建的项目。'
+          scopeText: privileged ? '当前为管理视角，可查看并导出全部可见项目（不再限制固定条数）。非本人项目默认只读。' : '当前显示我创建、负责或作为组员参与的项目。'
         }, () => this.applyFilter());
       })
       .catch(err => {

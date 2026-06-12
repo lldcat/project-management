@@ -51,8 +51,6 @@
           <text class="metric-value">{{item.display.actualCost}}</text>
         </view>
         <view class="grid-2 small-metrics">
-          <view>CPI（成本绩效）：<text class="metric-value">{{item.display.cpi}}</text></view>
-          <view>SPI（进度绩效）：<text class="metric-value">{{item.display.spi}}</text></view>
           <view>实际完成：<text class="metric-value">{{item.display.actualCompletionRatio}}</text></view>
           <view>计划完成：<text class="metric-value">{{item.display.plannedCompletionRatio}}</text></view>
         </view>

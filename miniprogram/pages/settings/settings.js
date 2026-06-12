@@ -3,14 +3,12 @@ const userService = require('../../services/userService');
 
 Page({
   data: {
-    openid: '',
-    envId: '',
     name: '',
     nameInput: '',
     missingName: false,
     savingName: false,
-    roles: ['pm'],
-    roleText: 'PM'
+    loginStatusText: '未登录',
+    accountStatusText: 'Active'
   },
 
   onShow() {
@@ -19,28 +17,13 @@ Page({
 
   loadUser() {
     const user = app.globalData.user || {};
-    const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : ['pm'];
     this.setData({
-      openid: app.globalData.openid || user.openid || '',
-      envId: app.globalData.envId || '',
       name: user.name || '',
       nameInput: user.name || '',
       missingName: !String(user.name || '').trim(),
-      roles,
-      roleText: roles.map(item => this.formatRole(item)).join(' / ')
+      loginStatusText: user && user._id ? '已登录' : '未登录',
+      accountStatusText: user.active === false ? 'Disabled' : 'Active'
     });
-  },
-
-  formatRole(role) {
-    const map = {
-      pm: 'PM',
-      admin: '系统管理员',
-      ar: 'AR核对人',
-      member: '普通组员',
-      sales: 'Sales',
-      cs: 'CS'
-    };
-    return map[role] || role || 'PM';
   },
 
   onNameInput(e) {

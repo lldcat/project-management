@@ -1,5 +1,6 @@
 const app = getApp();
 const userService = require('../../services/userService');
+const { DEFAULT_ROLES, normalizeRoles, hasAnyRole, isAdmin, isSales } = require('../../services/permissionService');
 
 Page({
   data: {
@@ -34,7 +35,7 @@ Page({
       .catch(err => {
         console.error(err);
         wx.showToast({ title: '身份加载失败', icon: 'none' });
-        this.applyUser({ roles: ['pm'] });
+        this.applyUser({ roles: DEFAULT_ROLES });
       })
       .finally(() => this.setData({ loading: false }));
   },
@@ -45,20 +46,15 @@ Page({
       userName: user.displayName || user.userName || user.name || '当前用户',
       roles,
       roleText: roles.map(item => this.formatRole(item)).join(' / ') || '-',
-      showProjectOps: this.hasAnyRole(roles, ['pm', 'leader', 'admin']),
-      showSalesOps: roles.indexOf('sales') >= 0,
-      showCSOps: this.hasAnyRole(roles, ['cs', 'admin']),
-      showAdminOps: roles.indexOf('admin') >= 0
+      showProjectOps: hasAnyRole({ roles }, ['pm', 'leader', 'admin']),
+      showSalesOps: isSales({ roles }),
+      showCSOps: hasAnyRole({ roles }, ['cs', 'admin']),
+      showAdminOps: isAdmin({ roles })
     });
   },
 
   normalizeRoles(user) {
-    if (user && Array.isArray(user.roles) && user.roles.length) return user.roles;
-    return ['pm'];
-  },
-
-  hasAnyRole(roles, targetRoles) {
-    return targetRoles.some(role => roles.indexOf(role) >= 0);
+    return normalizeRoles(user);
   },
 
   formatRole(role) {
@@ -110,9 +106,5 @@ Page({
 
   goUserAdmin() {
     wx.navigateTo({ url: '/pages/admin/users/index' });
-  },
-
-  goSettings() {
-    wx.switchTab({ url: '/pages/settings/settings' });
   }
 });

@@ -9,6 +9,8 @@ const projects = db.collection('projects');
 const precalRecords = db.collection('precal_records');
 const arSummaries = db.collection('ar_summaries');
 const CREATE_FROM_SAP_LOCK_TIMEOUT_MS = 20 * 60 * 1000;
+const DEFAULT_ROLES = ['pm', 'sales'];
+const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
 
 
 
@@ -520,7 +522,17 @@ function buildProjectFromPrecal(precal, inputSapNo) {
 
 async function safeGetPrecalCandidates(query, label) {
   try {
-    return await precalRecords.where(query).limit(100).get();
+    const rows = [];
+    let skip = 0;
+    const pageSize = 100;
+    while (true) {
+      const res = await precalRecords.where(query).skip(skip).limit(pageSize).get();
+      const batch = res.data || [];
+      rows.push.apply(rows, batch);
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
+    return { data: rows };
   } catch (err) {
     console.warn(`按 ${label} 查询 Pre-cal 失败，改用候选记录过滤：`, err && err.message || err);
     return { data: [] };
@@ -1009,8 +1021,15 @@ async function fetchUsersByField(field, values) {
   if (!texts.length) return [];
   const rows = [];
   for (const chunk of chunkArray(texts, 20)) {
-    const res = await users.where({ [field]: _.in(chunk) }).limit(100).get();
-    rows.push(...(res.data || []));
+    let skip = 0;
+    const pageSize = 100;
+    while (true) {
+      const res = await users.where({ [field]: _.in(chunk) }).skip(skip).limit(pageSize).get();
+      const batch = res.data || [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
   }
   return rows;
 }
@@ -1203,7 +1222,6 @@ async function attachArMemberCandidates(project) {
 async function prepareProjectForSave(input, user, openid, existingProject) {
   const cleaned = cleanProjectInput(input, user, openid, existingProject);
   const enriched = await enrichEmployeeBudgetOpenids(cleaned);
-  console.log('cloud cleaned employeeBudgets', enriched.employeeBudgets);
   return attachComputedMetrics(enriched);
 }
 
@@ -1216,8 +1234,6 @@ async function fetchArSummariesForProjects(projectsInput) {
       .concat(collectProjectSapItemPairs(project).map(pair => pair.sapOrderNo)))
       .map(normalizeSapNo)
       .filter(Boolean);
-    console.log('[AR_MATCH] sapBindings=', sapBindings);
-    console.log('[AR_MATCH] final sapList=', projectSapList);
     sapNumbers.push(...projectSapList);
   });
   const uniqueSapNos = uniqueTexts(sapNumbers).map(normalizeSapNo).filter(Boolean);
@@ -1240,7 +1256,6 @@ async function fetchArSummariesForProjects(projectsInput) {
   const fetchByQuery = async (query, label, chunkValues) => {
     let skip = 0;
     while (true) {
-      console.log('[AR_MATCH] query condition=', query);
       const res = await arSummaries
         .where(query)
         .field(fieldSpec)
@@ -1248,9 +1263,6 @@ async function fetchArSummariesForProjects(projectsInput) {
         .limit(100)
         .get();
       const batch = res.data || [];
-      console.log(`[projectService] ar_summaries ${label}: sap=${JSON.stringify(chunkValues || [])}, skip=${skip}, count=${batch.length}`);
-      console.log('[AR_MATCH] summaries count=', batch.length);
-      console.log('[AR_MATCH] summaries=', batch);
       rows.push(...batch);
       if (batch.length < 100) break;
       skip += batch.length;
@@ -1335,7 +1347,6 @@ function mergeArHoursForProject(project, summaryRows) {
     latestUpdatedAt: latest.value || '',
     latestUpdatedAtText: formatArTimeValue(latest.value, latest.time)
   };
-  console.log('[AR_MATCH] totalArHours=', arSummary.totalArHours);
   return attachComputedMetrics(Object.assign({}, project, { arHours, arDetails, arSummary, arTimeWarning: '' }));
 }
 
@@ -1447,7 +1458,7 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm'];
+  return roles.length ? roles : DEFAULT_ROLES.slice();
 }
 
 function userScore(user, openid) {
@@ -1479,7 +1490,6 @@ function buildMergedUser(primary, openid, now) {
     arSheetName: normalizeText(primary && primary.arSheetName),
     roles,
     active: primary && primary.active === false ? false : true,
-    defaultPersonDayCost: Number(primary && primary.defaultPersonDayCost || 5000) || 5000,
     deleted: false,
     version: Number(primary && primary.version || 1) || 1,
     createdAt: primary && primary.createdAt || now,
@@ -1488,14 +1498,53 @@ function buildMergedUser(primary, openid, now) {
 }
 
 async function findUserRecords(openid) {
-  const res = await users.where({ openid }).limit(20).get();
-  return res.data || [];
+  const fetchByQuery = async query => {
+    const rows = [];
+    let skip = 0;
+    const pageSize = 100;
+    while (true) {
+      const res = await users.where(query).skip(skip).limit(pageSize).get();
+      const batch = res.data || [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
+    return rows;
+  };
+  const byOpenid = await fetchByQuery({ openid });
+  const bySystemOpenid = await fetchByQuery({ _openid: openid });
+  let byDocId = null;
+  try {
+    const doc = await users.doc(openid).get();
+    byDocId = doc && doc.data;
+  } catch (err) {}
+  const seen = {};
+  return []
+    .concat(byDocId ? [byDocId] : [])
+    .concat(byOpenid)
+    .concat(bySystemOpenid)
+    .filter(item => {
+      const key = item && item._id;
+      if (!key || seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
 }
 
 async function removeDuplicateUsers(records, primaryId) {
   const duplicates = (records || []).filter(item => item && item._id && item._id !== primaryId);
-  await Promise.all(duplicates.map(item => users.doc(item._id).remove().catch(err => {
-    console.warn('删除重复用户记录失败：', item._id, err);
+  const now = db.serverDate();
+  await Promise.all(duplicates.map(item => users.doc(item._id).update({
+    data: {
+      deleted: true,
+      active: false,
+      duplicateOf: primaryId,
+      duplicateArchivedAt: now,
+      updatedAt: now,
+      version: _.inc(1)
+    }
+  }).catch(err => {
+    console.warn('标记重复用户记录失败：', item._id, err);
   })));
   return duplicates.length;
 }
@@ -1512,7 +1561,7 @@ async function getCurrentUser(openid) {
     return Object.assign({ _id: primary._id }, primary, mergedUser);
   }
 
-  const newUser = buildMergedUser({ _id: openid, roles: ['pm'] }, openid, now);
+  const newUser = buildMergedUser({ _id: openid, roles: DEFAULT_ROLES }, openid, now);
   try {
     await users.doc(openid).set({ data: newUser });
     return Object.assign({ _id: openid }, newUser);
@@ -1530,8 +1579,18 @@ async function getCurrentUser(openid) {
 }
 
 function normalizeRoles(user) {
-  if (user && Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
-  return ['pm'];
+  const seen = {};
+  const result = [];
+  const add = role => {
+    const clean = normalizeText(role);
+    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
+      seen[clean] = true;
+      result.push(clean);
+    }
+  };
+  if (user && Array.isArray(user.roles) && user.roles.length) user.roles.forEach(add);
+  if (!result.length) DEFAULT_ROLES.forEach(add);
+  return result;
 }
 
 function hasRole(user, role) {
@@ -1879,11 +1938,15 @@ exports.main = async (event) => {
     }
 
     if (action === 'save') { 
-      console.log('cloud received employeeBudgets', event.project && event.project.employeeBudgets);
       if (event.id) {
         const existing = await getProjectById(event.id);
         if (!existing) return { ok: false, message: '项目不存在，无法更新。', user };
         if (!canEdit(existing, openid, user)) return { ok: false, message: '无权编辑该项目。如需修改请联系项目创建人。', user };
+        const incomingVersion = Number(event.project && event.project.version);
+        const currentVersion = Number(existing.version || 1);
+        if (Number.isFinite(incomingVersion) && incomingVersion > 0 && incomingVersion !== currentVersion) {
+          return { ok: false, code: 'VERSION_CONFLICT', message: '项目已被其他人更新，请刷新后再保存。', user };
+        }
         const cleaned = await prepareProjectForSave(event.project, user, openid, existing);
         cleaned.updatedAt = now;
         cleaned.updatedBy = openid;

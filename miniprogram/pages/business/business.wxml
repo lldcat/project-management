@@ -58,15 +58,11 @@
         <view class="action-title">用户角色</view>
         <view class="action-desc">为用户分配 PM、Sales、CS、AR 或 admin 角色</view>
       </view>
-      <view class="action-card" bindtap="goSettings">
-        <view class="action-title">用户身份</view>
-        <view class="action-desc">查看 openid 和角色，刷新当前身份</view>
-      </view>
     </view>
   </view>
 
   <view wx:if="{{!showProjectOps && !showSalesOps && !showCSOps && !showAdminOps}}" class="card empty-card">
     <view class="card-title">暂无可用业务入口</view>
-    <view class="muted">请联系 admin 为当前 openid 配置角色。</view>
+    <view class="muted">请联系 admin 为当前账号配置权限。</view>
   </view>
 </view>

@@ -1,6 +1,7 @@
 const projectService = require('../../services/projectService');
 const precalService = require('../../services/precalService');
 const { enrichProject, formatMoney, formatNumber } = require('../../utils/metrics');
+const { normalizeRoles, hasRole } = require('../../services/permissionService');
 
 Page({
   data: {
@@ -14,16 +15,10 @@ Page({
     stats: {
       total: 0,
       risk: 0,
-      overCost: 0,
-      delayed: 0,
       bacText: '-',
       laborBudgetText: '-',
       employeeBudgetHoursText: '-',
-      actualCostText: '-',
-      cvText: '-',
-      svText: '-',
-      cvClass: '',
-      svClass: ''
+      actualCostText: '-'
     },
     precalStats: {
       total: 0,
@@ -64,8 +59,8 @@ Page({
         const stats = this.buildStats(projects);
         const riskProjects = projects.filter(item => item.metrics.hasRisk).slice(0, 8);
         const user = res.user || {};
-        const roles = this.normalizeRoles(user);
-        const privileged = roles.indexOf('admin') >= 0 || roles.indexOf('ar') >= 0;
+        const roles = normalizeRoles(user);
+        const privileged = hasRole({ roles }, 'admin') || hasRole({ roles }, 'ar');
         this.setData({
           projects,
           riskProjects,
@@ -83,9 +78,9 @@ Page({
   },
 
   loadPrecalStats(roles) {
-    const hasSales = roles.indexOf('sales') >= 0;
-    const hasCS = roles.indexOf('cs') >= 0;
-    const hasAdmin = roles.indexOf('admin') >= 0;
+    const hasSales = hasRole({ roles }, 'sales');
+    const hasCS = hasRole({ roles }, 'cs');
+    const hasAdmin = hasRole({ roles }, 'admin');
     const canSeePrecal = hasSales || hasCS || hasAdmin;
     if (!canSeePrecal) {
       this.setData({ showPrecalStats: false, precalStats: this.buildPrecalStatusStats([]) });
@@ -153,11 +148,6 @@ Page({
     return stats;
   },
 
-  normalizeRoles(user) {
-    if (user && Array.isArray(user.roles) && user.roles.length) return user.roles;
-    return ['pm'];
-  },
-
   formatRole(role) {
     const map = {
       pm: 'PM',
@@ -177,27 +167,17 @@ Page({
       acc.laborBudget += Number(m.laborBudget || 0);
       acc.actualCost += Number(m.actualCost || 0);
       acc.employeeBudgetHours += Number(m.sumEmployeeBudgetHours || 0);
-      acc.cv += Number(m.costVariance || 0);
-      acc.sv += Number(m.scheduleVariance || 0);
       if (m.hasRisk) acc.risk += 1;
-      if (m.costVariance < 0 || m.costPerformanceIndex < 1) acc.overCost += 1;
-      if (m.scheduleVariance < 0 || m.schedulePerformanceIndex < 1) acc.delayed += 1;
       return acc;
-    }, { bac: 0, laborBudget: 0, actualCost: 0, employeeBudgetHours: 0, cv: 0, sv: 0, risk: 0, overCost: 0, delayed: 0 });
+    }, { bac: 0, laborBudget: 0, actualCost: 0, employeeBudgetHours: 0, risk: 0 });
 
     return {
       total: projects.length,
       risk: sum.risk,
-      overCost: sum.overCost,
-      delayed: sum.delayed,
       bacText: formatMoney(sum.bac),
       laborBudgetText: formatMoney(sum.laborBudget),
       employeeBudgetHoursText: formatNumber(sum.employeeBudgetHours),
-      actualCostText: formatMoney(sum.actualCost),
-      cvText: formatMoney(sum.cv),
-      svText: formatMoney(sum.sv),
-      cvClass: sum.cv < 0 ? 'negative' : 'positive',
-      svClass: sum.sv < 0 ? 'negative' : 'positive'
+      actualCostText: formatMoney(sum.actualCost)
     };
   },
 

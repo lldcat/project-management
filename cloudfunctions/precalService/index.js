@@ -11,6 +11,8 @@ const precalParameters = db.collection('precal_parameters');
 const precalLogs = db.collection('precal_logs');
 const arSummaries = db.collection('ar_summaries');
 const projects = db.collection('projects');
+const DEFAULT_ROLES = ['pm', 'sales'];
+const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
 
 const STATUS = {
   DRAFT: 'Draft',
@@ -163,9 +165,18 @@ function chunkArray(items, size) {
 }
 
 function normalizeRoles(user) {
-  if (!user) return [];
-  if (Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
-  return ['pm'];
+  const seen = {};
+  const result = [];
+  const add = role => {
+    const clean = normalizeText(role);
+    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
+      seen[clean] = true;
+      result.push(clean);
+    }
+  };
+  if (user && Array.isArray(user.roles) && user.roles.length) user.roles.forEach(add);
+  if (!result.length) DEFAULT_ROLES.forEach(add);
+  return result;
 }
 
 function hasRole(user, role) {
@@ -185,7 +196,7 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm'];
+  return roles.length ? roles : DEFAULT_ROLES.slice();
 }
 
 function userScore(user, openid) {
@@ -218,7 +229,6 @@ function buildMergedUser(primary, openid, now) {
     arSheetName: normalizeText(primary && primary.arSheetName),
     roles,
     active: primary && primary.active === false ? false : true,
-    defaultPersonDayCost: Number(primary && primary.defaultPersonDayCost || 5000) || 5000,
     deleted: false,
     version: Number(primary && primary.version || 1) || 1,
     createdAt: primary && primary.createdAt || now,
@@ -227,14 +237,53 @@ function buildMergedUser(primary, openid, now) {
 }
 
 async function findUserRecords(openid) {
-  const res = await users.where({ openid }).limit(20).get();
-  return res.data || [];
+  const fetchByQuery = async query => {
+    const rows = [];
+    let skip = 0;
+    const pageSize = 100;
+    while (true) {
+      const res = await users.where(query).skip(skip).limit(pageSize).get();
+      const batch = res.data || [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
+    return rows;
+  };
+  const byOpenid = await fetchByQuery({ openid });
+  const bySystemOpenid = await fetchByQuery({ _openid: openid });
+  let byDocId = null;
+  try {
+    const doc = await users.doc(openid).get();
+    byDocId = doc && doc.data;
+  } catch (err) {}
+  const seen = {};
+  return []
+    .concat(byDocId ? [byDocId] : [])
+    .concat(byOpenid)
+    .concat(bySystemOpenid)
+    .filter(item => {
+      const key = item && item._id;
+      if (!key || seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
 }
 
 async function removeDuplicateUsers(records, primaryId) {
   const duplicates = (records || []).filter(item => item && item._id && item._id !== primaryId);
-  await Promise.all(duplicates.map(item => users.doc(item._id).remove().catch(err => {
-    console.warn('删除重复用户记录失败：', item._id, err);
+  const now = db.serverDate();
+  await Promise.all(duplicates.map(item => users.doc(item._id).update({
+    data: {
+      deleted: true,
+      active: false,
+      duplicateOf: primaryId,
+      duplicateArchivedAt: now,
+      updatedAt: now,
+      version: _.inc(1)
+    }
+  }).catch(err => {
+    console.warn('标记重复用户记录失败：', item._id, err);
   })));
   return duplicates.length;
 }
@@ -251,7 +300,7 @@ async function getCurrentUser(openid) {
     return Object.assign({ _id: primary._id }, primary, mergedUser);
   }
 
-  const newUser = buildMergedUser({ _id: openid, roles: ['pm'] }, openid, now);
+  const newUser = buildMergedUser({ _id: openid, roles: DEFAULT_ROLES }, openid, now);
   try {
     await users.doc(openid).set({ data: newUser });
     return Object.assign({ _id: openid }, newUser);
@@ -928,12 +977,19 @@ async function syncProjectsSapBindings(record, sapBindings, openid, now) {
   const rows = [];
   const seen = {};
   const collect = async query => {
-    const res = await projects.where(query).limit(100).get();
-    (res.data || []).forEach(item => {
-      if (!item || !item._id || item.deleted === true || seen[item._id]) return;
-      seen[item._id] = true;
-      rows.push(item);
-    });
+    let skip = 0;
+    const pageSize = 100;
+    while (true) {
+      const res = await projects.where(query).skip(skip).limit(pageSize).get();
+      const batch = res.data || [];
+      batch.forEach(item => {
+        if (!item || !item._id || item.deleted === true || seen[item._id]) return;
+        seen[item._id] = true;
+        rows.push(item);
+      });
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
   };
   if (precalId) await collect({ precalId, deleted: _.neq(true) });
   if (record && record.createdProjectId) {
@@ -945,7 +1001,9 @@ async function syncProjectsSapBindings(record, sapBindings, openid, now) {
       console.warn('按 createdProjectId 同步项目 SAP 失败：', err && err.message || err);
     }
   }
-  await Promise.all(rows.map(item => projects.doc(item._id).update({ data: updateData })));
+  for (const item of rows) {
+    await projects.doc(item._id).update({ data: updateData });
+  }
   return rows.length;
 }
 

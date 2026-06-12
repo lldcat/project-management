@@ -17,8 +17,8 @@ function listUsers() {
   return apiClient.call('login', 'listUsers', {});
 }
 
-function updateUserRoles(openid, roles) {
-  return apiClient.call('login', 'updateUserRoles', { openid, roles });
+function updateUserRoles(userId, roles) {
+  return apiClient.call('login', 'updateUserRoles', { userId, roles });
 }
 
 module.exports = {

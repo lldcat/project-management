@@ -1,5 +1,6 @@
 const precalService = require('../../../services/precalService');
 const { formatMoney, formatPercent } = require('../../../utils/precalCalculator');
+const { normalizeRoles, isAdmin } = require('../../../services/permissionService');
 
 Page({
   data: {
@@ -42,9 +43,9 @@ Page({
         const s70 = (record.productivityScenarios || {}).productivity70 || {};
         const s80 = (record.productivityScenarios || {}).productivity80 || {};
         const user = res.user || {};
-        const roles = Array.isArray(user.roles) ? user.roles : [];
+        const roles = normalizeRoles(user);
         const editableStatuses = ['Draft', 'Withdrawn', 'Unlocked'];
-        const canEdit = editableStatuses.indexOf(record.status) >= 0 && (record.createdBy === user.openid || roles.indexOf('admin') >= 0);
+        const canEdit = editableStatuses.indexOf(record.status) >= 0 && (record.createdBy === user.openid || isAdmin({ roles }));
         const canSubmit = editableStatuses.indexOf(record.status) >= 0;
         const rawSapBindings = Array.isArray(record.sapBindings) ? record.sapBindings : [];
         const normalizedSapBindings = rawSapBindings.map(item => {

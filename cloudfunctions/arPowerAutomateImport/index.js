@@ -98,6 +98,7 @@ function cleanSummary(input, source, now, importId) {
     inactiveAt: '',
     inactiveReason: '',
     lastImportId: importId,
+    importBatchId: importId,
     lastSyncAt: now,
     importedAt: now,
     updatedAt: now
@@ -167,9 +168,10 @@ async function markInactiveMissingSummaries(activeKeys, now, importId) {
       data: {
         active: false,
         inactiveAt: now,
-        inactiveReason: 'not_in_latest_full_snapshot',
-        lastImportId: importId,
-        updatedAt: now
+      inactiveReason: 'not_in_latest_full_snapshot',
+      lastImportId: importId,
+      importBatchId: importId,
+      updatedAt: now
       }
     });
     inactiveMarked += 1;
@@ -185,14 +187,17 @@ async function writeImportLog(data) {
       source: normalizeText(data.source),
       runTime: normalizeText(data.runTime),
       syncMode: normalizeText(data.syncMode) || 'incremental',
+      importBatchId: normalizeText(data.importId),
       fullSnapshot: !!data.fullSnapshot,
       summaryCount: toNumber(data.summaryCount),
       inserted: toNumber(data.inserted),
       updated: toNumber(data.updated),
       skipped: toNumber(data.skipped),
+      failCount: toNumber(data.failCount),
       inactiveMarked: toNumber(data.inactiveMarked),
       status: normalizeText(data.status),
-      errorMessage: normalizeText(data.errorMessage)
+      errorMessage: normalizeText(data.errorMessage),
+      errorDetails: Array.isArray(data.errorDetails) ? data.errorDetails.slice(0, 50) : []
     }
   });
 }
@@ -212,7 +217,9 @@ exports.main = async (event) => {
   let inserted = 0;
   let updated = 0;
   let skipped = 0;
+  let failCount = 0;
   let inactiveMarked = 0;
+  const errorDetails = [];
 
   try {
     const expectedToken = process.env.AR_SYNC_TOKEN || '';
@@ -230,9 +237,11 @@ exports.main = async (event) => {
         inserted,
         updated,
         skipped,
+        failCount,
         inactiveMarked,
         status: 'failed',
-        errorMessage: 'AR sync token 校验失败。'
+        errorMessage: 'AR sync token 校验失败。',
+        errorDetails
       }).catch(err => console.warn('写入 AR 导入日志失败：', err));
       return response({ ok: false, message: 'AR sync token 校验失败。' }, 401);
     }
@@ -262,9 +271,11 @@ exports.main = async (event) => {
         inserted,
         updated,
         skipped,
+        failCount,
         inactiveMarked,
         status: 'skipped',
-        errorMessage: message
+        errorMessage: message,
+        errorDetails
       });
       return response({ ok: false, summaryCount, inserted, updated, skipped, inactiveMarked, message }, 400);
     }
@@ -304,23 +315,35 @@ exports.main = async (event) => {
         inserted,
         updated,
         skipped,
+        failCount,
         inactiveMarked,
         status: 'skipped',
-        errorMessage: message
+        errorMessage: message,
+        errorDetails
       });
       return response({ ok: false, summaryCount, inserted, updated, skipped, inactiveMarked, message }, 400);
     }
 
     for (const summary of validSummaries) {
-      const result = await upsertSummary(summary, importedAt);
-      inserted += result.inserted;
-      updated += result.updated;
+      try {
+        const result = await upsertSummary(summary, importedAt);
+        inserted += result.inserted;
+        updated += result.updated;
+      } catch (err) {
+        failCount += 1;
+        errorDetails.push({
+          summaryKey: summary.summaryKey,
+          sapOrderNo: summary.sapOrderNo,
+          itemNo: summary.itemNo,
+          employeeName: summary.employeeName,
+          message: err.message || 'upsert failed'
+        });
+      }
     }
 
-    if (fullSnapshot && activeKeys.length >= minSummaryCount) {
+    if (!failCount && fullSnapshot && activeKeys.length >= minSummaryCount) {
       inactiveMarked = await markInactiveMissingSummaries(activeKeys, importedAt, importId);
     }
-
     await writeImportLog({
       importId,
       importedAt,
@@ -332,12 +355,14 @@ exports.main = async (event) => {
       inserted,
       updated,
       skipped,
+      failCount,
       inactiveMarked,
-      status: 'success',
-      errorMessage: ''
+      status: failCount ? 'partial_failed' : 'success',
+      errorMessage: failCount ? `${failCount} summaries failed; inactive marking skipped.` : '',
+      errorDetails
     });
 
-    return response({ ok: true, importId, syncMode, fullSnapshot, summaryCount, inserted, updated, skipped, inactiveMarked });
+    return response({ ok: failCount === 0, importId, importBatchId: importId, syncMode, fullSnapshot, summaryCount, inserted, updated, skipped, failCount, inactiveMarked, errorDetails });
   } catch (err) {
     console.error(err);
     await writeImportLog({
@@ -351,9 +376,11 @@ exports.main = async (event) => {
       inserted,
       updated,
       skipped,
+      failCount,
       inactiveMarked,
       status: 'failed',
-      errorMessage: err.message || 'AR import failed.'
+      errorMessage: err.message || 'AR import failed.',
+      errorDetails
     }).catch(logErr => console.warn('写入 AR 导入日志失败：', logErr));
     return response({
       ok: false,
@@ -364,7 +391,9 @@ exports.main = async (event) => {
       inserted,
       updated,
       skipped,
+      failCount,
       inactiveMarked,
+      errorDetails,
       message: err.message || 'AR import failed.'
     }, err.message && err.message.indexOf('token') >= 0 ? 401 : 500);
   }

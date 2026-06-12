@@ -10,9 +10,12 @@
     <view class="row">
       <view>
         <view class="card-title">{{item.displayName}}</view>
-        <view class="muted openid">{{item.displayOpenid}}</view>
+        <view class="muted">创建：{{item.createdAtText}} ｜ 更新：{{item.updatedAtText}}</view>
       </view>
-      <view class="tag tag-normal">{{item.roleText}}</view>
+      <view class="status-column">
+        <view class="tag tag-normal">{{item.roleText}}</view>
+        <view class="tag {{item.activeTagClass}}">{{item.activeText}}</view>
+      </view>
     </view>
 
     <checkbox-group data-index="{{userIndex}}" bindchange="onRoleChange" class="role-grid">
@@ -22,6 +25,6 @@
       </label>
     </checkbox-group>
 
-    <button class="btn-primary" size="mini" loading="{{savingOpenid == item.displayOpenid}}" data-index="{{userIndex}}" bindtap="saveRoles">保存角色</button>
+    <button class="btn-primary" size="mini" loading="{{savingUserId == item._id}}" data-index="{{userIndex}}" bindtap="saveRoles">保存角色</button>
   </view>
 </view>

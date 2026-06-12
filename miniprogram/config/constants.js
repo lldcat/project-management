@@ -38,7 +38,7 @@ const ROLE_LABEL = {
 
 const PROJECT_CONSTANTS = {
   hoursPerDay: 8,
-  defaultPersonDayCost: 5000
+  personDayCost: 5000
 };
 
 module.exports = {

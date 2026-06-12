@@ -1,5 +1,6 @@
 const projectService = require('../../services/projectService');
 const { enrichProject } = require('../../utils/metrics');
+const { normalizeRoles, hasAnyRole } = require('../../services/permissionService');
 
 Page({
   data: {
@@ -39,10 +40,10 @@ Page({
           return project;
         });
         const user = res.user || {};
-        const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : ['pm'];
+        const roles = normalizeRoles(user);
         const role = roles[0] || 'pm';
-        const privileged = roles.indexOf('admin') >= 0 || roles.indexOf('ar') >= 0;
-        const canExport = roles.some(item => ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'].indexOf(item) >= 0);
+        const privileged = hasAnyRole({ roles }, ['admin', 'ar']);
+        const canExport = hasAnyRole({ roles }, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar']);
         this.setData({
           projects,
           userRole: role,

@@ -19,14 +19,6 @@
       <view class="stat-value">{{stats.risk}}</view>
       <view class="stat-label">风险项目</view>
     </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.overCost}}</view>
-      <view class="stat-label">成本异常</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.delayed}}</view>
-      <view class="stat-label">进度滞后</view>
-    </view>
   </view>
 
   <view wx:if="{{showPrecalStats}}" class="section-block">
@@ -78,14 +70,6 @@
       <text>AC（实际成本）</text>
       <text class="metric-value">{{stats.actualCostText}}</text>
     </view>
-    <view class="metric-line">
-      <text>CV（成本偏差）</text>
-      <text class="metric-value {{stats.cvClass}}">{{stats.cvText}}</text>
-    </view>
-    <view class="metric-line">
-      <text>SV（进度偏差）</text>
-      <text class="metric-value {{stats.svClass}}">{{stats.svText}}</text>
-    </view>
   </view>
 
   <view class="section-title">风险项目</view>
@@ -97,14 +81,6 @@
         <view class="muted">{{item.projectNoText}} ｜ PM：{{item.displayPmName}}</view>
       </view>
       <view class="tag tag-risk">风险</view>
-    </view>
-    <view class="metric-line">
-      <text>CPI（成本绩效）</text>
-      <text class="metric-value">{{item.display.cpi}}</text>
-    </view>
-    <view class="metric-line">
-      <text>SPI（进度绩效）</text>
-      <text class="metric-value">{{item.display.spi}}</text>
     </view>
     <view class="alert-list">
       <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.statusClass}}">

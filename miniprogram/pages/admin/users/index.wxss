@@ -29,10 +29,6 @@
   margin-top: 8rpx;
 }
 
-.openid {
-  word-break: break-all;
-}
-
 .tag {
   flex-shrink: 0;
   padding: 6rpx 14rpx;
@@ -43,6 +39,18 @@
 .tag-normal {
   background: #e8f3ff;
   color: #1f4e79;
+}
+
+.tag-disabled {
+  background: #f2f4f7;
+  color: #667085;
+}
+
+.status-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8rpx;
 }
 
 .role-grid {

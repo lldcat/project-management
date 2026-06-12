@@ -1,22 +1,26 @@
 const userService = require('../../../services/userService');
+const { DEFAULT_ROLES, normalizeRoles } = require('../../../services/permissionService');
 
 const ROLE_OPTIONS = [
   { key: 'pm', label: 'PM' },
   { key: 'sales', label: 'Sales' },
   { key: 'cs', label: 'CS' },
   { key: 'ar', label: 'AR' },
-  { key: 'leader', label: 'Leader' },
   { key: 'admin', label: 'Admin' }
 ];
 
-function normalizeRoles(user) {
-  if (user && Array.isArray(user.roles) && user.roles.length) return user.roles.map(String);
-  return ['pm'];
+function roleText(roles) {
+  const map = { pm: 'PM', sales: 'Sales', cs: 'CS', ar: 'AR', admin: 'Admin', member: '成员' };
+  return (roles || []).map(role => map[role] || role).join(' / ');
 }
 
-function roleText(roles) {
-  const map = { pm: 'PM', sales: 'Sales', cs: 'CS', ar: 'AR', leader: 'Leader', admin: 'Admin', member: '成员' };
-  return (roles || []).map(role => map[role] || role).join(' / ');
+function formatDateTime(value) {
+  if (!value) return '-';
+  const raw = value && typeof value === 'object' && typeof value.$date === 'number' ? value.$date : value;
+  const date = raw instanceof Date ? raw : new Date(raw);
+  if (!Number.isFinite(date.getTime())) return '-';
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 Page({
@@ -24,7 +28,7 @@ Page({
     users: [],
     roleOptions: ROLE_OPTIONS,
     loading: false,
-    savingOpenid: ''
+    savingUserId: ''
   },
 
   onShow() {
@@ -42,10 +46,13 @@ Page({
         const users = (res.users || []).map(item => {
           const roles = normalizeRoles(item);
           return Object.assign({}, item, {
-            displayName: item.name || item.openid || '-',
-            displayOpenid: item.openid || '-',
+            displayName: item.name || '未填写姓名',
             roles,
             roleText: roleText(roles),
+            activeText: item.active === false ? 'Disabled' : 'Active',
+            activeTagClass: item.active === false ? 'tag-disabled' : 'tag-normal',
+            createdAtText: formatDateTime(item.createdAt),
+            updatedAtText: formatDateTime(item.updatedAt),
             roleOptions: ROLE_OPTIONS.map(option => Object.assign({}, option, {
               checked: roles.indexOf(option.key) >= 0
             }))
@@ -63,7 +70,7 @@ Page({
     const users = this.data.users.slice();
     const user = users[index];
     if (!user) return;
-    user.roles = values.length ? values : ['pm'];
+    user.roles = values.length ? values : DEFAULT_ROLES.slice();
     user.roleText = roleText(user.roles);
     user.roleOptions = ROLE_OPTIONS.map(option => Object.assign({}, option, {
       checked: user.roles.indexOf(option.key) >= 0
@@ -76,14 +83,14 @@ Page({
     const index = Number(e.currentTarget.dataset.index);
     const user = this.data.users[index];
     if (!user) return;
-    const openid = user.openid;
-    this.setData({ savingOpenid: openid });
-    userService.updateUserRoles(openid, user.roles)
+    const userId = user._id;
+    this.setData({ savingUserId: userId });
+    userService.updateUserRoles(userId, user.roles)
       .then(() => {
         wx.showToast({ title: '已保存', icon: 'success' });
         this.loadData();
       })
       .catch(err => wx.showToast({ title: err.message || '保存失败', icon: 'none' }))
-      .finally(() => this.setData({ savingOpenid: '' }));
+      .finally(() => this.setData({ savingUserId: '' }));
   }
 });

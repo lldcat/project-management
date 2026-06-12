@@ -1,6 +1,7 @@
 const env = require('./config/env');
 const userService = require('./services/userService');
 const { PROJECT_CONSTANTS } = require('./config/constants');
+const { normalizeRoles } = require('./services/permissionService');
 
 App({
   globalData: {
@@ -10,7 +11,7 @@ App({
     openid: '',
     constants: {
       hoursPerDay: PROJECT_CONSTANTS.hoursPerDay,
-      defaultPersonDayCost: PROJECT_CONSTANTS.defaultPersonDayCost
+      personDayCost: PROJECT_CONSTANTS.personDayCost
     }
   },
 
@@ -38,7 +39,7 @@ App({
     userService.login()
       .then(result => {
         this.globalData.openid = result.openid || (result.user && result.user.openid) || '';
-        this.globalData.user = result.user || null;
+        this.globalData.user = result.user ? Object.assign({}, result.user, { roles: normalizeRoles(result.user) }) : null;
         if (result.user && !String(result.user.name || '').trim()) {
           wx.showModal({
             title: '请填写姓名',

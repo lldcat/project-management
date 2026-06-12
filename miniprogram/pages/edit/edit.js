@@ -1108,7 +1108,6 @@ Page({
 
     if (!this.validateForm()) return;
     const project = this.normalizeForm();
-    console.log('before save employeeBudgets', project.employeeBudgets);
     let loadingShown = false;
     try {
       wx.showLoading({ title: '保存中' });

@@ -5,15 +5,26 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 const users = db.collection('users');
+const DEFAULT_ROLES = ['pm', 'sales'];
+const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
 
 function normalizeText(value) {
   return String(value || '').trim();
 }
 
 function normalizeRoles(user) {
-  if (!user) return [];
-  if (Array.isArray(user.roles) && user.roles.length) return user.roles.map(String).filter(Boolean);
-  return ['pm'];
+  const seen = {};
+  const result = [];
+  const add = role => {
+    const clean = normalizeText(role);
+    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
+      seen[clean] = true;
+      result.push(clean);
+    }
+  };
+  if (user && Array.isArray(user.roles) && user.roles.length) user.roles.forEach(add);
+  if (!result.length) DEFAULT_ROLES.forEach(add);
+  return result;
 }
 
 function uniqueRoles(records) {
@@ -24,7 +35,7 @@ function uniqueRoles(records) {
     });
   });
   const roles = Object.keys(roleMap);
-  return roles.length ? roles : ['pm'];
+  return roles.length ? roles : DEFAULT_ROLES.slice();
 }
 
 function hasRole(user, role) {
@@ -35,15 +46,29 @@ function assertAdmin(user) {
   if (!hasRole(user, 'admin')) throw new Error('只有 admin 可以维护用户角色。');
 }
 
+function isVisibleUser(user) {
+  return user && user.deleted !== true;
+}
+
+function publicUserForAdmin(user) {
+  return {
+    _id: user._id,
+    name: normalizeText(user.name),
+    roles: normalizeRoles(user),
+    active: user.active === false ? false : true,
+    createdAt: user.createdAt || '',
+    updatedAt: user.updatedAt || ''
+  };
+}
+
 function sanitizeRoles(roles) {
-  const allowed = { pm: true, admin: true, ar: true, member: true, sales: true, cs: true, leader: true };
   const seen = {};
   (Array.isArray(roles) ? roles : []).forEach(role => {
     const clean = normalizeText(role);
-    if (allowed[clean]) seen[clean] = true;
+    if (ALLOWED_ROLE_MAP[clean]) seen[clean] = true;
   });
   const result = Object.keys(seen);
-  return result.length ? result : ['pm'];
+  return result.length ? result : DEFAULT_ROLES.slice();
 }
 
 function userScore(user, openid) {
@@ -75,7 +100,6 @@ function buildMergedUser(primary, openid, now) {
     arSheetName: normalizeText(primary && primary.arSheetName),
     roles,
     active: primary && primary.active === false ? false : true,
-    defaultPersonDayCost: Number(primary && primary.defaultPersonDayCost || 5000) || 5000,
     deleted: false,
     version: Number(primary && primary.version || 1) || 1,
     createdAt: primary && primary.createdAt || now,
@@ -84,14 +108,53 @@ function buildMergedUser(primary, openid, now) {
 }
 
 async function findUserRecords(openid) {
-  const res = await users.where({ openid }).limit(20).get();
-  return res.data || [];
+  const fetchByQuery = async query => {
+    const rows = [];
+    let skip = 0;
+    const pageSize = 100;
+    while (true) {
+      const res = await users.where(query).skip(skip).limit(pageSize).get();
+      const batch = res.data || [];
+      rows.push(...batch);
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
+    return rows;
+  };
+  const byOpenid = await fetchByQuery({ openid });
+  const bySystemOpenid = await fetchByQuery({ _openid: openid });
+  let byDocId = null;
+  try {
+    const doc = await users.doc(openid).get();
+    byDocId = doc && doc.data;
+  } catch (err) {}
+  const seen = {};
+  return []
+    .concat(byDocId ? [byDocId] : [])
+    .concat(byOpenid)
+    .concat(bySystemOpenid)
+    .filter(item => {
+      const key = item && item._id;
+      if (!key || seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
 }
 
 async function removeDuplicateUsers(records, primaryId) {
   const duplicates = (records || []).filter(item => item && item._id && item._id !== primaryId);
-  await Promise.all(duplicates.map(item => users.doc(item._id).remove().catch(err => {
-    console.warn('删除重复用户记录失败：', item._id, err);
+  const now = db.serverDate();
+  await Promise.all(duplicates.map(item => users.doc(item._id).update({
+    data: {
+      deleted: true,
+      active: false,
+      duplicateOf: primaryId,
+      duplicateArchivedAt: now,
+      updatedAt: now,
+      version: _.inc(1)
+    }
+  }).catch(err => {
+    console.warn('标记重复用户记录失败：', item._id, err);
   })));
   return duplicates.length;
 }
@@ -109,7 +172,7 @@ async function getOrCreateCurrentUser(openid) {
     return { user: Object.assign({ _id: primary._id }, primary, mergedUser), duplicateCount };
   }
 
-  const newUser = buildMergedUser({ _id: openid, roles: ['pm'] }, openid, now);
+  const newUser = buildMergedUser({ _id: openid, roles: DEFAULT_ROLES }, openid, now);
 
   try {
     await users.doc(openid).set({ data: newUser });
@@ -148,21 +211,34 @@ async function updateCurrentUserName(openid, name) {
 async function listUsers(openid) {
   const current = (await getOrCreateCurrentUser(openid)).user;
   assertAdmin(current);
-  const res = await users.where({ deleted: false }).orderBy('updatedAt', 'desc').limit(200).get();
-  return { ok: true, user: current, users: res.data || [] };
+  const allUsers = [];
+  const pageSize = 100;
+  let skip = 0;
+  while (true) {
+    const res = await users.skip(skip).limit(pageSize).get();
+    const rows = res.data || [];
+    allUsers.push.apply(allUsers, rows);
+    if (rows.length < pageSize) break;
+    skip += pageSize;
+  }
+  const visibleUsers = allUsers
+    .filter(isVisibleUser)
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
+    .map(publicUserForAdmin);
+  return { ok: true, user: current, users: visibleUsers };
 }
 
 async function updateUserRoles(openid, payload) {
   const current = (await getOrCreateCurrentUser(openid)).user;
   assertAdmin(current);
-  const targetOpenid = normalizeText(payload && payload.openid);
+  const targetUserId = normalizeText(payload && payload.userId);
   const roles = sanitizeRoles(payload && payload.roles);
-  if (!targetOpenid) return { ok: false, message: '用户 openid 不能为空。' };
-  const records = await users.where({ openid: targetOpenid }).limit(20).get();
-  const target = pickPrimaryUser(records.data || [], targetOpenid);
-  if (!target) return { ok: false, message: '用户不存在。' };
+  if (!targetUserId) return { ok: false, message: '用户 ID 不能为空。' };
+  const targetRes = await users.doc(targetUserId).get();
+  const target = targetRes && targetRes.data;
+  if (!target || target.deleted === true) return { ok: false, message: '用户不存在。' };
   const now = db.serverDate();
-  await users.doc(target._id).update({
+  await users.doc(targetUserId).update({
     data: {
       roles,
       updatedAt: now,
@@ -170,8 +246,8 @@ async function updateUserRoles(openid, payload) {
       version: _.inc(1)
     }
   });
-  const refreshed = await users.doc(target._id).get();
-  return { ok: true, user: current, targetUser: refreshed.data };
+  const refreshed = await users.doc(targetUserId).get();
+  return { ok: true, user: current, targetUser: publicUserForAdmin(refreshed.data || {}) };
 }
 
 exports.main = async (event) => {

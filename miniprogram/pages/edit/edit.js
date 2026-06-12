@@ -417,6 +417,7 @@ function employeeBudgetNames(employeeBudgets) {
 
 function defaultForm() {
   return {
+    clientRequestId: createId('project_request'),
     projectName: '',
     customerName: '',
     projectNo: '',
@@ -503,7 +504,8 @@ Page({
     myAllocationDisplay: buildMyAllocationDisplay(null),
     arMemberCandidates: [],
     hasArMemberCandidates: false,
-    canAddArMemberCandidates: false
+    canAddArMemberCandidates: false,
+    savingProject: false
   },
 
   onLoad(options) {
@@ -663,7 +665,7 @@ Page({
   onManualSyncPrecal() {
     this.syncPrecalBySap({ force: true }).catch(err => {
       console.error('[edit] 手动同步 Pre-cal 失败：', err);
-      wx.showToast({ title: err.message || '同步 Pre-cal 数据失败', icon: 'none' });
+      wx.showToast({ title: '未找到对应 Pre-cal，可继续手动填写', icon: 'none' });
     });
   },
 
@@ -750,7 +752,7 @@ Page({
       if (!opts.silent) wx.showToast({ title: '已同步 Pre-cal 数据', icon: 'success' });
       return res;
     } catch (err) {
-      const message = err.message || '同步 Pre-cal 数据失败';
+      const message = '未找到对应 Pre-cal，可继续手动填写';
       this.setData({
         precalSyncMessage: message,
         precalPreview: null,
@@ -827,6 +829,51 @@ Page({
     const statusIndex = Number(e.detail.value);
     const status = this.data.statusOptions[statusIndex].value;
     this.setData({ statusIndex, currentStatusLabel: this.data.statusOptions[statusIndex].label, 'form.status': status });
+  },
+
+  onSapBindingInput(e) {
+    if (this.data.readOnly) return;
+    const index = Number(e.currentTarget.dataset.index);
+    const field = e.currentTarget.dataset.field;
+    let form = JSON.parse(JSON.stringify(this.data.form));
+    if (!Array.isArray(form.sapBindings) || !form.sapBindings[index]) return;
+    form.sapBindings[index][field] = e.detail.value;
+    if (field === 'sapOrderNo' && !String(form.sapBindings[index].itemNo || '').trim()) {
+      const sapNo = normalizeSapNo(e.detail.value);
+      form.sapBindings[index].itemNo = sapNo.indexOf('7') === 0 ? '1000' : '';
+    }
+    this.setFormAndPreview(form);
+  },
+
+  addSapBinding() {
+    if (this.data.readOnly) return;
+    let form = JSON.parse(JSON.stringify(this.data.form));
+    const sapNo = normalizeSapNo(this.data.sapSearchNo);
+    const existing = (form.sapBindings || []).some(item => (
+      normalizeSapNo(item.sapOrderNo) === sapNo && sapNo && item.active !== false
+    ));
+    if (existing) {
+      wx.showToast({ title: '该 SAP 已在绑定列表中', icon: 'none' });
+      return;
+    }
+    form.sapBindings = (form.sapBindings || []).concat({
+      sapId: createId('sap'),
+      sapOrderNo: sapNo,
+      itemNo: sapNo.indexOf('7') === 0 ? '1000' : '',
+      active: true,
+      source: 'manual',
+      memberName: '',
+      remark: ''
+    });
+    this.setFormAndPreview(form);
+  },
+
+  removeSapBinding(e) {
+    if (this.data.readOnly) return;
+    const index = Number(e.currentTarget.dataset.index);
+    let form = JSON.parse(JSON.stringify(this.data.form));
+    form.sapBindings = (form.sapBindings || []).filter((_, i) => i !== index);
+    this.setFormAndPreview(form);
   },
 
   onPersonDayCostInput(e) {
@@ -1089,26 +1136,16 @@ Page({
   },
 
   async saveProject() {
+    if (this.data.savingProject) return;
     if (this.data.readOnly) {
       wx.showToast({ title: '当前项目为只读', icon: 'none' });
       return;
     }
 
-    const form = this.data.form || {};
-    const sapNo = normalizeSapNo(this.data.sapSearchNo);
-    const needPrecalSync = !this.data.id && sapNo && (!form.precalNo || sapNo !== this.data.lastSyncedSapNo);
-    if (needPrecalSync) {
-      try {
-        await this.syncPrecalBySap({ force: true, silent: true, throwOnError: true });
-      } catch (err) {
-        wx.showToast({ title: err.message || '未找到该 SAP 项目号对应的 Pre-cal', icon: 'none' });
-        return;
-      }
-    }
-
     if (!this.validateForm()) return;
     const project = this.normalizeForm();
     let loadingShown = false;
+    this.setData({ savingProject: true });
     try {
       wx.showLoading({ title: '保存中' });
       loadingShown = true;
@@ -1122,6 +1159,7 @@ Page({
       wx.showToast({ title: err.message || '保存失败', icon: 'none' });
     } finally {
       if (loadingShown) wx.hideLoading();
+      this.setData({ savingProject: false });
     }
   },
 

@@ -11,6 +11,7 @@ module.exports = {
   submitPrecal: payload => callPrecalService('submitPrecal', payload),
   withdrawPrecal: payload => callPrecalService('withdrawPrecal', payload),
   getPrecalDetail: payload => callPrecalService('getPrecalDetail', payload),
+  getPrecalOverview: payload => callPrecalService('getPrecalOverview', payload),
   listMyPrecal: payload => callPrecalService('listMyPrecal', payload),
   listPrecalForCS: payload => callPrecalService('listPrecalForCS', payload),
   listPrecalForAdmin: payload => callPrecalService('listPrecalForAdmin', payload),

@@ -20,20 +20,3 @@
   border: 1rpx solid #e0efff;
   background: #fbfdff;
 }
-
-.project-title {
-  font-weight: 700;
-  font-size: 30rpx;
-}
-
-.alert-list {
-  margin-top: 12rpx;
-}
-
-.positive {
-  color: #027a48;
-}
-
-.negative {
-  color: #b42318;
-}

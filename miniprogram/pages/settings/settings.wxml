@@ -21,6 +21,18 @@
       <text class="metric-value">{{accountStatusText}}</text>
     </view>
 
-    <button class="btn-secondary refresh" bindtap="refreshLogin">刷新身份</button>
+    <button class="btn-secondary refresh" bindtap="refreshLogin">刷新登录状态</button>
+  </view>
+
+  <view wx:if="{{canSwitchRoleView}}" class="card profile-card">
+    <view class="card-title">Admin 测试视角</view>
+    <view class="muted">临时切换小程序视角，用于检查 PM、Sales、CS、AR 或组员看到的入口和数据范围。</view>
+    <picker mode="selector" range="{{roleViewOptions}}" range-key="label" value="{{roleViewIndex}}" bindchange="onRoleViewChange">
+      <view class="input role-view-picker">
+        <text>{{roleViewText}}</text>
+        <text class="muted">点击切换</text>
+      </view>
+    </picker>
+    <view class="muted role-view-note">该选项只影响当前 admin 的测试视角，不会修改数据库中的用户权限。</view>
   </view>
 </view>

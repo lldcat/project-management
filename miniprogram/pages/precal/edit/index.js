@@ -36,6 +36,7 @@ const EDITABLE_NUMBER_FIELDS = [
 
 function defaultForm() {
   return {
+    clientRequestId: `precal_request_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
     customerName: '',
     service: 'ESG',
     remark: '',
@@ -52,11 +53,14 @@ Page({
     orderCreateCenters: ['1800', '2160', '4820', '4830', '4840', '4850'],
     parameters: null,
     form: defaultForm(),
+    version: 0,
     resultItems: [],
     scenario70: {},
     scenario80: {},
     formulaList: [],
-    showScenario: false
+    showScenario: false,
+    saving: false,
+    submitting: false
   },
 
   onLoad(options) {
@@ -90,6 +94,7 @@ Page({
         };
         this.setData({
           form,
+          version: Number(r.version || 1),
           parameters: r.parameterSnapshot || this.data.parameters,
           serviceIndex: this.data.serviceOptions.indexOf(form.service) >= 0 ? this.data.serviceOptions.indexOf(form.service) : 0
         }, () => this.refreshPreview());
@@ -203,16 +208,21 @@ Page({
   },
 
   buildPayload() {
-    return Object.assign({}, this.data.form, { precalRecordId: this.data.id });
+    return Object.assign({}, this.data.form, { precalRecordId: this.data.id, version: this.data.version });
   },
 
-  saveDraft() {
+  saveDraft(options) {
+    const opts = options || {};
+    if (this.data.saving || (!opts.allowWhileSubmitting && this.data.submitting)) {
+      return Promise.reject(new Error('操作处理中，请勿重复点击'));
+    }
     const msg = this.validate();
     if (msg) {
       wx.showToast({ title: msg, icon: 'none' });
       return Promise.reject(new Error(msg));
     }
   
+    this.setData({ saving: true });
     wx.showLoading({ title: '保存中' });
     const action = this.data.id ? 'updatePrecal' : 'createPrecal';
   
@@ -223,19 +233,23 @@ Page({
         if (!this.data.id && res.id) {
           this.setData({ id: res.id, pageTitle: '编辑 AUD Pre-cal' });
         }
+        if (res.version) this.setData({ version: Number(res.version) || this.data.version });
   
-        wx.showToast({ title: '已保存', icon: 'success' });
+        if (!opts.quietSuccess) wx.showToast({ title: '已保存', icon: 'success' });
         return res;
       })
       .catch(err => {
         wx.hideLoading();
         wx.showToast({ title: err.message || '保存失败', icon: 'none' });
         throw err;
-      });
+      })
+      .finally(() => this.setData({ saving: false }));
   },
 
   saveAndSubmit() {
-    this.saveDraft()
+    if (this.data.saving || this.data.submitting) return;
+    this.setData({ submitting: true });
+    this.saveDraft({ allowWhileSubmitting: true, quietSuccess: true })
       .then(res => {
         const id = this.data.id || res.id;
         return precalService.callPrecalService('submitPrecal', { precalRecordId: id });
@@ -247,6 +261,7 @@ Page({
       .catch(err => {
         console.error('[precal-edit] 保存并提交失败：', err);
         wx.showToast({ title: err.message || '保存并提交失败', icon: 'none' });
-      });
+      })
+      .finally(() => this.setData({ submitting: false }));
   }
 });

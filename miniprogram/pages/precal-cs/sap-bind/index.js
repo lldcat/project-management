@@ -41,7 +41,7 @@ function normalizeItems(record) {
 }
 
 Page({
-  data: { id: '', record: {}, sapBindings: [], itemList: [], reason: '首次绑定SAP号', summary: {} },
+  data: { id: '', record: {}, version: 0, sapBindings: [], itemList: [], reason: '首次绑定SAP号', summary: {}, savingSap: false },
   onLoad(options) { this.setData({ id: options.id || '' }); this.loadData(); },
   loadData() {
     return precalService.callPrecalService('getPrecalDetail', { precalRecordId: this.data.id })
@@ -52,6 +52,7 @@ Page({
           record: Object.assign({}, record, {
             salesOwnerNameText: record.salesOwnerName || '-'
           }),
+          version: Number(record.version || 1),
           sapBindings: this.normalizeSapBindings(record.sapBindings && record.sapBindings.length ? record.sapBindings : [createSap()]),
           itemList: normalizeItems(record),
           summary: { totalOrderValueText: formatMoney(r.totalOrderValue), operatingMarginText: formatPercent(r.operatingMargin) }
@@ -183,25 +184,30 @@ Page({
     return '';
   },
   async saveSap() {
+    if (this.data.savingSap) return;
     const msg = this.validate();
     if (msg) { wx.showToast({ title: msg, icon: 'none' }); return; }
 
     let loadingShown = false;
+    this.setData({ savingSap: true });
     try {
       wx.showLoading({ title: '保存中' });
       loadingShown = true;
-      await precalService.callPrecalService('bindSap', {
+      const res = await precalService.callPrecalService('bindSap', {
         precalRecordId: this.data.id,
+        version: this.data.version,
         sapBindings: this.data.sapBindings,
         itemList: this.data.itemList,
         reason: this.data.reason || '保存 SAP 绑定信息'
       });
+      if (res && res.version) this.setData({ version: Number(res.version) || this.data.version });
       wx.showToast({ title: '已保存', icon: 'success' });
       setTimeout(() => wx.navigateBack(), 500);
     } catch (err) {
       wx.showToast({ title: err.message || '保存失败', icon: 'none' });
     } finally {
       if (loadingShown) wx.hideLoading();
+      this.setData({ savingSap: false });
     }
   }
 });

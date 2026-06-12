@@ -4,9 +4,15 @@ const { formatMoney, formatPercent } = require('../../../utils/precalCalculator'
 Page({
   data: {
     loading: false,
+    loadingMore: false,
     keyword: '',
     filterStatus: 'all',
     records: [],
+    page: 1,
+    pageSize: 20,
+    hasMore: true,
+    submittingId: '',
+    withdrawingId: '',
     statusOptions: [
       { label: '全部', value: 'all' },
       { label: '草稿', value: 'Draft' },
@@ -20,6 +26,7 @@ Page({
 
   onShow() { this.loadData(); },
   onPullDownRefresh() { this.loadData().finally(() => wx.stopPullDownRefresh()); },
+  onReachBottom() { this.loadMore(); },
   noop() {},
 
   statusLabel(status) {
@@ -43,43 +50,71 @@ Page({
     });
   },
 
-  loadData() {
-    this.setData({ loading: true });
-    return precalService.callPrecalService('listMyPrecal', { status: this.data.filterStatus, keyword: this.data.keyword })
-      .then(res => this.setData({ records: (res.records || []).map(item => this.enrich(item)) }))
+  loadData(options) {
+    const opts = options || {};
+    const reset = opts.reset !== false;
+    if (this.data.loading || this.data.loadingMore) return Promise.resolve();
+    const page = reset ? 1 : this.data.page + 1;
+    this.setData(reset ? { loading: true, page: 1 } : { loadingMore: true });
+    return precalService.callPrecalService('listMyPrecal', {
+      status: this.data.filterStatus,
+      keyword: this.data.keyword,
+      page,
+      pageSize: this.data.pageSize
+    })
+      .then(res => {
+        const rows = (res.records || []).map(item => this.enrich(item));
+        this.setData({
+          records: reset ? rows : this.data.records.concat(rows),
+          page: res.page || page,
+          pageSize: res.pageSize || this.data.pageSize,
+          hasMore: !!res.hasMore
+        });
+      })
       .catch(err => wx.showToast({ title: err.message || '加载失败', icon: 'none' }))
-      .finally(() => this.setData({ loading: false }));
+      .finally(() => this.setData(reset ? { loading: false } : { loadingMore: false }));
   },
 
-  onSearchInput(e) { this.setData({ keyword: e.detail.value || '' }); clearTimeout(this.timer); this.timer = setTimeout(() => this.loadData(), 300); },
-  switchStatus(e) { this.setData({ filterStatus: e.currentTarget.dataset.status }, () => this.loadData()); },
+  loadMore() {
+    if (!this.data.hasMore || this.data.loading || this.data.loadingMore) return;
+    this.loadData({ reset: false });
+  },
+
+  onSearchInput(e) { this.setData({ keyword: e.detail.value || '' }); clearTimeout(this.timer); this.timer = setTimeout(() => this.loadData({ reset: true }), 300); },
+  switchStatus(e) { this.setData({ filterStatus: e.currentTarget.dataset.status }, () => this.loadData({ reset: true })); },
   createPrecal() { wx.navigateTo({ url: '/pages/precal/edit/index' }); },
   goDetail(e) { wx.navigateTo({ url: `/pages/precal/detail/index?id=${e.currentTarget.dataset.id}` }); },
   goEdit(e) { wx.navigateTo({ url: `/pages/precal/edit/index?id=${e.currentTarget.dataset.id}` }); },
 
   submit(e) {
     const id = e.currentTarget.dataset.id;
+    if (this.data.submittingId || this.data.withdrawingId) return;
     wx.showModal({
       title: '确认提交', content: '提交后 CS 将可以看到该 Pre-cal。',
       success: modal => {
         if (!modal.confirm) return;
+        this.setData({ submittingId: id });
         precalService.callPrecalService('submitPrecal', { precalRecordId: id })
-          .then(() => { wx.showToast({ title: '已提交', icon: 'success' }); this.loadData(); })
-          .catch(err => wx.showToast({ title: err.message || '提交失败', icon: 'none' }));
+          .then(() => { wx.showToast({ title: '已提交', icon: 'success' }); this.loadData({ reset: true }); })
+          .catch(err => wx.showToast({ title: err.message || '提交失败', icon: 'none' }))
+          .finally(() => this.setData({ submittingId: '' }));
       }
     });
   },
 
   withdraw(e) {
     const id = e.currentTarget.dataset.id;
+    if (this.data.submittingId || this.data.withdrawingId) return;
     wx.showModal({
       title: '撤销 Pre-cal', content: '撤销后 CS 将暂时看不到该记录。请填写原因。', editable: true, placeholderText: '撤销原因',
       success: modal => {
         if (!modal.confirm) return;
         const reason = modal.content || 'Sales 撤销修改';
+        this.setData({ withdrawingId: id });
         precalService.callPrecalService('withdrawPrecal', { precalRecordId: id, reason })
-          .then(() => { wx.showToast({ title: '已撤销', icon: 'success' }); this.loadData(); })
-          .catch(err => wx.showToast({ title: err.message || '撤销失败', icon: 'none' }));
+          .then(() => { wx.showToast({ title: '已撤销', icon: 'success' }); this.loadData({ reset: true }); })
+          .catch(err => wx.showToast({ title: err.message || '撤销失败', icon: 'none' }))
+          .finally(() => this.setData({ withdrawingId: '' }));
       }
     });
   }

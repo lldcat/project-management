@@ -188,6 +188,29 @@ function hasAnyRole(user, roles) {
   return (roles || []).some(role => userRoles.indexOf(role) >= 0);
 }
 
+function normalizeRequestedViewRoles(roles) {
+  const seen = {};
+  const result = [];
+  (Array.isArray(roles) ? roles : []).forEach(role => {
+    const clean = normalizeText(role);
+    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
+      seen[clean] = true;
+      result.push(clean);
+    }
+  });
+  return result;
+}
+
+function applyAdminRoleView(user, payload) {
+  const viewRoles = normalizeRequestedViewRoles(payload && payload.viewRoles);
+  if (!viewRoles.length || !hasRole(user, 'admin')) return user;
+  return Object.assign({}, user, {
+    roles: viewRoles,
+    roleViewActive: true,
+    actualRoles: normalizeRoles(user)
+  });
+}
+
 function uniqueRoles(records) {
   const roleMap = {};
   (records || []).forEach(item => {
@@ -637,6 +660,54 @@ function keywordMatch(record, keyword) {
   return text.indexOf(key) >= 0;
 }
 
+function assertVersionMatch(record, incomingVersion, message) {
+  const currentVersion = Number(record && record.version || 1);
+  const version = Number(incomingVersion);
+  if (!Number.isFinite(version) || version <= 0) {
+    const err = new Error('数据版本缺失，请刷新后再保存。');
+    err.code = 'VERSION_REQUIRED';
+    throw err;
+  }
+  if (version !== currentVersion) {
+    const err = new Error(message || '数据已被其他人更新，请刷新后再保存。');
+    err.code = 'VERSION_CONFLICT';
+    throw err;
+  }
+  return currentVersion;
+}
+
+async function assertSapBindingsGloballyUnique(currentPrecalId, sapBindings) {
+  const activeSapNos = uniqueTexts((sapBindings || [])
+    .filter(item => item && item.active !== false)
+    .map(item => item.sapOrderNo));
+  for (const sapNo of activeSapNos) {
+    let skip = 0;
+    const pageSize = 100;
+    while (true) {
+      const res = await precalRecords
+        .where({ 'sapBindings.sapOrderNo': sapNo, deleted: _.neq(true) })
+        .field({ precalNo: true, customerName: true, sapBindings: true, deleted: true })
+        .skip(skip)
+        .limit(pageSize)
+        .get();
+      const batch = res.data || [];
+      const conflict = batch.find(record => {
+        if (!record || record._id === currentPrecalId || record.deleted === true) return false;
+        return normalizeRecordSapBindings(record).some(binding => (
+          binding.active !== false && binding.sapOrderNo === sapNo
+        ));
+      });
+      if (conflict) {
+        const err = new Error(`SAP号 ${sapNo} 已绑定到其他 Pre-cal（${conflict.precalNo || conflict.customerName || conflict._id}），请先检查或停用原绑定。`);
+        err.code = 'SAP_BINDING_CONFLICT';
+        throw err;
+      }
+      if (batch.length < pageSize) break;
+      skip += batch.length;
+    }
+  }
+}
+
 async function createPrecal(payload, openid, user) {
   assertRole(user, 'sales', '只有 Sales 可以创建 Pre-cal。');
   const activeParam = await getActiveParameterDoc();
@@ -644,6 +715,17 @@ async function createPrecal(payload, openid, user) {
   delete parameterSnapshot._id;
 
   const input = Object.assign({}, payload || {}, { service: normalizeText((payload || {}).service || 'ESG').toUpperCase() });
+  const clientRequestId = normalizeText(input.clientRequestId);
+  if (clientRequestId) {
+    const existing = await precalRecords
+      .where({ createdBy: openid, clientRequestId, deleted: _.neq(true) })
+      .limit(1)
+      .get();
+    const record = existing.data && existing.data[0];
+    if (record && record._id) {
+      return { ok: true, id: record._id, precalNo: record.precalNo || '', status: record.status || STATUS.DRAFT, version: Number(record.version || 1), user, deduped: true };
+    }
+  }
   validatePrecalInput(input, parameterSnapshot);
   const calculated = calculatePrecal(input, parameterSnapshot);
   const now = db.serverDate();
@@ -665,6 +747,7 @@ async function createPrecal(payload, openid, user) {
     formulaExplanations: calculated.formulaExplanations,
     parameterSnapshot,
     sapBindings: [],
+    clientRequestId,
     createdBy: openid,
     createdByName: salesOwnerName,
     deleted: false,
@@ -679,7 +762,7 @@ async function createPrecal(payload, openid, user) {
     logType: 'status_change', action: 'create', fromStatus: '', toStatus: STATUS.DRAFT,
     operatorOpenid: openid, operatorName: salesOwnerName, operatorRoles: normalizeRoles(user)
   });
-  return { ok: true, id: addRes._id, precalNo: data.precalNo, status: data.status, user };
+  return { ok: true, id: addRes._id, precalNo: data.precalNo, status: data.status, version: 1, user };
 }
 
 async function updatePrecal(payload, openid, user) {
@@ -689,6 +772,7 @@ async function updatePrecal(payload, openid, user) {
   if (!(record.createdBy === openid || hasRole(user, 'admin'))) throw new Error('无权修改该 Pre-cal。');
   if ([STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.CANCELLED].indexOf(record.status) >= 0) throw new Error('当前状态不可直接修改。Submitted 需要先撤销，SAP Bound 需要 admin 解锁。');
   if (record.isLocked) throw new Error('该 Pre-cal 已锁定。');
+  const currentVersion = assertVersionMatch(record, payload && payload.version, 'Pre-cal 已被其他人更新，请刷新后再保存。');
 
   const parameterSnapshot = record.parameterSnapshot || deepCopy(DEFAULT_PARAMETERS);
   const input = Object.assign({}, payload || {}, { service: normalizeText((payload || {}).service || record.service || 'ESG').toUpperCase() });
@@ -713,7 +797,7 @@ async function updatePrecal(payload, openid, user) {
     logType: 'edit', action: 'update_precal', oldValue: { status: record.status }, newValue: { status: record.status },
     operatorOpenid: openid, operatorName: getUserName(user), operatorRoles: normalizeRoles(user)
   });
-  return { ok: true, id, user };
+  return { ok: true, id, version: currentVersion + 1, user };
 }
 
 async function submitPrecal(payload, openid, user) {
@@ -866,65 +950,273 @@ async function getArTimeForPrecal(record) {
   };
 }
 
-async function listMyPrecal(payload, openid, user) {
-  assertRole(user, 'sales', '只有 Sales 可以查看我的 Pre-cal。');
-  const status = normalizeText(payload && payload.status);
-  const keyword = normalizeText(payload && payload.keyword);
+function emptyPrecalOverviewStats() {
+  return {
+    total: 0,
+    draft: 0,
+    pendingSap: 0,
+    sapBound: 0,
+    projectCreated: 0,
+    withdrawn: 0,
+    unlocked: 0,
+    cancelled: 0,
+    other: 0
+  };
+}
+
+function countPrecalStatusStats(records) {
+  const stats = emptyPrecalOverviewStats();
+  (records || []).forEach(item => {
+    const status = item && item.status;
+    stats.total += 1;
+    if (status === STATUS.DRAFT) stats.draft += 1;
+    else if (status === STATUS.SUBMITTED) stats.pendingSap += 1;
+    else if (status === STATUS.SAP_BOUND) stats.sapBound += 1;
+    else if (status === STATUS.PROJECT_CREATED) {
+      stats.sapBound += 1;
+      stats.projectCreated += 1;
+    } else {
+      stats.other += 1;
+      if (status === STATUS.WITHDRAWN) stats.withdrawn += 1;
+      if (status === STATUS.UNLOCKED) stats.unlocked += 1;
+      if (status === STATUS.CANCELLED) stats.cancelled += 1;
+    }
+  });
+  return stats;
+}
+
+function buildPrecalQuery(query) {
+  return Object.assign({ deleted: _.neq(true) }, query || {});
+}
+
+function normalizePageOptions(payload, defaultPageSize, maxPageSize) {
+  const page = Math.max(1, parseInt(payload && payload.page, 10) || 1);
+  const rawPageSize = parseInt(payload && payload.pageSize, 10) || defaultPageSize || 20;
+  const pageSize = Math.min(maxPageSize || 50, Math.max(1, rawPageSize));
+  return { page, pageSize, offset: (page - 1) * pageSize };
+}
+
+async function countPrecalByQuery(query) {
+  const res = await precalRecords.where(buildPrecalQuery(query)).count();
+  return Number(res && res.total || 0);
+}
+
+async function countPrecalStatsByScope(scopeQuery, allowedStatuses) {
+  const allowedMap = allowedStatuses ? allowedStatuses.reduce((acc, status) => {
+    acc[status] = true;
+    return acc;
+  }, {}) : null;
+  const statusList = [
+    STATUS.DRAFT,
+    STATUS.SUBMITTED,
+    STATUS.SAP_BOUND,
+    STATUS.PROJECT_CREATED,
+    STATUS.WITHDRAWN,
+    STATUS.UNLOCKED,
+    STATUS.CANCELLED
+  ];
+  const counts = {};
+  await Promise.all(statusList.map(async status => {
+    counts[status] = allowedMap && !allowedMap[status]
+      ? 0
+      : await countPrecalByQuery(Object.assign({}, scopeQuery || {}, { status }));
+  }));
+
+  const knownTotal = statusList.reduce((sum, status) => sum + (counts[status] || 0), 0);
+  const total = allowedMap ? knownTotal : await countPrecalByQuery(scopeQuery || {});
+  return {
+    total,
+    draft: counts[STATUS.DRAFT] || 0,
+    pendingSap: counts[STATUS.SUBMITTED] || 0,
+    sapBound: (counts[STATUS.SAP_BOUND] || 0) + (counts[STATUS.PROJECT_CREATED] || 0),
+    projectCreated: counts[STATUS.PROJECT_CREATED] || 0,
+    withdrawn: counts[STATUS.WITHDRAWN] || 0,
+    unlocked: counts[STATUS.UNLOCKED] || 0,
+    cancelled: counts[STATUS.CANCELLED] || 0,
+    other: allowedMap ? 0 : Math.max(0, total - knownTotal)
+  };
+}
+
+async function fetchPrecalStatusRows(query) {
+  const rows = [];
   const pageSize = 100;
   let skip = 0;
-  let rows = [];
   while (true) {
-    const res = await precalRecords.where({ createdBy: openid }).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
+    const res = await precalRecords
+      .where(buildPrecalQuery(query))
+      .field({ _id: true, status: true, deleted: true })
+      .skip(skip)
+      .limit(pageSize)
+      .get();
     const batch = res.data || [];
-    rows = rows.concat(batch);
+    rows.push(...batch);
     if (batch.length < pageSize) break;
     skip += batch.length;
   }
-  rows = rows.filter(item => item.deleted !== true);
-  if (status && status !== 'all') rows = rows.filter(item => item.status === status);
-  rows = rows.filter(item => keywordMatch(item, keyword));
-  return { ok: true, records: rows.map(buildListItem), user };
+  return rows.filter(item => item.deleted !== true);
+}
+
+async function fetchPrecalListPage(query, orderField, payload) {
+  const pageOptions = normalizePageOptions(payload, 20, 50);
+  const keyword = normalizeText(payload && payload.keyword);
+  const fieldSpec = {
+    precalNo: true,
+    customerName: true,
+    service: true,
+    serviceCode: true,
+    salesOwnerName: true,
+    status: true,
+    isLocked: true,
+    calculationResult: true,
+    sapBindings: true,
+    createdAt: true,
+    updatedAt: true,
+    submittedAt: true,
+    sapBoundAt: true,
+    deleted: true
+  };
+
+  if (!keyword) {
+    const total = await countPrecalByQuery(query || {});
+    const res = await precalRecords
+      .where(buildPrecalQuery(query))
+      .field(fieldSpec)
+      .orderBy(orderField || 'updatedAt', 'desc')
+      .skip(pageOptions.offset)
+      .limit(pageOptions.pageSize)
+      .get();
+    return {
+      records: (res.data || []).filter(item => item.deleted !== true),
+      page: pageOptions.page,
+      pageSize: pageOptions.pageSize,
+      total,
+      hasMore: pageOptions.offset + pageOptions.pageSize < total
+    };
+  }
+
+  const records = [];
+  let matchedCount = 0;
+  let hasMore = false;
+  let skip = 0;
+  const scanPageSize = 100;
+  while (true) {
+    const res = await precalRecords
+      .where(buildPrecalQuery(query))
+      .field(fieldSpec)
+      .orderBy(orderField || 'updatedAt', 'desc')
+      .skip(skip)
+      .limit(scanPageSize)
+      .get();
+    const batch = res.data || [];
+    for (const item of batch) {
+      if (!item || item.deleted === true || !keywordMatch(item, keyword)) continue;
+      if (matchedCount >= pageOptions.offset && records.length < pageOptions.pageSize) {
+        records.push(item);
+      } else if (matchedCount >= pageOptions.offset + pageOptions.pageSize) {
+        hasMore = true;
+        break;
+      }
+      matchedCount += 1;
+    }
+    if (hasMore || batch.length < scanPageSize) break;
+    skip += batch.length;
+  }
+  return {
+    records,
+    page: pageOptions.page,
+    pageSize: pageOptions.pageSize,
+    total: null,
+    hasMore
+  };
+}
+
+async function getPrecalOverview(payload, openid, user) {
+  const isAdmin = hasRole(user, 'admin');
+  const isCS = hasRole(user, 'cs');
+  const isSales = hasRole(user, 'sales');
+  if (!isAdmin && !isCS && !isSales) {
+    return { ok: true, visible: false, stats: emptyPrecalOverviewStats(), scopeText: '当前身份暂无 Pre-cal 概览权限。', user };
+  }
+
+  const csStatuses = [STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.PROJECT_CREATED];
+  let stats;
+
+  if (isAdmin) {
+    stats = await countPrecalStatsByScope({});
+  } else if (isSales && isCS) {
+    const seen = {};
+    const rows = [];
+    const collect = async recordsPromise => {
+      const records = await recordsPromise;
+      (records || []).forEach(item => {
+        if (!item || !item._id || seen[item._id]) return;
+        seen[item._id] = true;
+        rows.push(item);
+      });
+    };
+    await collect(fetchPrecalStatusRows({ createdBy: openid }));
+    await collect(fetchPrecalStatusRows({ status: _.in(csStatuses) }));
+    stats = countPrecalStatusStats(rows);
+  } else if (isSales) {
+    stats = await countPrecalStatsByScope({ createdBy: openid });
+  } else {
+    stats = await countPrecalStatsByScope({}, csStatuses);
+  }
+
+  return {
+    ok: true,
+    visible: true,
+    stats,
+    scopeText: isAdmin
+      ? 'Admin 视角：统计全部 Pre-cal 状态。'
+      : (isCS && isSales
+        ? 'Sales + CS 视角：统计自己创建及 CS 可见的 Pre-cal 状态。'
+        : (isCS ? 'CS 视角：统计可见的已提交和已绑定 SAP Pre-cal。' : 'Sales 视角：统计自己创建的全部 Pre-cal 状态。')),
+    user
+  };
+}
+
+async function listMyPrecal(payload, openid, user) {
+  assertRole(user, 'sales', '只有 Sales 可以查看我的 Pre-cal。');
+  const status = normalizeText(payload && payload.status);
+  const query = { createdBy: openid };
+  if (status && status !== 'all') query.status = status;
+  const page = await fetchPrecalListPage(query, 'updatedAt', payload);
+  return Object.assign({ ok: true, records: page.records.map(buildListItem), user }, {
+    page: page.page,
+    pageSize: page.pageSize,
+    total: page.total,
+    hasMore: page.hasMore
+  });
 }
 
 async function listPrecalForCS(payload, openid, user) {
   assertAnyRole(user, ['cs', 'admin'], '只有 CS 或 admin 可以查看 SAP 绑定列表。');
   const status = normalizeText(payload && payload.status);
-  const keyword = normalizeText(payload && payload.keyword);
   const allowed = [STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.PROJECT_CREATED];
   const queryStatus = status && status !== 'all' ? [status] : allowed;
-  const pageSize = 100;
-  let skip = 0;
-  let rows = [];
   const baseQuery = { status: _.in(queryStatus.filter(s => allowed.indexOf(s) >= 0)) };
-  while (true) {
-    const res = await precalRecords.where(baseQuery).orderBy('submittedAt', 'desc').skip(skip).limit(pageSize).get();
-    const batch = res.data || [];
-    rows = rows.concat(batch);
-    if (batch.length < pageSize) break;
-    skip += batch.length;
-  }
-  rows = rows.filter(item => item.deleted !== true).filter(item => keywordMatch(item, keyword));
-  return { ok: true, records: rows.map(buildListItem), user };
+  const page = await fetchPrecalListPage(baseQuery, 'submittedAt', payload);
+  return Object.assign({ ok: true, records: page.records.map(buildListItem), user }, {
+    page: page.page,
+    pageSize: page.pageSize,
+    total: page.total,
+    hasMore: page.hasMore
+  });
 }
 
 async function listPrecalForAdmin(payload, openid, user) {
   assertRole(user, 'admin', '只有 admin 可以查看全部 Pre-cal。');
   const status = normalizeText(payload && payload.status);
-  const keyword = normalizeText(payload && payload.keyword);
-  const pageSize = 100;
-  let skip = 0;
-  let rows = [];
-  while (true) {
-    const res = await precalRecords.orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
-    const batch = res.data || [];
-    rows = rows.concat(batch);
-    if (batch.length < pageSize) break;
-    skip += batch.length;
-  }
-  rows = rows.filter(item => item.deleted !== true);
-  if (status && status !== 'all') rows = rows.filter(item => item.status === status);
-  rows = rows.filter(item => keywordMatch(item, keyword));
-  return { ok: true, records: rows.map(buildListItem), user };
+  const query = {};
+  if (status && status !== 'all') query.status = status;
+  const page = await fetchPrecalListPage(query, 'updatedAt', payload);
+  return Object.assign({ ok: true, records: page.records.map(buildListItem), user }, {
+    page: page.page,
+    pageSize: page.pageSize,
+    total: page.total,
+    hasMore: page.hasMore
+  });
 }
 
 function normalizeSapBindings(rawBindings) {
@@ -1014,6 +1306,7 @@ async function bindSap(payload, openid, user) {
   const record = await getRecord(id);
   if (!record) throw new Error('Pre-cal 记录不存在。');
   if ([STATUS.SUBMITTED, STATUS.SAP_BOUND, STATUS.PROJECT_CREATED].indexOf(record.status) < 0) throw new Error('只有 Submitted、SAP Bound 或 Project Created 状态可以维护 SAP号。');
+  const currentVersion = assertVersionMatch(record, payload && payload.version, 'SAP 绑定信息已被其他人更新，请刷新后再保存。');
   const sapBindings = normalizeSapBindings(payload && payload.sapBindings);
   const itemList = normalizeItemList(payload && payload.itemList, payload && payload.sapBindings);
   const previousBindings = normalizeRecordSapBindings(record);
@@ -1053,6 +1346,7 @@ async function bindSap(payload, openid, user) {
     });
   });
   if (!enriched.length) throw new Error('至少需要录入一个 SAP号。');
+  await assertSapBindingsGloballyUnique(id, enriched);
 
   await precalRecords.doc(id).update({
     data: {
@@ -1079,7 +1373,7 @@ async function bindSap(payload, openid, user) {
     });
   }
   await syncProjectsSapBindings(record, enriched, openid, now);
-  return { ok: true, id, status: record.status === STATUS.PROJECT_CREATED ? STATUS.PROJECT_CREATED : STATUS.SAP_BOUND, user };
+  return { ok: true, id, status: record.status === STATUS.PROJECT_CREATED ? STATUS.PROJECT_CREATED : STATUS.SAP_BOUND, version: currentVersion + 1, user };
 }
 
 async function unlockPrecal(payload, openid, user) {
@@ -1175,9 +1469,10 @@ exports.main = async (event) => {
   const openid = wxContext.OPENID;
   if (!openid) return { ok: false, message: '无法获取 openid。' };
 
-  const user = await getCurrentUser(openid);
   const action = event && event.action;
   const payload = event && event.payload ? event.payload : event || {};
+  const actualUser = await getCurrentUser(openid);
+  const user = applyAdminRoleView(actualUser, payload);
 
   try {
     if (action === 'createPrecal') return await createPrecal(payload, openid, user);
@@ -1185,6 +1480,7 @@ exports.main = async (event) => {
     if (action === 'submitPrecal') return await submitPrecal(payload, openid, user);
     if (action === 'withdrawPrecal') return await withdrawPrecal(payload, openid, user);
     if (action === 'getPrecalDetail') return await getPrecalDetail(payload, openid, user);
+    if (action === 'getPrecalOverview') return await getPrecalOverview(payload, openid, user);
     if (action === 'listMyPrecal') return await listMyPrecal(payload, openid, user);
     if (action === 'listPrecalForCS') return await listPrecalForCS(payload, openid, user);
     if (action === 'listPrecalForAdmin') return await listPrecalForAdmin(payload, openid, user);

@@ -7,8 +7,8 @@
 
   <view class="card">
     <view class="section-title">基础信息</view>
-    <label wx:if="{{!isEdit}}" class="form-label">通过 SAP 项目号创建（推荐）</label>
-    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入任一已绑定 SAP 项目号后点击同步" bindinput="onSapInput" />
+    <label wx:if="{{!isEdit}}" class="form-label">SAP 项目号</label>
+    <input wx:if="{{!isEdit}}" class="input" value="{{sapSearchNo}}" placeholder="输入 SAP 项目号后可同步 Pre-cal" bindinput="onSapInput" />
     <view wx:if="{{!isEdit}}" class="row action-row">
       <button class="btn-secondary" size="mini" loading="{{precalSyncing}}" bindtap="onManualSyncPrecal">同步 Pre-cal 数据</button>
       <text class="muted">{{precalSyncMessage}}</text>
@@ -77,19 +77,25 @@
   </view>
 
   <view wx:if="{{canViewFullProject}}" class="card">
-    <view class="section-title">SAP 绑定</view>
-    <view wx:if="{{!hasActiveSapBindings}}" class="allocation-warning">当前项目没有有效 SAP 绑定，AR Time 将无法匹配。</view>
-    <view wx:for="{{activeSapBindings}}" wx:key="sapId" class="sub-card">
-      <view class="sub-title">{{item.sapOrderNo}}</view>
-      <view class="metric-line"><text>Item</text><text>{{item.itemNoText}}</text></view>
-      <view class="metric-line"><text>关联人员</text><text>{{item.memberNameText}}</text></view>
-      <view class="muted">备注：{{item.remarkText}}</view>
+    <view class="row">
+      <view class="section-title inline-title">SAP 绑定</view>
+      <button wx:if="{{!readOnly}}" class="btn-secondary" size="mini" bindtap="addSapBinding">新增 SAP</button>
     </view>
-    <view wx:if="{{hasInactiveSapBindings}}" class="section-title history-title">历史 SAP</view>
-    <view wx:for="{{inactiveSapBindings}}" wx:key="sapId" class="sub-card muted-sub-card">
-      <view class="sub-title">{{item.sapOrderNo}}（已停用）</view>
-      <view class="metric-line"><text>Item</text><text>{{item.itemNoText}}</text></view>
-      <view class="muted">原因：{{item.disabledReasonText}} ｜ 备注：{{item.remarkText}}</view>
+    <view wx:if="{{!hasActiveSapBindings}}" class="allocation-warning">当前项目没有有效 SAP 绑定，AR Time 将无法匹配。</view>
+    <view wx:for="{{form.sapBindings}}" wx:key="sapId" class="sub-card">
+      <view class="row sub-title-row">
+        <view class="sub-title">SAP {{index + 1}} <text wx:if="{{item.active == false}}" class="mini-note">已停用</text></view>
+        <button wx:if="{{!readOnly}}" class="btn-danger" size="mini" data-index="{{index}}" bindtap="removeSapBinding">移除</button>
+      </view>
+      <label class="form-label">SAP 项目号</label>
+      <input class="input" disabled="{{readOnly}}" value="{{item.sapOrderNo}}" placeholder="请输入 SAP 项目号" data-index="{{index}}" data-field="sapOrderNo" bindinput="onSapBindingInput" />
+      <label class="form-label">Item No.</label>
+      <input class="input" disabled="{{readOnly}}" value="{{item.itemNo}}" placeholder="例如：1000" data-index="{{index}}" data-field="itemNo" bindinput="onSapBindingInput" />
+      <label class="form-label">关联人员</label>
+      <input class="input" disabled="{{readOnly}}" value="{{item.memberName}}" placeholder="可填写负责人员姓名" data-index="{{index}}" data-field="memberName" bindinput="onSapBindingInput" />
+      <label class="form-label">备注</label>
+      <input class="input" disabled="{{readOnly}}" value="{{item.remark}}" placeholder="可填写说明" data-index="{{index}}" data-field="remark" bindinput="onSapBindingInput" />
+      <view wx:if="{{item.active == false}}" class="muted">停用原因：{{item.disabledReason || '-'}}</view>
     </view>
   </view>
 
@@ -255,6 +261,6 @@
 
   <view class="bottom-bar">
     <button class="btn-ghost" bindtap="goBack">返回</button>
-    <button wx:if="{{!readOnly}}" class="btn-primary" bindtap="saveProject">保存项目</button>
+    <button wx:if="{{!readOnly}}" class="btn-primary" loading="{{savingProject}}" disabled="{{savingProject}}" bindtap="saveProject">保存项目</button>
   </view>
 </view>

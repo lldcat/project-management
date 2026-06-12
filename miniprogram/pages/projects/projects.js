@@ -1,6 +1,37 @@
 const projectService = require('../../services/projectService');
-const { enrichProject } = require('../../utils/metrics');
+const { enrichProject, formatMoney, formatNumber, formatPercent } = require('../../utils/metrics');
 const { normalizeRoles, hasAnyRole } = require('../../services/permissionService');
+
+function buildDisplay(metrics) {
+  const m = metrics || {};
+  return {
+    laborBudget: formatMoney(m.laborBudget),
+    travelFee: formatMoney(m.travelFee),
+    bac: formatMoney(m.bac),
+    plannedValue: formatMoney(m.plannedValue),
+    earnedValue: formatMoney(m.earnedValue),
+    actualCost: formatMoney(m.actualCost),
+    costVariance: formatMoney(m.costVariance),
+    scheduleVariance: formatMoney(m.scheduleVariance),
+    cpi: formatNumber(m.costPerformanceIndex),
+    spi: formatNumber(m.schedulePerformanceIndex),
+    plannedCompletionRatio: formatPercent(m.plannedCompletionRatio),
+    actualCompletionRatio: formatPercent(m.actualCompletionRatio),
+    sumBudgetHours: formatNumber(m.sumBudgetHours),
+    sumPlannedHours: formatNumber(m.sumPlannedHours),
+    sumArHours: formatNumber(m.sumArHours),
+    sumEmployeeBudgetHours: formatNumber(m.sumEmployeeBudgetHours),
+    budgetAllocationDiff: formatNumber(m.budgetAllocationDiff),
+    budgetAllocationRatio: formatPercent(m.budgetAllocationRatio)
+  };
+}
+
+function normalizeProjectRow(item) {
+  if (item && item.metrics) {
+    return Object.assign({}, item, { display: buildDisplay(item.metrics) });
+  }
+  return enrichProject(item);
+}
 
 Page({
   data: {
@@ -11,7 +42,15 @@ Page({
     listTitle: '我的项目',
     scopeText: 'PM 默认只显示自己创建的项目。',
     userRole: 'pm',
-    canExport: true
+    canExport: true,
+    loading: false,
+    loadingMore: false,
+    page: 1,
+    pageSize: 20,
+    hasMore: true,
+    total: 0,
+    exporting: false,
+    deletingId: ''
   },
 
   onShow() {
@@ -19,14 +58,28 @@ Page({
   },
 
   onPullDownRefresh() {
-    this.loadData().finally(() => wx.stopPullDownRefresh());
+    this.loadData({ reset: true }).finally(() => wx.stopPullDownRefresh());
   },
 
-  loadData() {
-    return projectService.listProjects({})
+  onReachBottom() {
+    this.loadMore();
+  },
+
+  loadData(options) {
+    const opts = options || {};
+    const reset = opts.reset !== false;
+    if (this.data.loading || this.data.loadingMore) return Promise.resolve();
+    const page = reset ? 1 : this.data.page + 1;
+    this.setData(reset ? { loading: true, page: 1 } : { loadingMore: true });
+    return projectService.listProjects({
+      page,
+      pageSize: this.data.pageSize,
+      keyword: this.data.keyword,
+      filter: this.data.filter
+    })
       .then(res => {
-        const projects = (res.projects || []).map(item => {
-          const project = enrichProject(item);
+        const rows = (res.projects || []).map(item => {
+          const project = normalizeProjectRow(item);
           const myAllocation = project._myAllocation || {};
           const hasMyBudget = myAllocation.hasBudgetHours || myAllocation.budgetHours !== '';
           project.displayPmName = project.pmName || project.projectManager || '-';
@@ -39,6 +92,7 @@ Page({
           project.myAllocationText = hasMyBudget ? `${myAllocation.budgetHours} h` : '未分配';
           return project;
         });
+        const projects = reset ? rows : this.data.projects.concat(rows);
         const user = res.user || {};
         const roles = normalizeRoles(user);
         const role = roles[0] || 'pm';
@@ -46,40 +100,43 @@ Page({
         const canExport = hasAnyRole({ roles }, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar']);
         this.setData({
           projects,
+          filteredProjects: projects,
           userRole: role,
           canExport,
+          page: res.page || page,
+          pageSize: res.pageSize || this.data.pageSize,
+          hasMore: !!res.hasMore,
+          total: Number(res.total || 0),
           listTitle: privileged ? '全部项目' : '我的项目',
-          scopeText: privileged ? '当前为管理视角，可查看并导出全部可见项目（不再限制固定条数）。非本人项目默认只读。' : '当前显示我创建、负责或作为组员参与的项目。'
-        }, () => this.applyFilter());
+          scopeText: privileged ? '当前为管理视角，列表按页加载；非本人项目默认只读。' : '当前显示我创建、负责或作为组员参与的项目。'
+        });
       })
       .catch(err => {
         console.error(err);
         wx.showToast({ title: err.message || '加载失败', icon: 'none' });
+      })
+      .finally(() => {
+        this.setData(reset ? { loading: false } : { loadingMore: false });
       });
   },
 
+  loadMore() {
+    if (!this.data.hasMore || this.data.loading || this.data.loadingMore) return;
+    this.loadData({ reset: false });
+  },
+
   onSearchInput(e) {
-    this.setData({ keyword: e.detail.value || '' }, () => this.applyFilter());
+    this.setData({ keyword: e.detail.value || '' });
+    clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => this.loadData({ reset: true }), 300);
   },
 
   switchFilter(e) {
-    this.setData({ filter: e.currentTarget.dataset.filter }, () => this.applyFilter());
+    this.setData({ filter: e.currentTarget.dataset.filter }, () => this.loadData({ reset: true }));
   },
 
   applyFilter() {
-    const keyword = (this.data.keyword || '').trim().toLowerCase();
-    const filter = this.data.filter;
-    const filteredProjects = this.data.projects.filter(item => {
-      const text = [item.projectName, item.projectNo, item.customerName, item.displayPmName]
-        .join(' ')
-        .toLowerCase();
-      const keywordOk = !keyword || text.indexOf(keyword) >= 0;
-      const riskOk = filter === 'all'
-        || (filter === 'risk' && item.metrics.hasRisk)
-        || (filter === 'normal' && !item.metrics.hasRisk);
-      return keywordOk && riskOk;
-    });
-    this.setData({ filteredProjects });
+    this.setData({ filteredProjects: this.data.projects });
   },
 
   createProject() {
@@ -93,25 +150,31 @@ Page({
 
   deleteProject(e) {
     const id = e.currentTarget.dataset.id;
+    if (this.data.deletingId) return;
     wx.showModal({
       title: '确认删除',
       content: '删除后无法恢复，确认删除该项目吗？',
       success: modal => {
         if (!modal.confirm) return;
+        this.setData({ deletingId: id });
         projectService.removeProject(id)
           .then(() => {
             wx.showToast({ title: '已删除', icon: 'success' });
-            this.loadData();
+            this.loadData({ reset: true });
           })
-          .catch(err => wx.showToast({ title: err.message || '删除失败', icon: 'none' }));
+          .catch(err => wx.showToast({ title: err.message || '删除失败', icon: 'none' }))
+          .finally(() => this.setData({ deletingId: '' }));
       }
     });
   },
 
   exportCsv() {
+    if (this.data.exporting) return;
+    this.setData({ exporting: true });
     projectService.exportCsv({})
       .then(res => this.writeCsvFile(res.csv || ''))
-      .catch(err => wx.showToast({ title: err.message || '导出失败', icon: 'none' }));
+      .catch(err => wx.showToast({ title: err.message || '导出失败', icon: 'none' }))
+      .finally(() => this.setData({ exporting: false }));
   },
 
   writeCsvFile(csv) {

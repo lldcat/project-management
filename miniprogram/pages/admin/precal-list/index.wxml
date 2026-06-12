@@ -12,7 +12,8 @@
   <view class="filter-row">
     <view wx:for="{{statusOptions}}" wx:key="value" class="filter {{filterStatus == item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="switchStatus">{{item.label}}</view>
   </view>
-  <view wx:if="{{records.length == 0}}" class="empty">暂无记录</view>
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+  <view wx:elif="{{records.length == 0}}" class="empty">暂无记录</view>
   <view wx:for="{{records}}" wx:key="_id" class="card" bindtap="goDetail" data-id="{{item._id}}">
     <view class="row">
       <view>
@@ -25,8 +26,13 @@
     <view class="metric-line"><text>SAP号</text><text>{{item.sapTextDisplay}}</text></view>
     <view wx:if="{{item.hasActions}}" class="actions" catchtap="noop">
       <button wx:if="{{item.canMaintainSap}}" class="btn-secondary" size="mini" data-id="{{item._id}}" catchtap="goBindSap">维护 SAP</button>
-      <button wx:if="{{item.canUnlock}}" class="btn-secondary" size="mini" data-id="{{item._id}}" catchtap="unlock">解锁</button>
-      <button wx:if="{{item.canCancel}}" class="btn-danger" size="mini" data-id="{{item._id}}" catchtap="cancel">取消</button>
+      <button wx:if="{{item.canUnlock}}" class="btn-secondary" size="mini" loading="{{actionId == item._id}}" disabled="{{actionId != ''}}" data-id="{{item._id}}" catchtap="unlock">解锁</button>
+      <button wx:if="{{item.canCancel}}" class="btn-danger" size="mini" loading="{{actionId == item._id}}" disabled="{{actionId != ''}}" data-id="{{item._id}}" catchtap="cancel">取消</button>
     </view>
+  </view>
+
+  <view wx:if="{{records.length > 0}}" class="empty">
+    <button wx:if="{{hasMore}}" class="btn-secondary" loading="{{loadingMore}}" disabled="{{loadingMore}}" bindtap="loadMore">加载更多</button>
+    <view wx:else>已加载全部记录</view>
   </view>
 </view>

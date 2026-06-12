@@ -1,5 +1,5 @@
 const userService = require('../../../services/userService');
-const { DEFAULT_ROLES, normalizeRoles } = require('../../../services/permissionService');
+const { DEFAULT_ROLES, normalizeActualRoles } = require('../../../services/permissionService');
 
 const ROLE_OPTIONS = [
   { key: 'pm', label: 'PM' },
@@ -44,7 +44,7 @@ Page({
     return userService.listUsers()
       .then(res => {
         const users = (res.users || []).map(item => {
-          const roles = normalizeRoles(item);
+          const roles = normalizeActualRoles(item);
           return Object.assign({}, item, {
             displayName: item.name || '未填写姓名',
             roles,

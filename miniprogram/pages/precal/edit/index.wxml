@@ -136,7 +136,7 @@
   </view>
 
   <view class="footer-actions">
-    <button class="btn-secondary" bindtap="saveDraft">保存</button>
-    <button class="btn-primary" bindtap="saveAndSubmit">保存并提交</button>
+    <button class="btn-secondary" loading="{{saving}}" disabled="{{saving || submitting}}" bindtap="saveDraft">保存</button>
+    <button class="btn-primary" loading="{{submitting}}" disabled="{{saving || submitting}}" bindtap="saveAndSubmit">保存并提交</button>
   </view>
 </view>

@@ -1393,6 +1393,7 @@ function cleanProjectInput(input, user, openid, existingProject) {
   const sapNumbers = uniqueTexts(sapBindings.filter(item => item.active !== false).map(item => item.sapOrderNo));
 
   return {
+    clientRequestId: String(project.clientRequestId || existing.clientRequestId || '').trim(),
     projectName: String(project.projectName || '').trim(),
     customerName: String(project.customerName || '').trim(),
     projectNo: String(project.projectNo || '').trim(),
@@ -1602,6 +1603,29 @@ function hasAnyRole(user, roles) {
   return (roles || []).some(role => userRoles.indexOf(role) >= 0);
 }
 
+function normalizeRequestedViewRoles(roles) {
+  const seen = {};
+  const result = [];
+  (Array.isArray(roles) ? roles : []).forEach(role => {
+    const clean = normalizeText(role);
+    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
+      seen[clean] = true;
+      result.push(clean);
+    }
+  });
+  return result;
+}
+
+function applyAdminRoleView(user, event) {
+  const viewRoles = normalizeRequestedViewRoles(event && event.viewRoles);
+  if (!viewRoles.length || !hasRole(user, 'admin')) return user;
+  return Object.assign({}, user, {
+    roles: viewRoles,
+    roleViewActive: true,
+    actualRoles: normalizeRoles(user)
+  });
+}
+
 function assertActive(user, message) {
   if (!user || user.active === false) throw new Error(message || '账号未激活，无法执行该操作。');
 }
@@ -1716,7 +1740,47 @@ function decorateProjectAccess(project, openid, user) {
   });
 }
 
-async function listProjects(openid, user) {
+function isActiveProjectStatus(status) {
+  const value = normalizeText(status || 'active').toLowerCase();
+  return ['closed', 'archived', 'completed', 'done', 'cancelled', 'canceled'].indexOf(value) < 0;
+}
+
+function normalizePageOptions(payload, defaultPageSize, maxPageSize) {
+  const page = Math.max(1, parseInt(payload && payload.page, 10) || 1);
+  const rawPageSize = parseInt(payload && payload.pageSize, 10) || defaultPageSize || 20;
+  const pageSize = Math.min(maxPageSize || 50, Math.max(1, rawPageSize));
+  return { page, pageSize, offset: (page - 1) * pageSize };
+}
+
+function projectKeywordMatch(project, keyword) {
+  const key = normalizeText(keyword).toLowerCase();
+  if (!key) return true;
+  const sapText = normalizeSapBindingList(project).map(item => item.sapOrderNo).join(' ');
+  const text = [
+    project && project.projectName,
+    project && project.projectNo,
+    project && project.customerName,
+    project && project.projectManager,
+    project && project.pmName,
+    project && project.precalNo,
+    sapText
+  ].join(' ').toLowerCase();
+  return text.indexOf(key) >= 0;
+}
+
+async function countProjectsByQuery(query) {
+  const res = await projects.where(query || {}).count();
+  return Number(res && res.total || 0);
+}
+
+async function countInactiveProjects(baseQuery) {
+  const inactiveStatuses = ['closed', 'archived', 'completed', 'done', 'cancelled', 'canceled'];
+  const counts = await Promise.all(inactiveStatuses.map(status => countProjectsByQuery(Object.assign({}, baseQuery, { status }))));
+  return counts.reduce((sum, count) => sum + count, 0);
+}
+
+async function listVisibleProjectRows(openid, user, options) {
+  const opts = options || {};
   const pageSize = 100;
   const rows = [];
   const seen = {};
@@ -1725,7 +1789,10 @@ async function listProjects(openid, user) {
     while (true) {
       let res;
       try {
-        res = await projects.where(query).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
+        let request = projects.where(query);
+        if (opts.orderByUpdatedAt !== false) request = request.orderBy('updatedAt', 'desc');
+        if (opts.fieldProjection) request = request.field(opts.fieldProjection);
+        res = await request.skip(skip).limit(pageSize).get();
       } catch (err) {
         console.warn('[projectService] 项目列表查询失败，已跳过条件：', query, err && err.message || err);
         break;
@@ -1741,7 +1808,7 @@ async function listProjects(openid, user) {
     }
   };
 
-  if (canViewAll(user)) {
+  if (canViewAll(user) && !opts.forcePersonalScope) {
     await collect({ deleted: _.neq(true) });
   } else {
     const openids = currentUserOpenids(openid, user);
@@ -1750,16 +1817,183 @@ async function listProjects(openid, user) {
       await collect({ deleted: _.neq(true), createdBy: _.in(chunk) });
       await collect({ deleted: _.neq(true), pmOpenid: _.in(chunk) });
       await collect({ deleted: _.neq(true), memberOpenids: _.in(chunk) });
-      await collect({ deleted: _.neq(true), 'employeeBudgets.memberOpenid': _.in(chunk) });
+      if (opts.includeEmployeeBudgetMemberQuery !== false) {
+        await collect({ deleted: _.neq(true), 'employeeBudgets.memberOpenid': _.in(chunk) });
+      }
     }
   }
 
   const visibleRows = rows
     .filter(item => item.deleted !== true)
-    .filter(item => canView(item, openid, user))
+    .filter(item => opts.skipCanViewFilter ? true : canView(item, openid, user))
     .sort((a, b) => resolveServerDateMs(b.updatedAt) - resolveServerDateMs(a.updatedAt));
+  return visibleRows;
+}
+
+function summarizeMetricsForList(metrics) {
+  const source = metrics || {};
+  const result = Object.assign({}, source);
+  delete result.memberBudgetComparisons;
+  return result;
+}
+
+function summarizeProjectForList(project, openid, user) {
+  const decorated = decorateProjectAccess(project, openid, user);
+  const metrics = decorated._canViewFullProject
+    ? summarizeMetricsForList(decorated.metrics || computeMetrics(decorated))
+    : { hasRisk: false, alerts: [] };
+  return {
+    _id: decorated._id,
+    projectName: decorated.projectName || '',
+    projectNo: decorated.projectNo || '',
+    customerName: decorated.customerName || '',
+    projectManager: decorated.projectManager || '',
+    pmName: decorated.pmName || '',
+    status: decorated.status || '',
+    startDate: decorated.startDate || '',
+    endDate: decorated.endDate || '',
+    updatedAt: decorated.updatedAt || '',
+    metrics,
+    arSummary: decorated.arSummary || {
+      totalArHours: decorated._canViewFullProject ? (metrics.sumArHours || 0) : 0,
+      matchedSummaryCount: 0,
+      latestUpdatedAt: '',
+      latestUpdatedAtText: ''
+    },
+    _canEdit: decorated._canEdit,
+    _canViewAll: decorated._canViewAll,
+    _canViewFullProject: decorated._canViewFullProject,
+    _canViewAllAllocations: decorated._canViewAllAllocations,
+    _isOwnProject: decorated._isOwnProject,
+    _isProjectMember: decorated._isProjectMember,
+    _myAllocation: decorated._myAllocation
+  };
+}
+
+async function listProjects(openid, user) {
+  const visibleRows = await listVisibleProjectRows(openid, user);
+  const enrichedRows = await enrichProjectsWithArSummaries(visibleRows);
+  return enrichedRows.map(item => summarizeProjectForList(item, openid, user));
+}
+
+async function listProjectsPage(openid, user, payload) {
+  const pageOptions = normalizePageOptions(payload, 20, 50);
+  const keyword = normalizeText(payload && payload.keyword);
+  const filter = normalizeText(payload && payload.filter) || 'all';
+  const canUseAdminDirectPage = canViewAll(user) && !keyword && filter === 'all';
+
+  if (canUseAdminDirectPage) {
+    const query = { deleted: _.neq(true) };
+    const total = await countProjectsByQuery(query);
+    const res = await projects
+      .where(query)
+      .orderBy('updatedAt', 'desc')
+      .skip(pageOptions.offset)
+      .limit(pageOptions.pageSize)
+      .get();
+    const enrichedRows = await enrichProjectsWithArSummaries(res.data || []);
+    return {
+      projects: enrichedRows.map(item => summarizeProjectForList(item, openid, user)),
+      page: pageOptions.page,
+      pageSize: pageOptions.pageSize,
+      total,
+      hasMore: pageOptions.offset + pageOptions.pageSize < total
+    };
+  }
+
+  let rows = await listVisibleProjectRows(openid, user);
+  rows = rows.filter(item => projectKeywordMatch(item, keyword));
+
+  if (filter === 'risk' || filter === 'normal') {
+    const enrichedRows = await enrichProjectsWithArSummaries(rows);
+    const filteredRows = enrichedRows.filter(item => {
+      const hasRisk = !!(item.metrics && item.metrics.hasRisk);
+      return filter === 'risk' ? hasRisk : !hasRisk;
+    });
+    const pageRows = filteredRows.slice(pageOptions.offset, pageOptions.offset + pageOptions.pageSize);
+    return {
+      projects: pageRows.map(item => summarizeProjectForList(item, openid, user)),
+      page: pageOptions.page,
+      pageSize: pageOptions.pageSize,
+      total: filteredRows.length,
+      hasMore: pageOptions.offset + pageOptions.pageSize < filteredRows.length
+    };
+  }
+
+  const total = rows.length;
+  const pageRows = rows.slice(pageOptions.offset, pageOptions.offset + pageOptions.pageSize);
+  const enrichedRows = await enrichProjectsWithArSummaries(pageRows);
+  return {
+    projects: enrichedRows.map(item => summarizeProjectForList(item, openid, user)),
+    page: pageOptions.page,
+    pageSize: pageOptions.pageSize,
+    total,
+    hasMore: pageOptions.offset + pageOptions.pageSize < total
+  };
+}
+
+async function listProjectsForExport(openid, user) {
+  const visibleRows = await listVisibleProjectRows(openid, user);
   const enrichedRows = await enrichProjectsWithArSummaries(visibleRows);
   return enrichedRows.map(item => decorateProjectAccess(item, openid, user));
+}
+
+async function getDashboardOverview(openid, user) {
+  const projection = {
+    _id: true,
+    status: true,
+    ownerOpenid: true,
+    createdBy: true,
+    pmOpenid: true,
+    memberOpenids: true,
+    deleted: true,
+    updatedAt: true
+  };
+  const baseQuery = { deleted: _.neq(true) };
+
+  if (canViewAll(user)) {
+    const total = await countProjectsByQuery(baseQuery);
+    const inactive = await countInactiveProjects(baseQuery);
+    const personalRows = await listVisibleProjectRows(openid, user, {
+      fieldProjection: projection,
+      includeEmployeeBudgetMemberQuery: false,
+      skipCanViewFilter: true,
+      forcePersonalScope: true,
+      orderByUpdatedAt: false
+    });
+    const personalStats = personalRows.reduce((acc, project) => {
+      if (ownsProject(project, openid, user)) acc.owned += 1;
+      if (isProjectMember(project, openid, user) && !ownsProject(project, openid, user)) acc.participated += 1;
+      return acc;
+    }, { owned: 0, participated: 0 });
+    return {
+      projectStats: {
+        total,
+        active: Math.max(0, total - inactive),
+        owned: personalStats.owned,
+        participated: personalStats.participated
+      },
+      scopeText: '当前为管理视角，统计所有可见项目概览。'
+    };
+  }
+
+  const visibleRows = await listVisibleProjectRows(openid, user, {
+    fieldProjection: projection,
+    includeEmployeeBudgetMemberQuery: false,
+    skipCanViewFilter: true,
+    orderByUpdatedAt: false
+  });
+  const stats = visibleRows.reduce((acc, project) => {
+    acc.total += 1;
+    if (isActiveProjectStatus(project.status)) acc.active += 1;
+    if (ownsProject(project, openid, user)) acc.owned += 1;
+    if (isProjectMember(project, openid, user) && !ownsProject(project, openid, user)) acc.participated += 1;
+    return acc;
+  }, { total: 0, active: 0, owned: 0, participated: 0 });
+  return {
+    projectStats: stats,
+    scopeText: '当前为个人视角，统计我负责或参与的项目概览。'
+  };
 }
 
 async function getProjectById(id) {
@@ -1841,12 +2075,18 @@ exports.main = async (event) => {
 
   if (!openid) return { ok: false, message: '无法获取 openid。' };
 
-  const user = await getCurrentUser(openid);
+  const actualUser = await getCurrentUser(openid);
+  const user = applyAdminRoleView(actualUser, event || {});
 
   try {
     if (action === 'list') {
-      const data = await listProjects(openid, user);
-      return { ok: true, projects: data, user };
+      const data = await listProjectsPage(openid, user, event || {});
+      return Object.assign({ ok: true, user }, data);
+    }
+
+    if (action === 'dashboardOverview') {
+      const overview = await getDashboardOverview(openid, user);
+      return Object.assign({ ok: true, user }, overview);
     }
 
     if (action === 'detail') {
@@ -2003,6 +2243,16 @@ exports.main = async (event) => {
       cleaned.createdBy = openid;
       cleaned.deleted = false;
       cleaned.version = 1;
+      if (cleaned.clientRequestId) {
+        const existing = await projects
+          .where({ createdBy: openid, clientRequestId: cleaned.clientRequestId, deleted: _.neq(true) })
+          .limit(1)
+          .get();
+        const existingProject = existing.data && existing.data[0];
+        if (existingProject && existingProject._id) {
+          return { ok: true, id: existingProject._id, user, deduped: true };
+        }
+      }
       const addRes = await projects.add({ data: cleaned });
 
       return { ok: true, id: addRes._id, user };
@@ -2027,7 +2277,7 @@ exports.main = async (event) => {
 
     if (action === 'exportCsv') {
       assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'], '当前角色不能导出项目数据。');
-      const data = await listProjects(openid, user);
+      const data = await listProjectsForExport(openid, user);
       const rows = data.map(item => {
         const metrics = item.metrics || computeMetrics(item);
         return Object.assign({}, item, { bac: metrics.bac, metrics });

@@ -1,9 +1,26 @@
+const { normalizeActualRoles } = require('../services/permissionService');
+
+function getAppData() {
+  try {
+    const app = getApp && getApp();
+    return app && app.globalData || null;
+  } catch (err) {
+    return null;
+  }
+}
+
 function syncUser(result) {
   if (!result || !result.user) return;
-  const app = getApp && getApp();
-  if (app && app.globalData) {
-    app.globalData.user = result.user;
-    app.globalData.openid = result.user.openid || result.openid || app.globalData.openid || '';
+  const globalData = getAppData();
+  if (globalData) {
+    const previousUser = globalData.user || {};
+    const previousRoles = normalizeActualRoles(previousUser);
+    if (Array.isArray(globalData.roleViewRoles) && globalData.roleViewRoles.length && previousRoles.indexOf('admin') >= 0) {
+      globalData.user = Object.assign({}, result.user, { roles: previousRoles });
+    } else {
+      globalData.user = result.user;
+    }
+    globalData.openid = result.user.openid || result.openid || globalData.openid || '';
   }
 }
 
@@ -19,7 +36,12 @@ function normalizeResult(res) {
 }
 
 function callFunction(functionName, action, data) {
-  const payload = data || {};
+  const payload = Object.assign({}, data || {});
+  const globalData = getAppData();
+  const actualRoles = normalizeActualRoles(globalData && globalData.user);
+  if (actualRoles.indexOf('admin') >= 0 && Array.isArray(globalData && globalData.roleViewRoles) && globalData.roleViewRoles.length) {
+    payload.viewRoles = globalData.roleViewRoles;
+  }
   const callData = functionName === 'projectService'
     ? Object.assign({ action }, payload)
     : { action, payload };

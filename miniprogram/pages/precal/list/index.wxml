@@ -31,8 +31,13 @@
     <view class="metric-line"><text>SAP号</text><text class="metric-value">{{item.sapTextDisplay}}</text></view>
     <view class="actions" catchtap="noop">
       <button wx:if="{{item.canEditOrSubmit}}" class="btn-secondary" size="mini" data-id="{{item._id}}" bindtap="goEdit">编辑</button>
-      <button wx:if="{{item.canWithdraw}}" class="btn-ghost" size="mini" data-id="{{item._id}}" bindtap="withdraw">撤销</button>
-      <button wx:if="{{item.canEditOrSubmit}}" class="btn-primary" size="mini" data-id="{{item._id}}" bindtap="submit">提交</button>
+      <button wx:if="{{item.canWithdraw}}" class="btn-ghost" size="mini" loading="{{withdrawingId == item._id}}" disabled="{{submittingId != '' || withdrawingId != ''}}" data-id="{{item._id}}" bindtap="withdraw">撤销</button>
+      <button wx:if="{{item.canEditOrSubmit}}" class="btn-primary" size="mini" loading="{{submittingId == item._id}}" disabled="{{submittingId != '' || withdrawingId != ''}}" data-id="{{item._id}}" bindtap="submit">提交</button>
     </view>
+  </view>
+
+  <view wx:if="{{records.length > 0}}" class="empty">
+    <button wx:if="{{hasMore}}" class="btn-secondary" loading="{{loadingMore}}" disabled="{{loadingMore}}" bindtap="loadMore">加载更多</button>
+    <view wx:else>已加载全部 Pre-cal</view>
   </view>
 </view>

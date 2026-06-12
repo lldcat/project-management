@@ -68,7 +68,7 @@
     </view>
 
     <view class="actions">
-      <button class="btn-primary" bindtap="saveSap">保存 SAP 绑定</button>
+      <button class="btn-primary" loading="{{savingSap}}" disabled="{{savingSap}}" bindtap="saveSap">保存 SAP 绑定</button>
     </view>
   </block>
 </view>

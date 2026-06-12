@@ -12,12 +12,20 @@
   <view class="section-title">项目概览</view>
   <view class="grid-2">
     <view class="stat-card">
-      <view class="stat-value">{{stats.total}}</view>
-      <view class="stat-label">项目总数</view>
+      <view class="stat-value">{{projectStats.total}}</view>
+      <view class="stat-label">可见项目</view>
     </view>
     <view class="stat-card">
-      <view class="stat-value">{{stats.risk}}</view>
-      <view class="stat-label">风险项目</view>
+      <view class="stat-value">{{projectStats.active}}</view>
+      <view class="stat-label">进行中项目</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{projectStats.owned}}</view>
+      <view class="stat-label">我负责</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{projectStats.participated}}</view>
+      <view class="stat-label">我参与</view>
     </view>
   </view>
 
@@ -48,43 +56,6 @@
       <view class="stat-card precal-stat">
         <view class="stat-value">{{precalStats.other}}</view>
         <view class="stat-label">其他状态</view>
-      </view>
-    </view>
-  </view>
-
-  <view class="card">
-    <view class="card-title">关键指标汇总</view>
-    <view class="metric-line">
-      <text>BAC（系统计算，含杂费/差旅）</text>
-      <text class="metric-value">{{stats.bacText}}</text>
-    </view>
-    <view class="metric-line">
-      <text>人工预算（不含杂费/差旅）</text>
-      <text class="metric-value">{{stats.laborBudgetText}}</text>
-    </view>
-    <view class="metric-line">
-      <text>人员预算工时合计</text>
-      <text class="metric-value">{{stats.employeeBudgetHoursText}}</text>
-    </view>
-    <view class="metric-line">
-      <text>AC（实际成本）</text>
-      <text class="metric-value">{{stats.actualCostText}}</text>
-    </view>
-  </view>
-
-  <view class="section-title">风险项目</view>
-  <view wx:if="{{riskProjects.length == 0}}" class="empty">暂无风险项目</view>
-  <view wx:for="{{riskProjects}}" wx:key="_id" class="card" bindtap="goEdit" data-id="{{item._id}}">
-    <view class="row">
-      <view>
-        <view class="project-title">{{item.projectNameText}}</view>
-        <view class="muted">{{item.projectNoText}} ｜ PM：{{item.displayPmName}}</view>
-      </view>
-      <view class="tag tag-risk">风险</view>
-    </view>
-    <view class="alert-list">
-      <view wx:for="{{item.metrics.alerts}}" wx:for-item="alert" wx:key="code" class="tag {{alert.statusClass}}">
-        {{alert.text}}
       </view>
     </view>
   </view>

@@ -8,6 +8,10 @@ function listProjects(params) {
   return callProjectService('list', params || {});
 }
 
+function getDashboardOverview(params) {
+  return callProjectService('dashboardOverview', params || {});
+}
+
 function getProjectDetail(id) {
   return callProjectService('detail', { id });
 }
@@ -31,6 +35,7 @@ function loadPrecalBySap(sapNo) {
 module.exports = {
   callProjectService,
   listProjects,
+  getDashboardOverview,
   getProjectDetail,
   saveProject,
   removeProject,

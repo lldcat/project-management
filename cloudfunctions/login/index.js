@@ -46,6 +46,29 @@ function assertAdmin(user) {
   if (!hasRole(user, 'admin')) throw new Error('只有 admin 可以维护用户角色。');
 }
 
+function normalizeRequestedViewRoles(roles) {
+  const seen = {};
+  const result = [];
+  (Array.isArray(roles) ? roles : []).forEach(role => {
+    const clean = normalizeText(role);
+    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
+      seen[clean] = true;
+      result.push(clean);
+    }
+  });
+  return result;
+}
+
+function applyAdminRoleView(user, payload) {
+  const viewRoles = normalizeRequestedViewRoles(payload && payload.viewRoles);
+  if (!viewRoles.length || !hasRole(user, 'admin')) return user;
+  return Object.assign({}, user, {
+    roles: viewRoles,
+    roleViewActive: true,
+    actualRoles: normalizeRoles(user)
+  });
+}
+
 function isVisibleUser(user) {
   return user && user.deleted !== true;
 }
@@ -208,8 +231,9 @@ async function updateCurrentUserName(openid, name) {
   return { ok: true, user: refreshed.user, duplicateCount: refreshed.duplicateCount };
 }
 
-async function listUsers(openid) {
-  const current = (await getOrCreateCurrentUser(openid)).user;
+async function listUsers(openid, payload) {
+  const actualCurrent = (await getOrCreateCurrentUser(openid)).user;
+  const current = applyAdminRoleView(actualCurrent, payload);
   assertAdmin(current);
   const allUsers = [];
   const pageSize = 100;
@@ -229,7 +253,8 @@ async function listUsers(openid) {
 }
 
 async function updateUserRoles(openid, payload) {
-  const current = (await getOrCreateCurrentUser(openid)).user;
+  const actualCurrent = (await getOrCreateCurrentUser(openid)).user;
+  const current = applyAdminRoleView(actualCurrent, payload);
   assertAdmin(current);
   const targetUserId = normalizeText(payload && payload.userId);
   const roles = sanitizeRoles(payload && payload.roles);
@@ -263,7 +288,7 @@ exports.main = async (event) => {
   let result;
   try {
     if (action === 'updateName') result = await updateCurrentUserName(openid, payload.name);
-    else if (action === 'listUsers') result = await listUsers(openid);
+    else if (action === 'listUsers') result = await listUsers(openid, payload);
     else if (action === 'updateUserRoles') result = await updateUserRoles(openid, payload);
     else result = await getOrCreateCurrentUser(openid);
   } catch (err) {
@@ -273,12 +298,12 @@ exports.main = async (event) => {
 
   if (result.ok === false) return result;
 
-  return {
+  return Object.assign({}, result, {
     ok: true,
     openid,
     appid: wxContext.APPID,
     unionid: wxContext.UNIONID || '',
     user: result.user,
     duplicateUserRecordsRemoved: result.duplicateCount
-  };
+  });
 };

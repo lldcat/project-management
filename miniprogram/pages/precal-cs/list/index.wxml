@@ -9,7 +9,8 @@
     <view wx:for="{{statusOptions}}" wx:key="value" class="filter {{filterStatus == item.value ? 'active' : ''}}" data-status="{{item.value}}" bindtap="switchStatus">{{item.label}}</view>
   </view>
 
-  <view wx:if="{{records.length == 0}}" class="empty">暂无可处理 Pre-cal</view>
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+  <view wx:elif="{{records.length == 0}}" class="empty">暂无可处理 Pre-cal</view>
   <view wx:for="{{records}}" wx:key="_id" class="card" bindtap="goBind" data-id="{{item._id}}">
     <view class="row">
       <view>
@@ -20,5 +21,10 @@
     </view>
     <view class="metric-line"><text>总订单金额</text><text>{{item.totalOrderValueText}}</text></view>
     <view class="metric-line"><text>SAP号</text><text>{{item.sapTextDisplay}}</text></view>
+  </view>
+
+  <view wx:if="{{records.length > 0}}" class="empty">
+    <button wx:if="{{hasMore}}" class="btn-secondary" loading="{{loadingMore}}" disabled="{{loadingMore}}" bindtap="loadMore">加载更多</button>
+    <view wx:else>已加载全部 Pre-cal</view>
   </view>
 </view>

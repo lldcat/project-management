@@ -1,24 +1,19 @@
 const projectService = require('../../services/projectService');
 const precalService = require('../../services/precalService');
-const { enrichProject, formatMoney, formatNumber } = require('../../utils/metrics');
-const { normalizeRoles, hasRole } = require('../../services/permissionService');
+const { normalizeRoles } = require('../../services/permissionService');
 
 Page({
   data: {
     loading: false,
-    projects: [],
-    riskProjects: [],
-    scopeText: 'PM 默认只看自己的项目。',
+    scopeText: '按当前身份统计可见项目概览。',
     userRoleText: 'PM',
     showPrecalStats: false,
     precalScopeText: '按当前身份统计可见的 Pre-cal 数据。',
-    stats: {
+    projectStats: {
       total: 0,
-      risk: 0,
-      bacText: '-',
-      laborBudgetText: '-',
-      employeeBudgetHoursText: '-',
-      actualCostText: '-'
+      active: 0,
+      owned: 0,
+      participated: 0
     },
     precalStats: {
       total: 0,
@@ -47,67 +42,34 @@ Page({
 
   loadData() {
     this.setData({ loading: true });
-    return projectService.listProjects({})
-      .then(res => {
-        const projects = (res.projects || []).map(item => {
-          const project = enrichProject(item);
-          project.displayPmName = project.pmName || project.projectManager || '-';
-          project.projectNameText = project.projectName || '未命名项目';
-          project.projectNoText = project.projectNo || '无项目号';
-          return project;
-        });
-        const stats = this.buildStats(projects);
-        const riskProjects = projects.filter(item => item.metrics.hasRisk).slice(0, 8);
-        const user = res.user || {};
-        const roles = normalizeRoles(user);
-        const privileged = hasRole({ roles }, 'admin') || hasRole({ roles }, 'ar');
-        this.setData({
-          projects,
-          riskProjects,
-          stats,
-          userRoleText: roles.map(item => this.formatRole(item)).join(' / '),
-          scopeText: privileged ? '当前为管理视角，正在汇总所有 PM 的项目。' : '当前为 PM 视角，只汇总自己创建的项目。'
-        });
-        return this.loadPrecalStats(roles);
-      })
-      .catch(err => {
-        console.error(err);
-        wx.showToast({ title: err.message || '加载失败', icon: 'none' });
-      })
+    return Promise.all([this.loadProjectStats(), this.loadPrecalStats()])
       .finally(() => this.setData({ loading: false }));
   },
 
-  loadPrecalStats(roles) {
-    const hasSales = hasRole({ roles }, 'sales');
-    const hasCS = hasRole({ roles }, 'cs');
-    const hasAdmin = hasRole({ roles }, 'admin');
-    const canSeePrecal = hasSales || hasCS || hasAdmin;
-    if (!canSeePrecal) {
-      this.setData({ showPrecalStats: false, precalStats: this.buildPrecalStatusStats([]) });
-      return Promise.resolve();
-    }
-
-    const calls = [];
-    if (hasAdmin) {
-      calls.push(precalService.listPrecalForAdmin({ status: 'all' }).then(res => ({ source: 'admin', records: res.records || [] })));
-    } else {
-      if (hasCS) calls.push(precalService.listPrecalForCS({ status: 'all' }).then(res => ({ source: 'cs', records: res.records || [] })));
-      if (hasSales) calls.push(precalService.listMyPrecal({ status: 'all' }).then(res => ({ source: 'sales', records: res.records || [] })));
-    }
-
-    return Promise.all(calls)
-      .then(results => {
-        const merged = {};
-        results.forEach(group => {
-          (group.records || []).forEach(record => {
-            merged[record._id || record.precalNo] = record;
-          });
-        });
-        const records = Object.keys(merged).map(key => merged[key]);
+  loadProjectStats() {
+    return projectService.getDashboardOverview({})
+      .then(res => {
+        const user = res.user || {};
+        const roles = normalizeRoles(user);
         this.setData({
-          showPrecalStats: true,
-          precalScopeText: hasAdmin ? 'Admin 视角：统计全部 Pre-cal 状态。' : (hasCS ? 'CS 视角：统计可见的已提交和已绑定 SAP Pre-cal。' : 'Sales 视角：统计自己创建的全部 Pre-cal 状态。'),
-          precalStats: this.buildPrecalStatusStats(records)
+          projectStats: this.normalizeProjectStats(res.projectStats),
+          userRoleText: roles.map(item => this.formatRole(item)).join(' / '),
+          scopeText: res.scopeText || '按当前身份统计可见项目概览。'
+        });
+      })
+      .catch(err => {
+        console.error('load project stats failed', err);
+        wx.showToast({ title: '项目概览加载失败', icon: 'none' });
+      });
+  },
+
+  loadPrecalStats() {
+    return precalService.getPrecalOverview({})
+      .then(res => {
+        this.setData({
+          showPrecalStats: res.visible !== false,
+          precalScopeText: res.scopeText || '按当前身份统计可见的 Pre-cal 数据。',
+          precalStats: Object.assign({}, this.defaultPrecalStats(), res.stats || {})
         });
       })
       .catch(err => {
@@ -116,36 +78,27 @@ Page({
       });
   },
 
-  buildPrecalStatusStats(records) {
-    const list = records || [];
-    const stats = {
-      total: list.length,
+  normalizeProjectStats(stats) {
+    return Object.assign({
+      total: 0,
+      active: 0,
+      owned: 0,
+      participated: 0
+    }, stats || {});
+  },
+
+  defaultPrecalStats() {
+    return {
+      total: 0,
       draft: 0,
       pendingSap: 0,
       sapBound: 0,
       projectCreated: 0,
+      other: 0,
       withdrawn: 0,
       unlocked: 0,
-      cancelled: 0,
-      other: 0
+      cancelled: 0
     };
-    list.forEach(item => {
-      const status = item && item.status;
-      if (status === 'Draft') stats.draft += 1;
-      else if (status === 'Submitted') stats.pendingSap += 1;
-      else if (status === 'SAP Bound') stats.sapBound += 1;
-      else if (status === 'Project Created') {
-        stats.sapBound += 1;
-        stats.projectCreated += 1;
-      }
-      else {
-        stats.other += 1;
-        if (status === 'Withdrawn') stats.withdrawn += 1;
-        if (status === 'Unlocked') stats.unlocked += 1;
-        if (status === 'Cancelled') stats.cancelled += 1;
-      }
-    });
-    return stats;
   },
 
   formatRole(role) {
@@ -158,31 +111,5 @@ Page({
       cs: 'CS'
     };
     return map[role] || role || 'PM';
-  },
-
-  buildStats(projects) {
-    const sum = projects.reduce((acc, p) => {
-      const m = p.metrics || {};
-      acc.bac += Number(m.bac || 0);
-      acc.laborBudget += Number(m.laborBudget || 0);
-      acc.actualCost += Number(m.actualCost || 0);
-      acc.employeeBudgetHours += Number(m.sumEmployeeBudgetHours || 0);
-      if (m.hasRisk) acc.risk += 1;
-      return acc;
-    }, { bac: 0, laborBudget: 0, actualCost: 0, employeeBudgetHours: 0, risk: 0 });
-
-    return {
-      total: projects.length,
-      risk: sum.risk,
-      bacText: formatMoney(sum.bac),
-      laborBudgetText: formatMoney(sum.laborBudget),
-      employeeBudgetHoursText: formatNumber(sum.employeeBudgetHours),
-      actualCostText: formatMoney(sum.actualCost)
-    };
-  },
-
-  goEdit(e) {
-    const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: `/pages/edit/edit?id=${id}` });
   }
 });

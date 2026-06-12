@@ -12,11 +12,12 @@
       <button class="{{filter == 'all' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="all" bindtap="switchFilter">全部</button>
       <button class="{{filter == 'risk' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="risk" bindtap="switchFilter">风险</button>
       <button class="{{filter == 'normal' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="normal" bindtap="switchFilter">正常</button>
-      <button wx:if="{{canExport}}" class="btn-secondary" size="mini" bindtap="exportCsv">导出CSV</button>
+      <button wx:if="{{canExport}}" class="btn-secondary" size="mini" loading="{{exporting}}" disabled="{{exporting}}" bindtap="exportCsv">导出CSV</button>
     </view>
   </view>
 
-  <view wx:if="{{filteredProjects.length == 0}}" class="empty">暂无项目。需要创建项目时，请进入底部“业务”页。</view>
+  <view wx:if="{{loading}}" class="empty">加载中...</view>
+  <view wx:elif="{{filteredProjects.length == 0}}" class="empty">暂无项目。需要创建项目时，请进入底部“业务”页。</view>
 
   <view wx:for="{{filteredProjects}}" wx:key="_id" class="card project-card">
     <view bindtap="editProject" data-id="{{item._id}}">
@@ -63,7 +64,12 @@
     </view>
     <view class="row action-row">
       <button class="btn-secondary" size="mini" bindtap="editProject" data-id="{{item._id}}">{{item._canEdit ? '编辑' : '查看'}}</button>
-      <button wx:if="{{item._canEdit}}" class="btn-danger" size="mini" bindtap="deleteProject" data-id="{{item._id}}">删除</button>
+      <button wx:if="{{item._canEdit}}" class="btn-danger" size="mini" loading="{{deletingId == item._id}}" disabled="{{deletingId != ''}}" bindtap="deleteProject" data-id="{{item._id}}">删除</button>
     </view>
+  </view>
+
+  <view wx:if="{{filteredProjects.length > 0}}" class="empty">
+    <button wx:if="{{hasMore}}" class="btn-secondary" loading="{{loadingMore}}" disabled="{{loadingMore}}" bindtap="loadMore">加载更多</button>
+    <view wx:else>已加载全部项目</view>
   </view>
 </view>

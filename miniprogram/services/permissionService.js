@@ -1,7 +1,7 @@
 const DEFAULT_ROLES = ['pm', 'sales'];
 const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
 
-function normalizeRoles(user) {
+function normalizeActualRoles(user) {
   const seen = {};
   const result = [];
   const add = role => {
@@ -19,6 +19,24 @@ function normalizeRoles(user) {
   return result;
 }
 
+function getAdminViewRoles(user) {
+  let app = null;
+  try {
+    app = getApp && getApp();
+  } catch (err) {
+    app = null;
+  }
+  const globalData = app && app.globalData;
+  if (!globalData || !Array.isArray(globalData.roleViewRoles) || !globalData.roleViewRoles.length) return null;
+  const actualRoles = normalizeActualRoles(globalData.user || user);
+  if (actualRoles.indexOf('admin') < 0) return null;
+  return normalizeActualRoles({ roles: globalData.roleViewRoles });
+}
+
+function normalizeRoles(user) {
+  return getAdminViewRoles(user) || normalizeActualRoles(user);
+}
+
 function hasRole(user, role) {
   return normalizeRoles(user).indexOf(role) >= 0;
 }
@@ -31,6 +49,7 @@ function hasAnyRole(user, roles) {
 module.exports = {
   DEFAULT_ROLES,
   normalizeRoles,
+  normalizeActualRoles,
   hasRole,
   hasAnyRole,
   isAdmin: user => hasRole(user, 'admin'),

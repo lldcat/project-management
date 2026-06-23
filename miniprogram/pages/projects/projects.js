@@ -4,9 +4,17 @@ const { normalizeRoles, hasAnyRole } = require('../../services/permissionService
 
 function buildDisplay(metrics) {
   const m = metrics || {};
+  const metricNumber = value => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const projectBudgetWithTravel = m.projectBudgetWithTravel === null || m.projectBudgetWithTravel === undefined
+    ? (metricNumber(m.bac) + metricNumber(m.travelFee))
+    : m.projectBudgetWithTravel;
   return {
     laborBudget: formatMoney(m.laborBudget),
     travelFee: formatMoney(m.travelFee),
+    projectBudgetWithTravel: formatMoney(projectBudgetWithTravel),
     bac: formatMoney(m.bac),
     plannedValue: formatMoney(m.plannedValue),
     earnedValue: formatMoney(m.earnedValue),

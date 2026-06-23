@@ -184,7 +184,7 @@
   <view wx:if="{{canViewFullProject}}" class="card">
     <view class="section-title">成本参数</view>
     <label class="form-label">差旅费</label>
-    <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.travelFee}}" placeholder="元；纳入 BAC 计算" data-field="travelFee" bindinput="onBasicInput" />
+    <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.travelFee}}" placeholder="元；计入项目总预算" data-field="travelFee" bindinput="onBasicInput" />
 
     <label class="form-label">内部人天成本</label>
     <input class="input" disabled="{{readOnly}}" type="digit" value="{{form.constants.personDayCost}}" placeholder="默认 5000，可按后续规则调整" bindinput="onPersonDayCostInput" />
@@ -224,9 +224,9 @@
 
   <view wx:if="{{canViewFullProject}}" class="card">
     <view class="card-title">自动计算预览</view>
-    <view class="metric-line"><text>人工预算（不含杂费/差旅）</text><text class="metric-value">{{preview.display.laborBudget}}</text></view>
+    <view class="metric-line"><text>BAC（不含差旅）</text><text class="metric-value">{{preview.display.bac}}</text></view>
     <view class="metric-line"><text>杂费 / 差旅费</text><text class="metric-value">{{preview.display.travelFee}}</text></view>
-    <view class="metric-line"><text>BAC（系统计算，含杂费/差旅）</text><text class="metric-value">{{preview.display.bac}}</text></view>
+    <view class="metric-line"><text>项目总预算（含差旅）</text><text class="metric-value">{{preview.display.projectBudgetWithTravel}}</text></view>
     <view class="metric-line"><text>子项目预算工时合计</text><text class="metric-value">{{preview.display.sumBudgetHours}}</text></view>
     <view class="metric-line"><text>人员预算工时合计</text><text class="metric-value">{{preview.display.sumEmployeeBudgetHours}}</text></view>
     <view class="metric-line"><text>人员预算分配差异</text><text class="metric-value">{{preview.display.budgetAllocationDiff}}</text></view>

@@ -98,11 +98,14 @@ function computeMetrics(project) {
   const sumEmployeeBudgetHours = employeeBudgets.reduce((sum, item) => sum + toNumber(item.budgetHours), 0);
   const memberBudgetComparisons = buildMemberBudgetComparisons(employeeBudgets, arHours);
 
-  const bac = laborBudget + travelFee;
+  const bac = laborBudget;
+  const projectBudgetWithTravel = laborBudget + travelFee;
   const plannedCompletionRatio = safeDivide(sumPlannedHours, sumBudgetHours);
-  const plannedValue = plannedCompletionRatio === null ? null : bac * plannedCompletionRatio;
+  const cappedPlannedCompletionRatio = plannedCompletionRatio === null ? null : Math.min(plannedCompletionRatio, 1);
+  const plannedValue = cappedPlannedCompletionRatio === null ? null : bac * cappedPlannedCompletionRatio;
   const actualCompletionRatio = safeDivide(sumArHours, sumBudgetHours);
-  const earnedValue = actualCompletionRatio === null ? null : bac * actualCompletionRatio;
+  const cappedActualCompletionRatio = actualCompletionRatio === null ? null : Math.min(actualCompletionRatio, 1);
+  const earnedValue = cappedActualCompletionRatio === null ? null : bac * cappedActualCompletionRatio;
   const actualCost = sumArHours / hoursPerDay * personDayCost;
   const costVariance = earnedValue === null ? null : earnedValue - actualCost;
   const scheduleVariance = earnedValue === null || plannedValue === null ? null : earnedValue - plannedValue;
@@ -132,6 +135,7 @@ function computeMetrics(project) {
     sumBudgetHours: round2(sumBudgetHours),
     laborBudget: round2(laborBudget),
     travelFee: round2(travelFee),
+    projectBudgetWithTravel: round2(projectBudgetWithTravel),
     bac: round2(bac),
     sumPlannedHours: round2(sumPlannedHours),
     plannedCompletionRatio: round2(plannedCompletionRatio),
@@ -222,11 +226,15 @@ function buildAlerts(metrics) {
 
 function enrichProject(project) {
   const metrics = computeMetrics(project || {});
+  const projectBudgetWithTravel = metrics.projectBudgetWithTravel === null || metrics.projectBudgetWithTravel === undefined
+    ? (toNumber(metrics.bac) + toNumber(metrics.travelFee))
+    : metrics.projectBudgetWithTravel;
   return Object.assign({}, project, {
     metrics,
     display: {
       laborBudget: formatMoney(metrics.laborBudget),
       travelFee: formatMoney(metrics.travelFee),
+      projectBudgetWithTravel: formatMoney(projectBudgetWithTravel),
       bac: formatMoney(metrics.bac),
       plannedValue: formatMoney(metrics.plannedValue),
       earnedValue: formatMoney(metrics.earnedValue),

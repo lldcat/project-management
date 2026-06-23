@@ -145,14 +145,18 @@ function computeExportMetrics(project) {
   const arTotalHours = arHours.reduce((sum, item) => sum + toNumber(item.hours), 0);
   const plannedCompletionRatio = safeDivide(plannedHours, totalBudgetHours);
   const actualCompletionRatio = safeDivide(arTotalHours, totalBudgetHours);
-  const plannedValue = plannedCompletionRatio === null ? null : bac * plannedCompletionRatio;
-  const earnedValue = actualCompletionRatio === null ? null : bac * actualCompletionRatio;
+  const cappedPlannedCompletionRatio = plannedCompletionRatio === null ? null : Math.min(plannedCompletionRatio, 1);
+  const cappedActualCompletionRatio = actualCompletionRatio === null ? null : Math.min(actualCompletionRatio, 1);
+  const plannedValue = cappedPlannedCompletionRatio === null ? null : bac * cappedPlannedCompletionRatio;
+  const earnedValue = cappedActualCompletionRatio === null ? null : bac * cappedActualCompletionRatio;
   const actualCost = arTotalHours / hoursPerDay * personDayCost;
-  return {
+  const travelFee = toNumber(project && project.travelFee);
+  const fallback = {
     totalBudgetHours: round2(totalBudgetHours),
     budgetManDays: round2(totalBudgetHours / hoursPerDay),
     bac: round2(bac),
-    travelFee: round2(toNumber(project && project.travelFee)),
+    travelFee: round2(travelFee),
+    projectBudgetWithTravel: round2(bac + travelFee),
     plannedHours: round2(plannedHours),
     arTotalHours: round2(arTotalHours),
     plannedValue: round2(plannedValue),
@@ -162,6 +166,29 @@ function computeExportMetrics(project) {
     costPerformanceIndex: round2(safeDivide(earnedValue, actualCost)),
     schedulePerformanceIndex: round2(safeDivide(earnedValue, plannedValue))
   };
+  const source = project && project.metrics;
+  if (!source) return fallback;
+  const merged = Object.assign({}, fallback);
+  [
+    'bac',
+    'travelFee',
+    'projectBudgetWithTravel',
+    'plannedValue',
+    'earnedValue',
+    'actualCost',
+    'costVariance',
+    'costPerformanceIndex',
+    'schedulePerformanceIndex'
+  ].forEach(key => {
+    if (source[key] !== null && source[key] !== undefined) merged[key] = source[key];
+  });
+  if (source.sumBudgetHours !== null && source.sumBudgetHours !== undefined) merged.totalBudgetHours = source.sumBudgetHours;
+  if (source.sumPlannedHours !== null && source.sumPlannedHours !== undefined) merged.plannedHours = source.sumPlannedHours;
+  if (source.sumArHours !== null && source.sumArHours !== undefined) merged.arTotalHours = source.sumArHours;
+  if (source.projectBudgetWithTravel === null || source.projectBudgetWithTravel === undefined) {
+    merged.projectBudgetWithTravel = round2(toNumber(merged.bac) + toNumber(merged.travelFee));
+  }
+  return merged;
 }
 
 function statusLabel(status) {
@@ -222,6 +249,7 @@ function summaryRows(projects, snapshot) {
       project.closedAt || '',
       metrics.bac,
       metrics.travelFee,
+      metrics.projectBudgetWithTravel,
       metrics.budgetManDays,
       metrics.totalBudgetHours,
       metrics.arTotalHours,
@@ -258,6 +286,7 @@ function projectRows(project) {
     row('报价人天单价'),
     ['差旅费', metrics.travelFee],
     ['BAC（不含差旅）', metrics.bac],
+    ['项目总预算（含差旅）', metrics.projectBudgetWithTravel],
     row('组员个人分配工时（小时）'),
     row('应完成工时数'),
     ['计划完成率'],
@@ -278,12 +307,12 @@ function projectRows(project) {
     rows[7][i + 1] = sub.name || sub.itemDescription || sub.itemNo || sub.subProjectNo || `子项目${i + 1}`;
     rows[8][i + 1] = toNumber(sub.budgetHours) || '';
     rows[9][i + 1] = subProjectUnitPrice(sub) || '';
-    rows[12][i + 1] = member.memberName ? (toNumber(member.allocatedHours) || '') : '';
-    rows[13][i + 1] = member.memberName && totalAllocatedHours
+    rows[13][i + 1] = member.memberName ? (toNumber(member.allocatedHours) || '') : '';
+    rows[14][i + 1] = member.memberName && totalAllocatedHours
       ? round2(toNumber(metrics.plannedHours) * toNumber(member.allocatedHours) / totalAllocatedHours)
       : '';
-    rows[16][i + 1] = member.memberName ? `${member.memberName}-AR已填报工时` : '';
-    rows[17][i + 1] = member.memberName ? (toNumber(member.arHours) || 0) : '';
+    rows[17][i + 1] = member.memberName ? `${member.memberName}-AR已填报工时` : '';
+    rows[18][i + 1] = member.memberName ? (toNumber(member.arHours) || 0) : '';
   }
   return rows;
 }

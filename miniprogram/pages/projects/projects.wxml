@@ -33,49 +33,12 @@
         </checkbox-group>
       </view>
 
-      <view class="grid-2">
-        <view>
-          <label class="form-label">客户名称</label>
-          <input class="input" value="{{exportFilters.customerName}}" data-field="customerName" placeholder="可留空" bindinput="onExportFilterInput" />
-        </view>
-        <view>
-          <label class="form-label">项目名称</label>
-          <input class="input" value="{{exportFilters.projectName}}" data-field="projectName" placeholder="可留空" bindinput="onExportFilterInput" />
-        </view>
-      </view>
+  
 
       <label class="form-label">SAP 号</label>
       <input class="input" value="{{exportFilters.sapNo}}" data-field="sapNo" placeholder="可输入完整或部分 SAP 号" bindinput="onExportFilterInput" />
 
-      <view class="grid-2">
-        <view>
-          <label class="form-label">创建开始</label>
-          <picker mode="date" value="{{exportFilters.createdStart}}" data-field="createdStart" bindchange="onExportDateChange">
-            <view class="picker-value">{{exportFilters.createdStart || '不限'}}</view>
-          </picker>
-        </view>
-        <view>
-          <label class="form-label">创建结束</label>
-          <picker mode="date" value="{{exportFilters.createdEnd}}" data-field="createdEnd" bindchange="onExportDateChange">
-            <view class="picker-value">{{exportFilters.createdEnd || '不限'}}</view>
-          </picker>
-        </view>
-      </view>
-
-      <view class="grid-2">
-        <view>
-          <label class="form-label">完结开始</label>
-          <picker mode="date" value="{{exportFilters.closedStart}}" data-field="closedStart" bindchange="onExportDateChange">
-            <view class="picker-value">{{exportFilters.closedStart || '不限'}}</view>
-          </picker>
-        </view>
-        <view>
-          <label class="form-label">完结结束</label>
-          <picker mode="date" value="{{exportFilters.closedEnd}}" data-field="closedEnd" bindchange="onExportDateChange">
-            <view class="picker-value">{{exportFilters.closedEnd || '不限'}}</view>
-          </picker>
-        </view>
-      </view>
+      
 
       <view class="row action-row">
         <button class="btn-secondary" size="mini" bindtap="resetExportFilters">重置</button>
@@ -98,12 +61,12 @@
       </view>
       <view wx:if="{{item._canViewFullProject}}">
         <view class="metric-line">
-          <text>BAC（系统计算，含杂费/差旅）</text>
+          <text>BAC（不含差旅）</text>
           <text class="metric-value">{{item.display.bac}}</text>
         </view>
         <view class="metric-line">
-          <text>人工预算（不含杂费/差旅）</text>
-          <text class="metric-value">{{item.display.laborBudget}}</text>
+          <text>项目总预算（含差旅）</text>
+          <text class="metric-value">{{item.display.projectBudgetWithTravel}}</text>
         </view>
         <view class="metric-line">
           <text>人员预算工时合计</text>

@@ -678,11 +678,14 @@ function computeMetrics(project) {
   const sumArHours = arHours.reduce((sum, item) => sum + toNumber(item.hours), 0);
   const memberBudgetComparisons = buildMemberBudgetComparisons(employeeBudgets, arHours);
 
-  const bac = laborBudget + travelFee;
+  const bac = laborBudget;
+  const projectBudgetWithTravel = laborBudget + travelFee;
   const plannedCompletionRatio = safeDivide(sumPlannedHours, sumBudgetHours);
-  const plannedValue = plannedCompletionRatio === null ? null : bac * plannedCompletionRatio;
+  const cappedPlannedCompletionRatio = plannedCompletionRatio === null ? null : Math.min(plannedCompletionRatio, 1);
+  const plannedValue = cappedPlannedCompletionRatio === null ? null : bac * cappedPlannedCompletionRatio;
   const actualCompletionRatio = safeDivide(sumArHours, sumBudgetHours);
-  const earnedValue = actualCompletionRatio === null ? null : bac * actualCompletionRatio;
+  const cappedActualCompletionRatio = actualCompletionRatio === null ? null : Math.min(actualCompletionRatio, 1);
+  const earnedValue = cappedActualCompletionRatio === null ? null : bac * cappedActualCompletionRatio;
   const actualCost = sumArHours / hoursPerDay * personDayCost;
   const costVariance = earnedValue === null ? null : earnedValue - actualCost;
   const scheduleVariance = earnedValue === null || plannedValue === null ? null : earnedValue - plannedValue;
@@ -712,6 +715,7 @@ function computeMetrics(project) {
     sumBudgetHours: round2(sumBudgetHours),
     laborBudget: round2(laborBudget),
     travelFee: round2(travelFee),
+    projectBudgetWithTravel: round2(projectBudgetWithTravel),
     bac: round2(bac),
     sumPlannedHours: round2(sumPlannedHours),
     sumEmployeeBudgetHours: round2(sumEmployeeBudgetHours),
@@ -737,6 +741,7 @@ function attachComputedMetrics(project) {
   const metrics = computeMetrics(project);
   project.metrics = metrics;
   project.bac = metrics.bac;
+  project.projectBudgetWithTravel = metrics.projectBudgetWithTravel;
   return project;
 }
 
@@ -2032,7 +2037,7 @@ function buildCsv(rows) {
   const header = [
     '项目名称', '项目号', '客户名称', 'PM', '状态', '开始日期', '结束日期',
     '子项目预算工时合计', '人员预算工时合计', '人员预算分配差异', '计划完成工时', 'AR工时',
-    '项目总预算(Order Value)', '人工预算(不含杂费/差旅)', '杂费/差旅费', 'BAC(系统计算，含杂费/差旅)',
+    '项目总预算(Order Value)', 'BAC(不含差旅)', '杂费/差旅费', '项目总预算(含差旅)',
     'PV-计划价值', 'EV-挣值', 'AC-实际成本', 'CV-成本偏差', 'SV-进度偏差', 'CPI-成本绩效', 'SPI-进度绩效',
     '实际完成率', '计划完成率', '人员预算/AR明细', '异常提醒'
   ];
@@ -2054,9 +2059,9 @@ function buildCsv(rows) {
       m.sumPlannedHours,
       m.sumArHours,
       project.projectTotalBudget || project.totalBudget || project.precalProjectBudget || project.orderValue,
-      m.laborBudget,
-      m.travelFee,
       m.bac,
+      m.travelFee,
+      m.projectBudgetWithTravel,
       m.plannedValue,
       m.earnedValue,
       m.actualCost,
@@ -2486,7 +2491,7 @@ exports.main = async (event) => {
       const data = await listProjectsForExport(openid, user);
       const rows = data.map(item => {
         const metrics = item.metrics || computeMetrics(item);
-        return Object.assign({}, item, { bac: metrics.bac, metrics });
+        return Object.assign({}, item, { bac: metrics.bac, projectBudgetWithTravel: metrics.projectBudgetWithTravel, metrics });
       });
       return { ok: true, csv: buildCsv(rows), user };
     }

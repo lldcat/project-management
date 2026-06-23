@@ -235,18 +235,22 @@ function computeExportMetrics(project) {
   const arTotalHours = arHours.reduce((sum, item) => sum + toNumber(item.hours), 0);
   const plannedCompletionRatio = safeDivide(plannedHours, totalBudgetHours);
   const actualCompletionRatio = safeDivide(arTotalHours, totalBudgetHours);
-  const plannedValue = plannedCompletionRatio === null ? null : bac * plannedCompletionRatio;
-  const earnedValue = actualCompletionRatio === null ? null : bac * actualCompletionRatio;
+  const cappedPlannedCompletionRatio = plannedCompletionRatio === null ? null : Math.min(plannedCompletionRatio, 1);
+  const cappedActualCompletionRatio = actualCompletionRatio === null ? null : Math.min(actualCompletionRatio, 1);
+  const plannedValue = cappedPlannedCompletionRatio === null ? null : bac * cappedPlannedCompletionRatio;
+  const earnedValue = cappedActualCompletionRatio === null ? null : bac * cappedActualCompletionRatio;
   const actualCost = arTotalHours / hoursPerDay * personDayCost;
   const costVariance = earnedValue === null ? null : earnedValue - actualCost;
   const scheduleVariance = earnedValue === null || plannedValue === null ? null : earnedValue - plannedValue;
-  return {
+  const travelFee = toNumber(project && project.travelFee);
+  const fallback = {
     hoursPerDay,
     personDayCost,
     totalBudgetHours: round2(totalBudgetHours),
     budgetManDays: round2(totalBudgetHours / hoursPerDay),
     bac: round2(bac),
-    travelFee: round2(toNumber(project && project.travelFee)),
+    travelFee: round2(travelFee),
+    projectBudgetWithTravel: round2(bac + travelFee),
     plannedHours: round2(plannedHours),
     arTotalHours: round2(arTotalHours),
     plannedCompletionRatio: round2(plannedCompletionRatio),
@@ -259,6 +263,32 @@ function computeExportMetrics(project) {
     costPerformanceIndex: round2(safeDivide(earnedValue, actualCost)),
     schedulePerformanceIndex: round2(safeDivide(earnedValue, plannedValue))
   };
+  const source = project && project.metrics;
+  if (!source) return fallback;
+  const merged = Object.assign({}, fallback);
+  [
+    'bac',
+    'travelFee',
+    'projectBudgetWithTravel',
+    'plannedValue',
+    'earnedValue',
+    'actualCost',
+    'costVariance',
+    'scheduleVariance',
+    'costPerformanceIndex',
+    'schedulePerformanceIndex',
+    'plannedCompletionRatio',
+    'actualCompletionRatio'
+  ].forEach(key => {
+    if (source[key] !== null && source[key] !== undefined) merged[key] = source[key];
+  });
+  if (source.sumBudgetHours !== null && source.sumBudgetHours !== undefined) merged.totalBudgetHours = source.sumBudgetHours;
+  if (source.sumPlannedHours !== null && source.sumPlannedHours !== undefined) merged.plannedHours = source.sumPlannedHours;
+  if (source.sumArHours !== null && source.sumArHours !== undefined) merged.arTotalHours = source.sumArHours;
+  if (source.projectBudgetWithTravel === null || source.projectBudgetWithTravel === undefined) {
+    merged.projectBudgetWithTravel = round2(toNumber(merged.bac) + toNumber(merged.travelFee));
+  }
+  return merged;
 }
 
 function statusLabel(status) {
@@ -294,12 +324,12 @@ function writeProjectSheet(sheet, project) {
   writeMergedValue(sheet, mapping.pmName, project.pmName || project.projectManager || '');
   writeMergedValue(sheet, mapping.memberNames, memberNames.join('、'));
   writeMergedValue(sheet, mapping.travelCost, metrics.travelFee);
-  writeMergedValue(sheet, mapping.bac, metrics.bac);
   const lastDynamicLetter = columnLetter(lastDynamicCol);
+  writeFormula(sheet, mapping.bac, `SUMPRODUCT(B${mapping.subProjectBudgetHoursRow}:${lastDynamicLetter}${mapping.subProjectBudgetHoursRow},B${mapping.subProjectUnitPriceRow}:${lastDynamicLetter}${mapping.subProjectUnitPriceRow})/8`, metrics.bac);
   writeFormula(sheet, mapping.plannedCompletionRatio, `IFERROR(SUM(B${mapping.plannedCompletedHoursRow}:${lastDynamicLetter}${mapping.plannedCompletedHoursRow})/SUM(B${mapping.subProjectBudgetHoursRow}:${lastDynamicLetter}${mapping.subProjectBudgetHoursRow}),"")`, metrics.plannedCompletionRatio, '0.00%');
-  writeFormula(sheet, mapping.plannedValue, `${mapping.plannedCompletionRatio}*${mapping.bac}`, metrics.plannedValue);
+  writeFormula(sheet, mapping.plannedValue, `MIN(${mapping.plannedCompletionRatio},1)*${mapping.bac}`, metrics.plannedValue);
   writeFormula(sheet, mapping.actualCompletionRatio, `IFERROR(SUM(B${mapping.arHoursRow}:${lastDynamicLetter}${mapping.arHoursRow})/SUM(B${mapping.subProjectBudgetHoursRow}:${lastDynamicLetter}${mapping.subProjectBudgetHoursRow}),"")`, metrics.actualCompletionRatio, '0.00%');
-  writeFormula(sheet, mapping.earnedValue, `${mapping.actualCompletionRatio}*${mapping.bac}`, metrics.earnedValue);
+  writeFormula(sheet, mapping.earnedValue, `MIN(${mapping.actualCompletionRatio},1)*${mapping.bac}`, metrics.earnedValue);
   writeFormula(sheet, mapping.actualCost, `SUM(B${mapping.arHoursRow}:${lastDynamicLetter}${mapping.arHoursRow})/8*${metrics.personDayCost || 5000}`, metrics.actualCost);
   writeFormula(sheet, mapping.costVariance, `${mapping.earnedValue}-${mapping.actualCost}`, metrics.costVariance);
   writeFormula(sheet, mapping.scheduleVariance, `${mapping.earnedValue}-${mapping.plannedValue}`, metrics.scheduleVariance);
@@ -359,6 +389,7 @@ function addSummarySheet(workbook, rows, snapshot) {
       project.closedAt || '',
       metrics.bac,
       metrics.travelFee,
+      metrics.projectBudgetWithTravel,
       metrics.budgetManDays,
       metrics.totalBudgetHours,
       metrics.arTotalHours,

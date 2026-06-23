@@ -19,22 +19,8 @@ function normalizeActualRoles(user) {
   return result;
 }
 
-function getAdminViewRoles(user) {
-  let app = null;
-  try {
-    app = getApp && getApp();
-  } catch (err) {
-    app = null;
-  }
-  const globalData = app && app.globalData;
-  if (!globalData || !Array.isArray(globalData.roleViewRoles) || !globalData.roleViewRoles.length) return null;
-  const actualRoles = normalizeActualRoles(globalData.user || user);
-  if (actualRoles.indexOf('admin') < 0) return null;
-  return normalizeActualRoles({ roles: globalData.roleViewRoles });
-}
-
 function normalizeRoles(user) {
-  return getAdminViewRoles(user) || normalizeActualRoles(user);
+  return normalizeActualRoles(user);
 }
 
 function hasRole(user, role) {

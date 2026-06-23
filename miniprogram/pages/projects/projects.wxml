@@ -12,7 +12,75 @@
       <button class="{{filter == 'all' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="all" bindtap="switchFilter">全部</button>
       <button class="{{filter == 'risk' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="risk" bindtap="switchFilter">风险</button>
       <button class="{{filter == 'normal' ? 'btn-primary' : 'btn-ghost'}}" size="mini" data-filter="normal" bindtap="switchFilter">正常</button>
-      <button wx:if="{{canExport}}" class="btn-secondary" size="mini" loading="{{exporting}}" disabled="{{exporting}}" bindtap="exportCsv">导出CSV</button>
+      <button wx:if="{{canExport}}" class="btn-secondary" size="mini" loading="{{exporting}}" disabled="{{exporting}}" bindtap="toggleExportPanel">项目导出</button>
+    </view>
+    <view wx:if="{{exportPanelVisible}}" class="export-panel">
+      <view class="section-title">模板化导出</view>
+      <label class="form-label">项目状态</label>
+      <picker value="{{exportStatusIndex}}" range="{{exportStatusOptions}}" range-key="label" bindchange="onExportStatusChange">
+        <view class="picker-value">{{exportStatusOptions[exportStatusIndex].label}}</view>
+      </picker>
+
+      <label class="form-label">PM 筛选</label>
+      <view class="pm-filter-box">
+        <view class="muted">{{selectedPmText}}</view>
+        <view wx:if="{{exportPmOptionsText}}" class="muted">{{exportPmOptionsText}}</view>
+        <checkbox-group bindchange="onPmCheckboxChange">
+          <label wx:for="{{exportPmOptions}}" wx:key="name" class="pm-checkbox">
+            <checkbox value="{{item.name}}" checked="{{item.checked}}" />
+            <text>{{item.name}}</text>
+          </label>
+        </checkbox-group>
+      </view>
+
+      <view class="grid-2">
+        <view>
+          <label class="form-label">客户名称</label>
+          <input class="input" value="{{exportFilters.customerName}}" data-field="customerName" placeholder="可留空" bindinput="onExportFilterInput" />
+        </view>
+        <view>
+          <label class="form-label">项目名称</label>
+          <input class="input" value="{{exportFilters.projectName}}" data-field="projectName" placeholder="可留空" bindinput="onExportFilterInput" />
+        </view>
+      </view>
+
+      <label class="form-label">SAP 号</label>
+      <input class="input" value="{{exportFilters.sapNo}}" data-field="sapNo" placeholder="可输入完整或部分 SAP 号" bindinput="onExportFilterInput" />
+
+      <view class="grid-2">
+        <view>
+          <label class="form-label">创建开始</label>
+          <picker mode="date" value="{{exportFilters.createdStart}}" data-field="createdStart" bindchange="onExportDateChange">
+            <view class="picker-value">{{exportFilters.createdStart || '不限'}}</view>
+          </picker>
+        </view>
+        <view>
+          <label class="form-label">创建结束</label>
+          <picker mode="date" value="{{exportFilters.createdEnd}}" data-field="createdEnd" bindchange="onExportDateChange">
+            <view class="picker-value">{{exportFilters.createdEnd || '不限'}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="grid-2">
+        <view>
+          <label class="form-label">完结开始</label>
+          <picker mode="date" value="{{exportFilters.closedStart}}" data-field="closedStart" bindchange="onExportDateChange">
+            <view class="picker-value">{{exportFilters.closedStart || '不限'}}</view>
+          </picker>
+        </view>
+        <view>
+          <label class="form-label">完结结束</label>
+          <picker mode="date" value="{{exportFilters.closedEnd}}" data-field="closedEnd" bindchange="onExportDateChange">
+            <view class="picker-value">{{exportFilters.closedEnd || '不限'}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="row action-row">
+        <button class="btn-secondary" size="mini" bindtap="resetExportFilters">重置</button>
+        <button class="btn-primary" size="mini" loading="{{exporting}}" disabled="{{exporting}}" bindtap="exportTemplate">按模板导出</button>
+      </view>
     </view>
   </view>
 

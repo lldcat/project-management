@@ -28,6 +28,14 @@ function exportCsv(params) {
   return callProjectService('exportCsv', params || {});
 }
 
+function getExportOptions(params) {
+  return callProjectService('exportOptions', params || {});
+}
+
+function exportTemplate(params) {
+  return callProjectService('exportTemplate', params || {});
+}
+
 function loadPrecalBySap(sapNo) {
   return callProjectService('loadPrecalBySap', { sapNo });
 }
@@ -40,5 +48,7 @@ module.exports = {
   saveProject,
   removeProject,
   exportCsv,
+  getExportOptions,
+  exportTemplate,
   loadPrecalBySap
 };

@@ -188,29 +188,6 @@ function hasAnyRole(user, roles) {
   return (roles || []).some(role => userRoles.indexOf(role) >= 0);
 }
 
-function normalizeRequestedViewRoles(roles) {
-  const seen = {};
-  const result = [];
-  (Array.isArray(roles) ? roles : []).forEach(role => {
-    const clean = normalizeText(role);
-    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
-      seen[clean] = true;
-      result.push(clean);
-    }
-  });
-  return result;
-}
-
-function applyAdminRoleView(user, payload) {
-  const viewRoles = normalizeRequestedViewRoles(payload && payload.viewRoles);
-  if (!viewRoles.length || !hasRole(user, 'admin')) return user;
-  return Object.assign({}, user, {
-    roles: viewRoles,
-    roleViewActive: true,
-    actualRoles: normalizeRoles(user)
-  });
-}
-
 function uniqueRoles(records) {
   const roleMap = {};
   (records || []).forEach(item => {
@@ -1471,8 +1448,7 @@ exports.main = async (event) => {
 
   const action = event && event.action;
   const payload = event && event.payload ? event.payload : event || {};
-  const actualUser = await getCurrentUser(openid);
-  const user = applyAdminRoleView(actualUser, payload);
+  const user = await getCurrentUser(openid);
 
   try {
     if (action === 'createPrecal') return await createPrecal(payload, openid, user);

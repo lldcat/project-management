@@ -1,5 +1,4 @@
 const cloud = require('wx-server-sdk');
-
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 const db = cloud.database();
@@ -11,6 +10,20 @@ const arSummaries = db.collection('ar_summaries');
 const CREATE_FROM_SAP_LOCK_TIMEOUT_MS = 20 * 60 * 1000;
 const DEFAULT_ROLES = ['pm', 'sales'];
 const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
+const PROJECT_EXPORT_SERVICE_VERSION = 'project-export-20260623-template-v1.1-member-split-v5';
+
+let excelBuilderCache = null;
+let fastXlsxBuilderCache = null;
+
+function getExcelBuilder() {
+  if (!excelBuilderCache) excelBuilderCache = require('./excelBuilder');
+  return excelBuilderCache;
+}
+
+function getFastXlsxBuilder() {
+  if (!fastXlsxBuilderCache) fastXlsxBuilderCache = require('./fastXlsxBuilder');
+  return fastXlsxBuilderCache;
+}
 
 
 
@@ -1016,6 +1029,16 @@ function formatArTimeValue(value, time) {
   ].join(':');
 }
 
+function currentShanghaiDateText() {
+  const now = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  const pad2 = n => String(n).padStart(2, '0');
+  return [
+    now.getUTCFullYear(),
+    pad2(now.getUTCMonth() + 1),
+    pad2(now.getUTCDate())
+  ].join('-');
+}
+
 async function fetchUsersByField(field, values) {
   const texts = uniqueTexts(values);
   if (!texts.length) return [];
@@ -1385,6 +1408,11 @@ function cleanProjectInput(input, user, openid, existingProject) {
     : (openid || project.pmOpenid || '')).trim();
   const rawEmployeeBudgets = normalizeWorkloadAllocations(project);
   const pmBudgetRows = ensurePmBudgetRow(rawEmployeeBudgets, projectManager, pmOpenid);
+  const status = normalizeText(project.status || existing.status || 'active') || 'active';
+  const wasCompleted = normalizeText(existing.status) === 'completed';
+  const closedAt = status === 'completed'
+    ? (wasCompleted ? normalizeText(existing.closedAt || project.closedAt) : (normalizeText(project.closedAt) || currentShanghaiDateText()))
+    : '';
 
   const submittedEmployeeNames = rawEmployeeBudgets.map(item => item.memberName);
   const employeeNames = uniqueNames([projectManager].concat(submittedEmployeeNames));
@@ -1402,7 +1430,8 @@ function cleanProjectInput(input, user, openid, existingProject) {
     projectManager,
     pmOpenid,
     pmName: projectManager,
-    status: project.status || 'active',
+    status,
+    closedAt,
     travelFee: toNumber(project.travelFee),
     clientName: String(project.clientName || project.customerName || '').trim(),
     sapNumbers,
@@ -1601,29 +1630,6 @@ function hasRole(user, role) {
 function hasAnyRole(user, roles) {
   const userRoles = normalizeRoles(user);
   return (roles || []).some(role => userRoles.indexOf(role) >= 0);
-}
-
-function normalizeRequestedViewRoles(roles) {
-  const seen = {};
-  const result = [];
-  (Array.isArray(roles) ? roles : []).forEach(role => {
-    const clean = normalizeText(role);
-    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
-      seen[clean] = true;
-      result.push(clean);
-    }
-  });
-  return result;
-}
-
-function applyAdminRoleView(user, event) {
-  const viewRoles = normalizeRequestedViewRoles(event && event.viewRoles);
-  if (!viewRoles.length || !hasRole(user, 'admin')) return user;
-  return Object.assign({}, user, {
-    roles: viewRoles,
-    roleViewActive: true,
-    actualRoles: normalizeRoles(user)
-  });
 }
 
 function assertActive(user, message) {
@@ -1850,6 +1856,7 @@ function summarizeProjectForList(project, openid, user) {
     projectManager: decorated.projectManager || '',
     pmName: decorated.pmName || '',
     status: decorated.status || '',
+    closedAt: decorated.closedAt || '',
     startDate: decorated.startDate || '',
     endDate: decorated.endDate || '',
     updatedAt: decorated.updatedAt || '',
@@ -2067,6 +2074,201 @@ function buildCsv(rows) {
   return `\ufeff${lines.join('\n')}`;
 }
 
+function parseDateBoundary(value, endOfDay) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  const date = new Date(`${text}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+08:00`);
+  const time = date.getTime();
+  return Number.isFinite(time) ? time : null;
+}
+
+function dateTextToTime(value, endOfDay) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}+08:00` : text;
+  const time = Date.parse(normalized);
+  return Number.isFinite(time) ? time : null;
+}
+
+function textContains(value, keyword) {
+  const key = normalizeText(keyword).toLowerCase();
+  if (!key) return true;
+  return normalizeText(value).toLowerCase().indexOf(key) >= 0;
+}
+
+function normalizePmFilter(input) {
+  if (Array.isArray(input)) return uniqueTexts(input);
+  return String(input || '')
+    .split(/[、,，;；\n\r]+/)
+    .map(normalizeText)
+    .filter(Boolean);
+}
+
+function projectMatchesExportFilters(project, filters) {
+  const opts = filters || {};
+  const status = normalizeText(opts.status || opts.projectStatus || 'all');
+  if (status === 'completed' && normalizeText(project.status) !== 'completed') return false;
+  if ((status === 'active' || status === 'inProgress') && normalizeText(project.status) === 'completed') return false;
+
+  const pmNames = normalizePmFilter(opts.pmNames || opts.pmName);
+  if (pmNames.length) {
+    const pmName = normalizeText(project.pmName || project.projectManager);
+    if (pmNames.indexOf(pmName) < 0) return false;
+  }
+
+  if (!textContains(project.customerName || project.clientName, opts.customerName)) return false;
+  if (!textContains(project.projectName, opts.projectName)) return false;
+
+  const sapNo = normalizeSapNo(opts.sapNo || opts.sapOrderNo);
+  if (sapNo) {
+    const sapText = uniqueTexts((project.sapNumbers || [])
+      .concat(collectSapNos(project))
+      .concat(normalizeSapBindingList(project).map(item => item.sapOrderNo))).join(' ');
+    if (sapText.indexOf(sapNo) < 0) return false;
+  }
+
+  const createdStart = parseDateBoundary(opts.createdStart || opts.createdAtStart, false);
+  const createdEnd = parseDateBoundary(opts.createdEnd || opts.createdAtEnd, true);
+  if (createdStart || createdEnd) {
+    const createdAt = resolveServerDateMs(project.createdAt);
+    if (createdStart && (!createdAt || createdAt < createdStart)) return false;
+    if (createdEnd && (!createdAt || createdAt > createdEnd)) return false;
+  }
+
+  const closedStart = parseDateBoundary(opts.closedStart || opts.closedAtStart, false);
+  const closedEnd = parseDateBoundary(opts.closedEnd || opts.closedAtEnd, true);
+  if (closedStart || closedEnd) {
+    const closedAt = dateTextToTime(project.closedAt, false);
+    if (closedStart && (!closedAt || closedAt < closedStart)) return false;
+    if (closedEnd && (!closedAt || closedAt > closedEnd)) return false;
+  }
+
+  return true;
+}
+
+function buildExportFilterText(filters) {
+  const opts = filters || {};
+  const parts = [];
+  const statusMap = { all: '全部项目', completed: '已完结项目', active: '进行中项目', inProgress: '进行中项目' };
+  const status = normalizeText(opts.status || opts.projectStatus || 'all');
+  parts.push(`项目状态=${statusMap[status] || status || '全部项目'}`);
+  const pmNames = normalizePmFilter(opts.pmNames || opts.pmName);
+  parts.push(`PM=${pmNames.length ? pmNames.join('、') : '全部 PM'}`);
+  if (normalizeText(opts.customerName)) parts.push(`客户名称包含 ${normalizeText(opts.customerName)}`);
+  if (normalizeText(opts.projectName)) parts.push(`项目名称包含 ${normalizeText(opts.projectName)}`);
+  if (normalizeText(opts.sapNo || opts.sapOrderNo)) parts.push(`SAP 包含 ${normalizeText(opts.sapNo || opts.sapOrderNo)}`);
+  if (normalizeText(opts.createdStart || opts.createdAtStart) || normalizeText(opts.createdEnd || opts.createdAtEnd)) {
+    parts.push(`创建时间=${normalizeText(opts.createdStart || opts.createdAtStart) || '不限'} 至 ${normalizeText(opts.createdEnd || opts.createdAtEnd) || '不限'}`);
+  }
+  if (normalizeText(opts.closedStart || opts.closedAtStart) || normalizeText(opts.closedEnd || opts.closedAtEnd)) {
+    parts.push(`完结时间=${normalizeText(opts.closedStart || opts.closedAtStart) || '不限'} 至 ${normalizeText(opts.closedEnd || opts.closedAtEnd) || '不限'}`);
+  }
+  return parts.join('；');
+}
+
+async function listProjectExportOptions(openid, user) {
+  assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'], '当前角色不能导出项目数据。');
+  const rows = await listVisibleProjectRows(openid, user);
+  const pmNames = uniqueTexts(rows.map(item => item.pmName || item.projectManager)).sort((a, b) => a.localeCompare(b));
+  return {
+    pmNames,
+    exportServiceVersion: PROJECT_EXPORT_SERVICE_VERSION,
+    exportRuntimeHint: 'projectService timeout should be >= 60s'
+  };
+}
+
+async function exportProjectTemplate(openid, user, payload) {
+  const startedAt = Date.now();
+  const logStep = (step, extra) => console.log('[projectService.exportTemplate]', step, Date.now() - startedAt, extra || '');
+  assertActive(user);
+  assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'], '当前角色不能导出项目数据。');
+  const filters = payload && payload.filters || payload || {};
+  const delivery = normalizeText(payload && payload.delivery || filters.delivery);
+  const skipArTime = !!(payload && payload.skipArTime || filters.skipArTime || delivery === 'base64Lite');
+
+  const visibleRows = await listVisibleProjectRows(openid, user);
+  logStep('visibleRows', visibleRows.length);
+  const matchedRows = visibleRows.filter(item => projectMatchesExportFilters(item, filters));
+  logStep('matchedRows', matchedRows.length);
+  if (!matchedRows.length) return { ok: false, code: 'EMPTY_EXPORT', message: '没有符合筛选条件且当前账号有权限导出的项目。', user };
+
+  const enrichedRows = skipArTime ? matchedRows : await enrichProjectsWithArSummaries(matchedRows);
+  logStep('enrichedRows', enrichedRows.length);
+  const rows = enrichedRows
+    .map(item => decorateProjectAccess(item, openid, user))
+    .map(item => {
+      const metrics = item.metrics || computeMetrics(item);
+      return Object.assign({}, item, { metrics });
+    });
+
+  const exportedAt = new Date();
+  const builder = delivery === 'base64Lite'
+    ? getFastXlsxBuilder()
+    : getExcelBuilder();
+  const {
+    formatDate,
+    formatDateTime,
+    safeFileName
+  } = builder;
+  if (builder.assertTemplateExists) builder.assertTemplateExists();
+  const snapshot = {
+    exportedAtText: formatDateTime(exportedAt),
+    exportedDate: formatDate(exportedAt),
+    exportedByName: getUserName(user),
+    exportedByOpenid: openid,
+    filterText: skipArTime
+      ? `${buildExportFilterText(filters)}；快速导出：未匹配 AR Time`
+      : buildExportFilterText(filters)
+  };
+  const output = builder.buildFastExportPackage
+    ? await builder.buildFastExportPackage(rows, snapshot)
+    : await builder.buildExportPackage(rows, snapshot);
+  logStep('builtPackage', `${output.fileName} ${output.buffer.length}`);
+
+  if (delivery === 'base64' || delivery === 'base64Lite') {
+    return {
+      ok: true,
+      fileBase64: Buffer.from(output.buffer).toString('base64'),
+      fileName: output.fileName,
+      contentType: output.contentType,
+      projectCount: rows.length,
+      pmCount: output.pmCount,
+      fileCount: output.fileCount,
+      exportedAt: snapshot.exportedAtText,
+      filterText: snapshot.filterText,
+      exportServiceVersion: PROJECT_EXPORT_SERVICE_VERSION,
+      delivery,
+      skippedArTime: skipArTime,
+      user
+    };
+  }
+
+  const cloudPath = `project-exports/${snapshot.exportedDate}/${Date.now()}_${safeFileName(output.fileName, '项目导出')}`;
+  const uploadRes = await cloud.uploadFile({
+    cloudPath,
+    fileContent: output.buffer
+  });
+  logStep('uploaded', uploadRes.fileID);
+  const fileID = uploadRes.fileID;
+  const tempRes = await cloud.getTempFileURL({ fileList: [fileID] });
+  logStep('tempUrl');
+  const tempFile = tempRes.fileList && tempRes.fileList[0] || {};
+  return {
+    ok: true,
+    fileID,
+    downloadUrl: tempFile.tempFileURL || '',
+    fileName: output.fileName,
+    contentType: output.contentType,
+    projectCount: rows.length,
+    pmCount: output.pmCount,
+    fileCount: output.fileCount,
+    exportedAt: snapshot.exportedAtText,
+    filterText: snapshot.filterText,
+    exportServiceVersion: PROJECT_EXPORT_SERVICE_VERSION,
+    user
+  };
+}
+
 exports.main = async (event) => {
   const wxContext = cloud.getWXContext();
   const openid = wxContext.OPENID;
@@ -2075,8 +2277,7 @@ exports.main = async (event) => {
 
   if (!openid) return { ok: false, message: '无法获取 openid。' };
 
-  const actualUser = await getCurrentUser(openid);
-  const user = applyAdminRoleView(actualUser, event || {});
+  const user = await getCurrentUser(openid);
 
   try {
     if (action === 'list') {
@@ -2087,6 +2288,11 @@ exports.main = async (event) => {
     if (action === 'dashboardOverview') {
       const overview = await getDashboardOverview(openid, user);
       return Object.assign({ ok: true, user }, overview);
+    }
+
+    if (action === 'exportOptions') {
+      const options = await listProjectExportOptions(openid, user);
+      return Object.assign({ ok: true, user }, options);
     }
 
     if (action === 'detail') {
@@ -2283,6 +2489,10 @@ exports.main = async (event) => {
         return Object.assign({}, item, { bac: metrics.bac, metrics });
       });
       return { ok: true, csv: buildCsv(rows), user };
+    }
+
+    if (action === 'exportTemplate') {
+      return await exportProjectTemplate(openid, user, event || {});
     }
 
     return { ok: false, message: `未知操作：${action}`, user };

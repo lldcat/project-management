@@ -1,7 +1,7 @@
 const env = require('./config/env');
 const userService = require('./services/userService');
 const { PROJECT_CONSTANTS } = require('./config/constants');
-const { normalizeRoles, normalizeActualRoles } = require('./services/permissionService');
+const { normalizeRoles } = require('./services/permissionService');
 
 App({
   globalData: {
@@ -9,8 +9,6 @@ App({
     mode: env.mode,
     user: null,
     openid: '',
-    roleViewKey: 'admin',
-    roleViewRoles: [],
     constants: {
       hoursPerDay: PROJECT_CONSTANTS.hoursPerDay,
       personDayCost: PROJECT_CONSTANTS.personDayCost
@@ -42,17 +40,6 @@ App({
       .then(result => {
         this.globalData.openid = result.openid || (result.user && result.user.openid) || '';
         this.globalData.user = result.user ? Object.assign({}, result.user, { roles: normalizeRoles(result.user) }) : null;
-        const actualRoles = normalizeActualRoles(this.globalData.user);
-        if (actualRoles.indexOf('admin') >= 0) {
-          const saved = wx.getStorageSync('adminRoleView') || {};
-          if (Array.isArray(saved.roles) && saved.roles.length) {
-            this.globalData.roleViewKey = saved.key || 'custom';
-            this.globalData.roleViewRoles = saved.roles;
-          }
-        } else {
-          this.globalData.roleViewKey = 'admin';
-          this.globalData.roleViewRoles = [];
-        }
         if (result.user && !String(result.user.name || '').trim()) {
           wx.showModal({
             title: '请填写姓名',

@@ -67,6 +67,7 @@
     <picker disabled="{{readOnly}}" value="{{statusIndex}}" range="{{statusOptions}}" range-key="label" bindchange="onStatusChange">
       <view class="picker-value">{{currentStatusLabel}}</view>
     </picker>
+    <view wx:if="{{form.status == 'completed'}}" class="muted">完结日期：{{form.closedAt || '保存时自动记录'}}</view>
   </view>
 
   <view wx:if="{{!canViewFullProject}}" class="card">
@@ -202,9 +203,9 @@
       <view class="row">
         <view>
           <view class="section-title inline-title">AR Time 发现的人员</view>
-          <view class="muted">这些人员仅来自 SAP 匹配结果，不会自动获得项目权限。添加后才会成为项目组员。</view>
+          <view class="muted">AR 人员会先按姓名加入人员预算；唯一匹配账号时同步项目权限，未绑定账号的人员可先分配工时。</view>
         </view>
-        <button wx:if="{{!readOnly && canAddArMemberCandidates}}" class="btn-secondary" size="mini" bindtap="addAllArMemberCandidates">添加可匹配人员</button>
+        <button wx:if="{{!readOnly && canAddArMemberCandidates}}" class="btn-secondary" size="mini" bindtap="addAllArMemberCandidates">添加 AR 人员</button>
       </view>
       <view wx:for="{{arMemberCandidates}}" wx:key="candidateKey" class="sub-card">
         <view class="row sub-title-row">

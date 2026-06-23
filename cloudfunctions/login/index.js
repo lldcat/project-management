@@ -46,29 +46,6 @@ function assertAdmin(user) {
   if (!hasRole(user, 'admin')) throw new Error('只有 admin 可以维护用户角色。');
 }
 
-function normalizeRequestedViewRoles(roles) {
-  const seen = {};
-  const result = [];
-  (Array.isArray(roles) ? roles : []).forEach(role => {
-    const clean = normalizeText(role);
-    if (ALLOWED_ROLE_MAP[clean] && !seen[clean]) {
-      seen[clean] = true;
-      result.push(clean);
-    }
-  });
-  return result;
-}
-
-function applyAdminRoleView(user, payload) {
-  const viewRoles = normalizeRequestedViewRoles(payload && payload.viewRoles);
-  if (!viewRoles.length || !hasRole(user, 'admin')) return user;
-  return Object.assign({}, user, {
-    roles: viewRoles,
-    roleViewActive: true,
-    actualRoles: normalizeRoles(user)
-  });
-}
-
 function isVisibleUser(user) {
   return user && user.deleted !== true;
 }
@@ -232,8 +209,7 @@ async function updateCurrentUserName(openid, name) {
 }
 
 async function listUsers(openid, payload) {
-  const actualCurrent = (await getOrCreateCurrentUser(openid)).user;
-  const current = applyAdminRoleView(actualCurrent, payload);
+  const current = (await getOrCreateCurrentUser(openid)).user;
   assertAdmin(current);
   const allUsers = [];
   const pageSize = 100;
@@ -253,8 +229,7 @@ async function listUsers(openid, payload) {
 }
 
 async function updateUserRoles(openid, payload) {
-  const actualCurrent = (await getOrCreateCurrentUser(openid)).user;
-  const current = applyAdminRoleView(actualCurrent, payload);
+  const current = (await getOrCreateCurrentUser(openid)).user;
   assertAdmin(current);
   const targetUserId = normalizeText(payload && payload.userId);
   const roles = sanitizeRoles(payload && payload.roles);

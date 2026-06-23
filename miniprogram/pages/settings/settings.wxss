@@ -11,14 +11,3 @@
   margin: 18rpx 0 24rpx;
   width: 100%;
 }
-
-.role-view-picker {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-sizing: border-box;
-}
-
-.role-view-note {
-  margin-top: 12rpx;
-}

@@ -33,6 +33,15 @@ function normalizeProjectRow(item) {
   return enrichProject(item);
 }
 
+function buildPmOptions(pmNames, selectedPmNames) {
+  const selectedMap = {};
+  (selectedPmNames || []).forEach(name => { selectedMap[name] = true; });
+  return (pmNames || []).map(name => ({
+    name,
+    checked: !!selectedMap[name]
+  }));
+}
+
 Page({
   data: {
     projects: [],
@@ -50,6 +59,27 @@ Page({
     hasMore: true,
     total: 0,
     exporting: false,
+    exportPanelVisible: false,
+    exportStatusIndex: 0,
+    exportStatusOptions: [
+      { label: '全部项目', value: 'all' },
+      { label: '已完结项目', value: 'completed' },
+      { label: '进行中项目', value: 'active' }
+    ],
+    exportFilters: {
+      status: 'all',
+      customerName: '',
+      projectName: '',
+      sapNo: '',
+      createdStart: '',
+      createdEnd: '',
+      closedStart: '',
+      closedEnd: ''
+    },
+    exportPmOptions: [],
+    selectedPmNames: [],
+    selectedPmText: '全部可见 PM',
+    exportPmOptionsText: '',
     deletingId: ''
   },
 
@@ -168,38 +198,230 @@ Page({
     });
   },
 
-  exportCsv() {
+  toggleExportPanel() {
+    const nextVisible = !this.data.exportPanelVisible;
+    this.setData({ exportPanelVisible: nextVisible });
+    if (nextVisible && !this.data.exportPmOptions.length) this.loadExportOptions();
+  },
+
+  loadExportOptions() {
+    projectService.getExportOptions({})
+      .then(res => {
+        console.log('[project export] cloud function version:', res.exportServiceVersion || 'unknown', res.exportRuntimeHint || '');
+        const pmNames = res.pmNames || [];
+        const selectedMap = {};
+        this.data.selectedPmNames.forEach(name => { selectedMap[name] = true; });
+        const selectedPmNames = pmNames.filter(name => selectedMap[name]);
+        this.setData({
+          exportPmOptions: buildPmOptions(pmNames, selectedPmNames),
+          selectedPmNames,
+          selectedPmText: selectedPmNames.length ? `已选择 ${selectedPmNames.length} 个 PM` : '全部可见 PM',
+          exportPmOptionsText: pmNames.length ? '' : '暂无可选 PM'
+        });
+      })
+      .catch(err => {
+        console.error(err);
+        wx.showToast({ title: err.message || '导出选项加载失败', icon: 'none' });
+      });
+  },
+
+  onExportStatusChange(e) {
+    const index = Number(e.detail.value);
+    const option = this.data.exportStatusOptions[index] || this.data.exportStatusOptions[0];
+    this.setData({
+      exportStatusIndex: index,
+      'exportFilters.status': option.value
+    });
+  },
+
+  onExportFilterInput(e) {
+    const field = e.currentTarget.dataset.field;
+    const data = {};
+    data[`exportFilters.${field}`] = e.detail.value || '';
+    this.setData(data);
+  },
+
+  onPmCheckboxChange(e) {
+    const selectedPmNames = e.detail.value || [];
+    this.setData({
+      selectedPmNames,
+      exportPmOptions: buildPmOptions(this.data.exportPmOptions.map(item => item.name), selectedPmNames),
+      selectedPmText: selectedPmNames.length ? `已选择 ${selectedPmNames.length} 个 PM` : '全部可见 PM'
+    });
+  },
+
+  onExportDateChange(e) {
+    const field = e.currentTarget.dataset.field;
+    const data = {};
+    data[`exportFilters.${field}`] = e.detail.value || '';
+    this.setData(data);
+  },
+
+  resetExportFilters() {
+    this.setData({
+      exportStatusIndex: 0,
+      selectedPmNames: [],
+      selectedPmText: '全部可见 PM',
+      exportPmOptions: buildPmOptions(this.data.exportPmOptions.map(item => item.name), []),
+      exportFilters: {
+        status: 'all',
+        customerName: '',
+        projectName: '',
+        sapNo: '',
+        createdStart: '',
+        createdEnd: '',
+        closedStart: '',
+        closedEnd: ''
+      }
+    });
+  },
+
+  buildExportPayload() {
+    const filters = this.data.exportFilters || {};
+    return {
+      status: filters.status || 'all',
+      pmNames: this.data.selectedPmNames || [],
+      customerName: filters.customerName || '',
+      projectName: filters.projectName || '',
+      sapNo: filters.sapNo || '',
+      createdStart: filters.createdStart || '',
+      createdEnd: filters.createdEnd || '',
+      closedStart: filters.closedStart || '',
+      closedEnd: filters.closedEnd || ''
+    };
+  },
+
+  exportTemplate() {
+    if (this.data.exporting) return;
+    const selectedCount = (this.data.selectedPmNames || []).length;
+    if (!selectedCount) {
+      wx.showToast({ title: '请先勾选一个 PM 测试导出', icon: 'none' });
+      return;
+    }
+    wx.showModal({
+      title: '确认导出',
+      content: `将按原 Excel 模板导出已选择的 ${selectedCount} 个 PM。项目较多时可能需要等待一会儿。`,
+      confirmText: '开始导出',
+      cancelText: '取消',
+      success: modal => {
+        if (modal.confirm) this.doExportTemplate();
+      }
+    });
+  },
+
+  doExportTemplate() {
     if (this.data.exporting) return;
     this.setData({ exporting: true });
-    projectService.exportCsv({})
-      .then(res => this.writeCsvFile(res.csv || ''))
-      .catch(err => wx.showToast({ title: err.message || '导出失败', icon: 'none' }))
+    wx.showLoading({ title: '生成中' });
+    projectService.exportTemplate({
+      filters: this.buildExportPayload(),
+      delivery: 'base64',
+      skipArTime: false
+    })
+      .then(res => {
+        wx.hideLoading();
+        this.handleExportResult(res);
+      })
+      .catch(err => {
+        wx.hideLoading();
+        const message = err && err.message || '';
+        const title = message.indexOf('FUNCTIONS_TIME_LIMIT_EXCEEDED') >= 0 || message.indexOf('timed out') >= 0
+          ? '导出超时，请重新部署云函数配置'
+          : (message || '导出失败');
+        wx.showToast({ title, icon: 'none' });
+      })
       .finally(() => this.setData({ exporting: false }));
   },
 
-  writeCsvFile(csv) {
-    const fs = wx.getFileSystemManager();
-    const fileName = `项目管理汇总_${this.formatDate(new Date())}.csv`;
+  handleExportResult(res) {
+    if (res && res.fileBase64) {
+      this.writeBase64ExportFile(res);
+      return;
+    }
+    if (!res || !res.fileID) {
+      wx.showToast({ title: (res && res.message) || '导出失败', icon: 'none' });
+      return;
+    }
+    const fileName = res.fileName || '项目导出.xlsx';
+    const isZip = /\.zip$/i.test(fileName);
+    const content = `已生成 ${fileName}\n项目数：${res.projectCount || 0}\nPM数：${res.pmCount || 0}`;
+    if (isZip) {
+      wx.showModal({
+        title: '导出已生成',
+        content: `${content}\n小程序可能无法直接预览 zip，可复制下载链接到浏览器下载。`,
+        confirmText: '复制链接',
+        cancelText: '关闭',
+        success: modal => {
+          if (modal.confirm) wx.setClipboardData({ data: res.downloadUrl || res.fileID });
+        }
+      });
+      return;
+    }
+    wx.showModal({
+      title: '导出已生成',
+      content,
+      confirmText: '打开文件',
+      cancelText: '复制链接',
+      success: modal => {
+        if (modal.confirm) {
+          this.openCloudFile(res.fileID, fileName);
+        } else {
+          wx.setClipboardData({ data: res.downloadUrl || res.fileID });
+        }
+      }
+    });
+  },
+
+  writeBase64ExportFile(res) {
+    const fileName = res.fileName || '项目导出.xlsx';
     const filePath = `${wx.env.USER_DATA_PATH}/${fileName}`;
-    fs.writeFile({
+    const arrayBuffer = wx.base64ToArrayBuffer(res.fileBase64);
+    wx.getFileSystemManager().writeFile({
       filePath,
-      data: csv,
-      encoding: 'utf8',
+      data: arrayBuffer,
       success: () => {
-        wx.showModal({
-          title: 'CSV已生成',
-          content: `文件已生成：${fileName}。如手机无法直接打开，可先复制 CSV 内容。`,
-          confirmText: '复制内容',
-          cancelText: '关闭',
-          success: modal => {
-            if (modal.confirm) wx.setClipboardData({ data: csv });
-          }
+        const isZip = /\.zip$/i.test(fileName);
+        const content = `已生成 ${fileName}\n项目数：${res.projectCount || 0}\nPM数：${res.pmCount || 0}`;
+        if (isZip) {
+          wx.showModal({
+            title: '导出已生成',
+            content: `${content}\nzip 已保存到小程序临时目录，可通过开发者工具文件系统查看。`,
+            showCancel: false
+          });
+          return;
+        }
+        wx.openDocument({
+          filePath,
+          fileType: 'xlsx',
+          showMenu: true,
+          fail: () => wx.showModal({
+            title: '导出已生成',
+            content: `${content}\n文件已保存，但当前环境打开失败。`,
+            showCancel: false
+          })
         });
       },
       fail: err => {
         console.error(err);
-        wx.setClipboardData({ data: csv });
-        wx.showToast({ title: '写文件失败，已复制CSV内容', icon: 'none' });
+        wx.showToast({ title: '写入导出文件失败', icon: 'none' });
+      }
+    });
+  },
+
+  openCloudFile(fileID, fileName) {
+    wx.cloud.downloadFile({
+      fileID,
+      success: downloadRes => {
+        wx.openDocument({
+          filePath: downloadRes.tempFilePath,
+          fileType: 'xlsx',
+          showMenu: true,
+          fail: () => wx.showToast({ title: `${fileName} 已下载，打开失败`, icon: 'none' })
+        });
+      },
+      fail: err => {
+        console.error(err);
+        wx.showToast({ title: '文件下载失败', icon: 'none' });
       }
     });
   },

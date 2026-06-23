@@ -88,6 +88,14 @@ function displayValue(value) {
   return hasValue(value) ? value : '-';
 }
 
+function todayText() {
+  const date = new Date();
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function buildPmDisplayName(form, fallbackName) {
   const data = form || {};
   return normalizeName(data.pmName || data.projectManager || fallbackName) || '请先在“我的”页填写姓名';
@@ -341,15 +349,26 @@ function formatSummaryNumber(value) {
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
+function sumSubProjectBudgetHours(subProjects) {
+  return (Array.isArray(subProjects) ? subProjects : []).reduce((sum, item) => {
+    const value = toOptionalNumberValue(item && item.budgetHours);
+    const n = value === '' ? 0 : Number(value);
+    return sum + (Number.isFinite(n) ? n : 0);
+  }, 0);
+}
+
 function calculateAllocationSummary(project) {
   const form = project || {};
   const explicitBudgetHours = toOptionalNumberValue(form.allocatableHours !== undefined && form.allocatableHours !== ''
     ? form.allocatableHours
     : (form.budgetTotalHours !== undefined && form.budgetTotalHours !== '' ? form.budgetTotalHours : form.budgetHours));
   const workingMd = toOptionalNumberValue(form.workingMd);
+  const subProjectBudgetHours = sumSubProjectBudgetHours(form.subProjects);
   const projectBudgetHours = explicitBudgetHours !== ''
     ? Number(explicitBudgetHours)
-    : (workingMd !== '' && Number.isFinite(Number(workingMd)) ? Number(workingMd) * 8 : '');
+    : (subProjectBudgetHours > 0
+      ? subProjectBudgetHours
+      : (workingMd !== '' && Number.isFinite(Number(workingMd)) ? Number(workingMd) * 8 : ''));
   const allocatedHours = (form.employeeBudgets || []).reduce((sum, item) => {
     const value = toOptionalNumberValue(item.budgetHours);
     const n = value === '' ? 0 : Number(value);
@@ -394,6 +413,12 @@ function normalizeArMemberCandidates(input) {
   return (Array.isArray(input) ? input : [])
     .map(item => {
       const matchStatus = item.matchStatus || '';
+      const canAdd = matchStatus !== 'alreadyMember' && (
+        !!item.canAdd ||
+        matchStatus === 'matched' ||
+        matchStatus === 'unmatched' ||
+        matchStatus === 'ambiguous'
+      );
       return Object.assign({}, item, {
         candidateKey: `${item.memberOpenid || ''}#${item.memberName || ''}#${item.arSheetName || ''}`,
         sapText: (item.sapNumbers || []).join('、') || '-',
@@ -405,7 +430,7 @@ function normalizeArMemberCandidates(input) {
         matchStatusText: item.matchStatusText || (matchStatus === 'matched'
           ? '可添加'
           : (matchStatus === 'alreadyMember' ? '已在项目组' : '需手动确认')),
-        canAdd: !!item.canAdd && !!item.memberOpenid
+        canAdd
       });
     })
     .filter(item => normalizeName(item.memberName));
@@ -413,6 +438,74 @@ function normalizeArMemberCandidates(input) {
 
 function employeeBudgetNames(employeeBudgets) {
   return (employeeBudgets || []).map(item => normalizeName(item.memberName)).filter(Boolean).join('、');
+}
+
+function syncArCandidatesToEmployeeBudgets(form, candidates, allCandidates) {
+  const sourceForm = form || {};
+  const rows = (candidates || []).filter(item => item && item.canAdd && normalizeName(item.memberName));
+  const existingBudgets = normalizeWorkloadAllocations(sourceForm);
+  const existingOpenids = {};
+  const existingByName = {};
+  existingBudgets.forEach(item => {
+    if (item.memberOpenid) existingOpenids[item.memberOpenid] = true;
+    if (normalizeName(item.memberName)) existingByName[normalizeName(item.memberName)] = item;
+  });
+
+  const addedNames = [];
+  const syncedOpenids = {};
+  const syncedNames = {};
+  rows.forEach(item => {
+    const name = normalizeName(item.memberName);
+    if (item.memberOpenid && existingOpenids[item.memberOpenid]) {
+      syncedOpenids[item.memberOpenid] = true;
+      syncedNames[name] = true;
+      return;
+    }
+    if (existingByName[name]) {
+      if (item.memberOpenid && !existingByName[name].memberOpenid) {
+        existingByName[name].memberOpenid = item.memberOpenid;
+        existingOpenids[item.memberOpenid] = true;
+        addedNames.push(name);
+      }
+      if (item.memberOpenid) syncedOpenids[item.memberOpenid] = true;
+      syncedNames[name] = true;
+      return;
+    }
+    if (item.memberOpenid) {
+      existingOpenids[item.memberOpenid] = true;
+      syncedOpenids[item.memberOpenid] = true;
+    }
+    syncedNames[name] = true;
+    existingBudgets.push({
+      id: createId('emp'),
+      memberOpenid: item.memberOpenid || '',
+      memberName: name,
+      budgetHours: ''
+    });
+    existingByName[name] = existingBudgets[existingBudgets.length - 1];
+    addedNames.push(name);
+  });
+
+  const arMemberCandidates = normalizeArMemberCandidates(allCandidates || candidates).map(item => {
+    const memberName = normalizeName(item.memberName);
+    const isSynced = (!!item.memberOpenid && syncedOpenids[item.memberOpenid]) || syncedNames[memberName];
+    if (!isSynced) return item;
+    const matchStatusText = item.memberOpenid ? '已在项目组' : '已在项目组（未绑定账号）';
+    return Object.assign({}, item, {
+      matchStatus: 'alreadyMember',
+      matchStatusText,
+      statusClass: 'tag-warning',
+      canAdd: false
+    });
+  });
+
+  return {
+    form: Object.assign({}, sourceForm, {
+      employeeBudgets: applyEmployeeMeta(existingBudgets, sourceForm.projectManager)
+    }),
+    arMemberCandidates,
+    addedNames
+  };
 }
 
 function defaultForm() {
@@ -427,6 +520,7 @@ function defaultForm() {
     pmOpenid: '',
     pmName: '',
     status: 'active',
+    closedAt: '',
     travelFee: '',
     clientName: '',
     sapNumbers: [],
@@ -479,7 +573,7 @@ Page({
     currentStatusLabel: '进行中',
     statusOptions: [
       { label: '进行中', value: 'active' },
-      { label: '已完成', value: 'done' },
+      { label: '已完结', value: 'completed' },
       { label: '暂停', value: 'paused' },
       { label: '风险关注', value: 'risk' }
     ],
@@ -606,13 +700,18 @@ Page({
         form.arSummary = Object.assign({ totalArHours: 0, matchedSummaryCount: 0, latestUpdatedAt: '', latestUpdatedAtText: '' }, loaded.arSummary || {});
         form.arTimeWarning = loaded.arTimeWarning || '';
         form.arMemberCandidates = normalizeArMemberCandidates(loaded.arMemberCandidates);
+        if (form.status === 'done') form.status = 'completed';
         form = normalizePeopleStructures(form, { includeArNames: false });
         if (readOnly) {
           form.employeeBudgets = (form.employeeBudgets || []).map(item => Object.assign({}, item, { canRemove: false }));
+        } else {
+          const synced = syncArCandidatesToEmployeeBudgets(form, form.arMemberCandidates);
+          form = synced.form;
+          form.arMemberCandidates = synced.arMemberCandidates;
         }
         const statusIndex = this.data.statusOptions.findIndex(item => item.value === form.status);
         const sapDisplay = buildSapBindingDisplay(form);
-        const arMemberCandidates = normalizeArMemberCandidates(loaded.arMemberCandidates);
+        const arMemberCandidates = normalizeArMemberCandidates(form.arMemberCandidates);
         this.setData({
           form,
           pmDisplayName: buildPmDisplayName(form, this.data.currentUserName),
@@ -700,9 +799,12 @@ Page({
       form.projectManager = form.pmName;
     }
 
-    const normalized = normalizePeopleStructures(form, { includeArNames: false });
+    let normalized = normalizePeopleStructures(form, { includeArNames: false });
+    const synced = syncArCandidatesToEmployeeBudgets(normalized, normalized.arMemberCandidates);
+    normalized = synced.form;
+    normalized.arMemberCandidates = synced.arMemberCandidates;
     const sapDisplay = buildSapBindingDisplay(normalized);
-    const arMemberCandidates = normalizeArMemberCandidates(incoming.arMemberCandidates);
+    const arMemberCandidates = normalizeArMemberCandidates(normalized.arMemberCandidates);
     this.setData({
       form: normalized,
       pmDisplayName: buildPmDisplayName(normalized, this.data.currentUserName),
@@ -828,7 +930,14 @@ Page({
     if (this.data.readOnly) return;
     const statusIndex = Number(e.detail.value);
     const status = this.data.statusOptions[statusIndex].value;
-    this.setData({ statusIndex, currentStatusLabel: this.data.statusOptions[statusIndex].label, 'form.status': status });
+    const data = {
+      statusIndex,
+      currentStatusLabel: this.data.statusOptions[statusIndex].label,
+      'form.status': status
+    };
+    if (status === 'completed' && !this.data.form.closedAt) data['form.closedAt'] = todayText();
+    if (status !== 'completed') data['form.closedAt'] = '';
+    this.setData(data);
   },
 
   onSapBindingInput(e) {
@@ -964,56 +1073,18 @@ Page({
       return;
     }
     let form = JSON.parse(JSON.stringify(this.data.form));
-    const existingBudgets = normalizeWorkloadAllocations(form);
-    const existingOpenids = {};
-    const existingByName = {};
-    existingBudgets.forEach(item => {
-      if (item.memberOpenid) existingOpenids[item.memberOpenid] = true;
-      if (normalizeName(item.memberName)) existingByName[normalizeName(item.memberName)] = item;
-    });
-    const addedNames = [];
-    rows.forEach(item => {
-      const name = normalizeName(item.memberName);
-      if (existingOpenids[item.memberOpenid]) return;
-      if (existingByName[name]) {
-        if (!existingByName[name].memberOpenid) {
-          existingByName[name].memberOpenid = item.memberOpenid;
-          existingOpenids[item.memberOpenid] = true;
-          addedNames.push(name);
-        }
-        return;
-      }
-      existingOpenids[item.memberOpenid] = true;
-      existingBudgets.push({
-        id: createId('emp'),
-        memberOpenid: item.memberOpenid,
-        memberName: name,
-        budgetHours: ''
-      });
-      existingByName[name] = existingBudgets[existingBudgets.length - 1];
-      addedNames.push(name);
-    });
-    if (!addedNames.length) {
-      wx.showToast({ title: '候选人员已在项目组', icon: 'none' });
-      return;
-    }
-    form.employeeBudgets = applyEmployeeMeta(existingBudgets, form.projectManager);
-    const arMemberCandidates = normalizeArMemberCandidates(this.data.arMemberCandidates).map(item => {
-      if (addedNames.indexOf(normalizeName(item.memberName)) < 0) return item;
-      return Object.assign({}, item, {
-        matchStatus: 'alreadyMember',
-        matchStatusText: '已在项目组',
-        statusClass: 'tag-warning',
-        canAdd: false
-      });
-    });
+    const synced = syncArCandidatesToEmployeeBudgets(form, rows, this.data.arMemberCandidates || []);
+    const message = synced.addedNames.length ? '' : '候选人员已在项目组';
     this.setData({
-      form,
-      membersText: employeeBudgetNames(form.employeeBudgets),
-      arMemberCandidates,
-      hasArMemberCandidates: arMemberCandidates.length > 0,
-      canAddArMemberCandidates: arMemberCandidates.some(item => item.canAdd)
-    }, () => this.refreshPreview());
+      form: synced.form,
+      membersText: employeeBudgetNames(synced.form.employeeBudgets),
+      arMemberCandidates: synced.arMemberCandidates,
+      hasArMemberCandidates: synced.arMemberCandidates.length > 0,
+      canAddArMemberCandidates: synced.arMemberCandidates.some(item => item.canAdd)
+    }, () => {
+      this.refreshPreview();
+      if (message) wx.showToast({ title: message, icon: 'none' });
+    });
   },
 
   refreshPreview() {
@@ -1059,6 +1130,8 @@ Page({
     form.pmOpenid = pmOpenid;
     form.pmName = pmName;
     form.projectManager = pmName;
+    if (form.status === 'completed' && !form.closedAt) form.closedAt = todayText();
+    if (form.status !== 'completed') form.closedAt = '';
     form = normalizePeopleStructures(form);
     form.travelFee = toNullableNumber(form.travelFee);
     form.orderValue = toNullableNumber(form.orderValue);

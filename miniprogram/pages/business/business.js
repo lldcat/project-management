@@ -46,7 +46,7 @@ Page({
       userName: user.displayName || user.userName || user.name || '当前用户',
       roles,
       roleText: roles.map(item => this.formatRole(item)).join(' / ') || '-',
-      showProjectOps: hasAnyRole({ roles }, ['pm', 'leader', 'admin']),
+      showProjectOps: hasAnyRole({ roles }, ['pm', 'admin']),
       showSalesOps: isSales({ roles }),
       showCSOps: hasAnyRole({ roles }, ['cs', 'admin']),
       showAdminOps: isAdmin({ roles })
@@ -60,10 +60,8 @@ Page({
   formatRole(role) {
     const map = {
       pm: 'PM',
-      leader: '部门Leader',
       admin: '系统管理员',
       ar: 'AR核对人',
-      member: '普通组员',
       sales: 'Sales',
       cs: 'CS'
     };

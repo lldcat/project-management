@@ -6,7 +6,7 @@ const db = cloud.database();
 const _ = db.command;
 const users = db.collection('users');
 const DEFAULT_ROLES = ['pm', 'sales'];
-const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
+const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true };
 
 function normalizeText(value) {
   return String(value || '').trim();
@@ -79,7 +79,7 @@ function userScore(user, openid) {
   if (normalizeText(user && user.name)) score += 10;
   const roles = normalizeRoles(user);
   if (roles.indexOf('admin') >= 0) score += 5;
-    if (roles.indexOf('sales') >= 0) score += 3;
+  if (roles.indexOf('sales') >= 0) score += 3;
   if (roles.indexOf('cs') >= 0) score += 2;
   return score;
 }
@@ -231,6 +231,7 @@ async function listUsers(openid, payload) {
 async function updateUserRoles(openid, payload) {
   const current = (await getOrCreateCurrentUser(openid)).user;
   assertAdmin(current);
+  // userId is the users document _id, not the user's openid.
   const targetUserId = normalizeText(payload && payload.userId);
   const roles = sanitizeRoles(payload && payload.roles);
   if (!targetUserId) return { ok: false, message: '用户 ID 不能为空。' };

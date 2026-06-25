@@ -9,7 +9,7 @@ const precalRecords = db.collection('precal_records');
 const arSummaries = db.collection('ar_summaries');
 const CREATE_FROM_SAP_LOCK_TIMEOUT_MS = 20 * 60 * 1000;
 const DEFAULT_ROLES = ['pm', 'sales'];
-const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
+const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true };
 const PROJECT_EXPORT_SERVICE_VERSION = 'project-export-20260623-template-v1.1-member-split-v5';
 
 let excelBuilderCache = null;
@@ -1504,7 +1504,7 @@ function userScore(user, openid) {
   if (normalizeText(user && user.name)) score += 10;
   const roles = normalizeRoles(user);
   if (roles.indexOf('admin') >= 0) score += 5;
-    if (roles.indexOf('sales') >= 0) score += 3;
+  if (roles.indexOf('sales') >= 0) score += 3;
   if (roles.indexOf('cs') >= 0) score += 2;
   return score;
 }
@@ -2172,7 +2172,7 @@ function buildExportFilterText(filters) {
 }
 
 async function listProjectExportOptions(openid, user) {
-  assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'], '当前角色不能导出项目数据。');
+  assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'ar'], '当前角色不能导出项目数据。');
   const rows = await listVisibleProjectRows(openid, user);
   const pmNames = uniqueTexts(rows.map(item => item.pmName || item.projectManager)).sort((a, b) => a.localeCompare(b));
   return {
@@ -2186,7 +2186,7 @@ async function exportProjectTemplate(openid, user, payload) {
   const startedAt = Date.now();
   const logStep = (step, extra) => console.log('[projectService.exportTemplate]', step, Date.now() - startedAt, extra || '');
   assertActive(user);
-  assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'], '当前角色不能导出项目数据。');
+  assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'ar'], '当前角色不能导出项目数据。');
   const filters = payload && payload.filters || payload || {};
   const delivery = normalizeText(payload && payload.delivery || filters.delivery);
   const skipArTime = !!(payload && payload.skipArTime || filters.skipArTime || delivery === 'base64Lite');
@@ -2487,7 +2487,7 @@ exports.main = async (event) => {
     }
 
     if (action === 'exportCsv') {
-      assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar'], '当前角色不能导出项目数据。');
+      assertAnyRole(user, ['admin', 'pm', 'sales', 'cs', 'ar'], '当前角色不能导出项目数据。');
       const data = await listProjectsForExport(openid, user);
       const rows = data.map(item => {
         const metrics = item.metrics || computeMetrics(item);

@@ -397,6 +397,7 @@ function addSummarySheet(workbook, rows, snapshot) {
       metrics.earnedValue,
       metrics.actualCost,
       metrics.costVariance,
+      metrics.scheduleVariance,
       metrics.costPerformanceIndex,
       metrics.schedulePerformanceIndex,
       snapshot.exportedAtText,

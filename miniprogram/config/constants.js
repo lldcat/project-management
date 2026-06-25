@@ -2,7 +2,6 @@ const USER_ROLES = {
   PM: 'pm',
   ADMIN: 'admin',
   AR: 'ar',
-  MEMBER: 'member',
   SALES: 'sales',
   CS: 'cs'
 };
@@ -31,7 +30,6 @@ const ROLE_LABEL = {
   pm: 'PM',
   admin: '系统管理员',
   ar: 'AR核对人',
-  member: '普通组员',
   sales: 'Sales',
   cs: 'CS'
 };

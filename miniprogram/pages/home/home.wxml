@@ -31,7 +31,7 @@
 
   <view wx:if="{{showPrecalStats}}" class="section-block">
     <view class="section-title">Pre-cal 与 SAP 概览</view>
-    <view class="muted precal-scope">{{precalScopeText}}</view>
+
     <view class="grid-2">
       <view class="stat-card precal-stat">
         <view class="stat-value">{{precalStats.total}}</view>

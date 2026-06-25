@@ -10,7 +10,7 @@ const ROLE_OPTIONS = [
 ];
 
 function roleText(roles) {
-  const map = { pm: 'PM', sales: 'Sales', cs: 'CS', ar: 'AR', admin: 'Admin', member: '成员' };
+  const map = { pm: 'PM', sales: 'Sales', cs: 'CS', ar: 'AR', admin: 'Admin' };
   return (roles || []).map(role => map[role] || role).join(' / ');
 }
 

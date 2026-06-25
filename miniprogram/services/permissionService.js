@@ -1,5 +1,5 @@
 const DEFAULT_ROLES = ['pm', 'sales'];
-const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
+const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true };
 
 function normalizeActualRoles(user) {
   const seen = {};

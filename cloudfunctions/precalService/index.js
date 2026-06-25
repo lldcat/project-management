@@ -12,7 +12,7 @@ const precalLogs = db.collection('precal_logs');
 const arSummaries = db.collection('ar_summaries');
 const projects = db.collection('projects');
 const DEFAULT_ROLES = ['pm', 'sales'];
-const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true, leader: true, member: true };
+const ALLOWED_ROLE_MAP = { admin: true, pm: true, sales: true, cs: true, ar: true };
 
 const STATUS = {
   DRAFT: 'Draft',
@@ -207,7 +207,6 @@ function userScore(user, openid) {
   if (normalizeText(user && user.name)) score += 10;
   const roles = normalizeRoles(user);
   if (roles.indexOf('admin') >= 0) score += 5;
-  if (roles.indexOf('leader') >= 0) score += 4;
   if (roles.indexOf('sales') >= 0) score += 3;
   if (roles.indexOf('cs') >= 0) score += 2;
   return score;

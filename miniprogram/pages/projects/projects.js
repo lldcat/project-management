@@ -135,7 +135,7 @@ Page({
         const roles = normalizeRoles(user);
         const role = roles[0] || 'pm';
         const privileged = hasAnyRole({ roles }, ['admin', 'ar']);
-        const canExport = hasAnyRole({ roles }, ['admin', 'pm', 'sales', 'cs', 'leader', 'ar']);
+        const canExport = hasAnyRole({ roles }, ['admin', 'pm', 'sales', 'cs', 'ar']);
         this.setData({
           projects,
           filteredProjects: projects,

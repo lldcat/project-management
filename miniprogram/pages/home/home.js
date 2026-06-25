@@ -106,7 +106,6 @@ Page({
       pm: 'PM',
       admin: '系统管理员',
       ar: 'AR核对人',
-      member: '普通组员',
       sales: 'Sales',
       cs: 'CS'
     };

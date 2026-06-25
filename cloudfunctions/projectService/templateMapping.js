@@ -51,6 +51,7 @@ const SUMMARY_COLUMNS = [
   'EV',
   'AC',
   'CV',
+  'SV',
   'CPI',
   'SPI',
   '导出时间',

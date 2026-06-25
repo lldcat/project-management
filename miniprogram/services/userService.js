@@ -18,6 +18,7 @@ function listUsers() {
 }
 
 function updateUserRoles(userId, roles) {
+  // userId is the users document _id, not the user's openid.
   return apiClient.call('login', 'updateUserRoles', { userId, roles });
 }
 

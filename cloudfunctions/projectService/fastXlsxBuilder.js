@@ -150,8 +150,12 @@ function computeExportMetrics(project) {
   const plannedValue = cappedPlannedCompletionRatio === null ? null : bac * cappedPlannedCompletionRatio;
   const earnedValue = cappedActualCompletionRatio === null ? null : bac * cappedActualCompletionRatio;
   const actualCost = arTotalHours / hoursPerDay * personDayCost;
+  const costVariance = earnedValue === null ? null : earnedValue - actualCost;
+  const scheduleVariance = earnedValue === null || plannedValue === null ? null : earnedValue - plannedValue;
   const travelFee = toNumber(project && project.travelFee);
   const fallback = {
+    hoursPerDay,
+    personDayCost,
     totalBudgetHours: round2(totalBudgetHours),
     budgetManDays: round2(totalBudgetHours / hoursPerDay),
     bac: round2(bac),
@@ -159,10 +163,13 @@ function computeExportMetrics(project) {
     projectBudgetWithTravel: round2(bac + travelFee),
     plannedHours: round2(plannedHours),
     arTotalHours: round2(arTotalHours),
+    plannedCompletionRatio: round2(plannedCompletionRatio),
+    actualCompletionRatio: round2(actualCompletionRatio),
     plannedValue: round2(plannedValue),
     earnedValue: round2(earnedValue),
     actualCost: round2(actualCost),
-    costVariance: earnedValue === null ? null : round2(earnedValue - actualCost),
+    costVariance: round2(costVariance),
+    scheduleVariance: round2(scheduleVariance),
     costPerformanceIndex: round2(safeDivide(earnedValue, actualCost)),
     schedulePerformanceIndex: round2(safeDivide(earnedValue, plannedValue))
   };
@@ -177,6 +184,9 @@ function computeExportMetrics(project) {
     'earnedValue',
     'actualCost',
     'costVariance',
+    'scheduleVariance',
+    'plannedCompletionRatio',
+    'actualCompletionRatio',
     'costPerformanceIndex',
     'schedulePerformanceIndex'
   ].forEach(key => {
@@ -257,6 +267,7 @@ function summaryRows(projects, snapshot) {
       metrics.earnedValue,
       metrics.actualCost,
       metrics.costVariance,
+      metrics.scheduleVariance,
       metrics.costPerformanceIndex,
       metrics.schedulePerformanceIndex,
       snapshot.exportedAtText,
@@ -297,6 +308,7 @@ function projectRows(project) {
     ['EV', metrics.earnedValue],
     ['AC', metrics.actualCost],
     ['CV', metrics.costVariance],
+    ['SV', metrics.scheduleVariance],
     ['CPI', metrics.costPerformanceIndex],
     ['SPI', metrics.schedulePerformanceIndex]
   ];
